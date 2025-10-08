@@ -10,3 +10,6 @@ exclude.workspace = true
 
 [dependencies]
 mms-api.workspace = true
+
+axum.workspace = true
+tokio.workspace = true

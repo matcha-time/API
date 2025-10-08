@@ -120,3 +120,6 @@ too_long_first_doc_paragraph = "allow"
 
 [workspace.dependencies]
 mms-api = { path = "crates/mms-api" }
+
+axum = "0.8.6"
+tokio = { version = "1.47.1", features = ["full"] }
