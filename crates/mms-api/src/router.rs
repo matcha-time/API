@@ -4,7 +4,10 @@ use axum::{Router, http::StatusCode, response::IntoResponse, routing::get};
 pub struct AppState {}
 
 pub fn router() -> Router {
-    Router::new().route("/", get(health)).fallback(handler_404)
+    Router::new()
+        .route("/", get(health))
+        .fallback(handler_404)
+        .with_state(AppState {})
 }
 
 async fn health() -> StatusCode {
