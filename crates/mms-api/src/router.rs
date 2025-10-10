@@ -1,13 +1,15 @@
 use axum::{Router, http::StatusCode, response::IntoResponse, routing::get};
 
+use crate::user;
+
 #[derive(Clone)]
 pub struct AppState {}
 
 pub fn router() -> Router {
     Router::new()
         .route("/", get(health))
+        .merge(user::routes::routes())
         .fallback(handler_404)
-        .with_state(AppState {})
 }
 
 async fn health() -> StatusCode {
