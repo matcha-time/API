@@ -1,6 +1,6 @@
 use axum::{Router, http::StatusCode, response::IntoResponse, routing::get};
 
-use crate::user;
+use crate::{deck, topic, user};
 
 #[derive(Clone)]
 pub struct AppState {}
@@ -9,6 +9,8 @@ pub fn router() -> Router {
     Router::new()
         .route("/", get(health))
         .merge(user::routes::routes())
+        .merge(topic::routes::routes())
+        .merge(deck::routes::routes())
         .fallback(handler_404)
 }
 
