@@ -9,3 +9,5 @@ repository.workspace = true
 exclude.workspace = true
 
 [dependencies]
+serde = { workspace = true }
+chrono = { workspace = true }
