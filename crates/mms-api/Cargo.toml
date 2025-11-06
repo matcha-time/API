@@ -19,3 +19,5 @@ axum-extra.workspace = true
 openidconnect.workspace = true
 reqwest.workspace = true
 oauth2.workspace = true
+time.workspace = true
+chrono.workspace = true

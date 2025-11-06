@@ -1,10 +1,12 @@
-use crate::ApiConfig;
+use axum::extract::FromRef;
 use axum_extra::extract::cookie::Key;
 use oauth2::{EndpointMaybeSet, EndpointNotSet, EndpointSet};
 use openidconnect::{
     ClientId, ClientSecret, IssuerUrl, RedirectUrl,
     core::{CoreClient, CoreProviderMetadata},
 };
+
+use crate::ApiConfig;
 
 pub type OpenIdClient = CoreClient<
     EndpointSet,
@@ -47,5 +49,11 @@ impl ApiState {
             jwt_secret: config.jwt_secret,
             cookie_key,
         })
+    }
+}
+
+impl FromRef<ApiState> for Key {
+    fn from_ref(state: &ApiState) -> Self {
+        state.cookie_key.clone()
     }
 }
