@@ -7,16 +7,19 @@ use axum::{
 };
 use serde_json::json;
 
+use crate::ApiState;
+
 use super::model::{Topic, get_dummy_topics};
 
 /// Create the topic routes
-pub fn routes() -> Router {
+pub fn routes(state: ApiState) -> Router<ApiState> {
     Router::new()
         .route("/topics", get(get_all_topics))
         .route("/topics/:id", get(get_topic_by_id))
         .route("/topics", post(create_topic))
         .route("/topics/:id", put(update_topic))
         .route("/topics/:id", delete(delete_topic))
+        .with_state(state)
 }
 
 /// Get all topics

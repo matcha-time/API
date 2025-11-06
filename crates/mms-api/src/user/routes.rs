@@ -7,16 +7,19 @@ use axum::{
 };
 use serde_json::json;
 
+use crate::ApiState;
+
 use super::model::{User, get_dummy_users};
 
 /// Create the user routes
-pub fn routes() -> Router {
+pub fn routes(state: ApiState) -> Router<ApiState> {
     Router::new()
         .route("/users", get(get_all_users))
         .route("/users/:id", get(get_user_by_id))
         .route("/users", post(create_user))
         .route("/users/:id", put(update_user))
         .route("/users/:id", delete(delete_user))
+        .with_state(state)
 }
 
 /// Get all users

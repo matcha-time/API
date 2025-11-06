@@ -1,16 +1,14 @@
 use axum::{Router, http::StatusCode, response::IntoResponse, routing::get};
 
-use crate::{deck, topic, user};
+use crate::{auth, deck, state::ApiState, topic, user};
 
-#[derive(Clone)]
-pub struct AppState {}
-
-pub fn router() -> Router {
+pub fn router(state: ApiState) -> Router<ApiState> {
     Router::new()
-        .route("/", get(health))
-        .merge(user::routes::routes())
-        .merge(topic::routes::routes())
-        .merge(deck::routes::routes())
+        .route("/health", get(health))
+        .merge(user::routes::routes(state.clone()))
+        .merge(topic::routes::routes(state.clone()))
+        .merge(deck::routes::routes(state.clone()))
+        .merge(auth::routes::routes(state.clone()))
         .fallback(handler_404)
 }
 

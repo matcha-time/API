@@ -7,10 +7,12 @@ use axum::{
 };
 use serde_json::json;
 
+use crate::ApiState;
+
 use super::model::{Deck, get_dummy_decks};
 
 /// Create the deck routes
-pub fn routes() -> Router {
+pub fn routes(_: ApiState) -> Router<ApiState> {
     Router::new()
         .route("/decks", get(get_all_decks))
         .route("/decks/:id", get(get_deck_by_id))
@@ -18,6 +20,7 @@ pub fn routes() -> Router {
         .route("/decks/:id", put(update_deck))
         .route("/decks/:id", delete(delete_deck))
         .route("/decks/topic/:topic_id", get(get_decks_by_topic))
+    //.with_state(state)
 }
 
 /// Get all decks
