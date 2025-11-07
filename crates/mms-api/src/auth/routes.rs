@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{ApiState, auth::models::OidcFlowData, error::ApiError};
 
-pub fn routes(_: ApiState) -> Router<ApiState> {
+pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/auth/google", get(google_auth))
         .route("/auth/callback", get(auth_callback))
