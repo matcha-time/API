@@ -1,6 +1,6 @@
 use std::env;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ApiConfig {
     pub google_client_id: String,
     pub google_client_secret: String,
@@ -12,6 +12,7 @@ pub struct ApiConfig {
 
 impl ApiConfig {
     pub fn from_env() -> Result<Self, env::VarError> {
+        // TODO: proper message error for cookie_secret too short
         Ok(Self {
             google_client_id: env::var("GOOGLE_CLIENT_ID")?,
             google_client_secret: env::var("GOOGLE_CLIENT_SECRET")?,

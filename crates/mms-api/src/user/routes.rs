@@ -15,10 +15,10 @@ use super::model::{User, get_dummy_users};
 pub fn routes(state: ApiState) -> Router<ApiState> {
     Router::new()
         .route("/users", get(get_all_users))
-        .route("/users/:id", get(get_user_by_id))
+        .route("/users/{id}", get(get_user_by_id))
         .route("/users", post(create_user))
-        .route("/users/:id", put(update_user))
-        .route("/users/:id", delete(delete_user))
+        .route("/users/{id}", put(update_user))
+        .route("/users/{id}", delete(delete_user))
         .with_state(state)
 }
 
