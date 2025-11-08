@@ -1,91 +1,64 @@
 ## Database Schema:
 
 ```mermaid
-graph TD
-    %% === STYLES ===
-    classDef ocean fill:#0a1f3d,stroke:#00d4ff,stroke-width:2px,color:#fff,font-family:Arial;
-    classDef user fill:#ff6b6b,stroke:#fff,stroke-width:3px,color:#fff;
-    classDef roadmap fill:#4ecdc4,stroke:#fff,stroke-width:2px,color:#0a1f3d;
-    classDef deck fill:#f7b731,stroke:#fff,stroke-width:2px,color:#0a1f3d;
-    classDef card fill:#a29bfe,stroke:#fff,stroke-width:2px,color:#0a1f3d;
-    classDef srs fill:#fd79a8,stroke:#fff,stroke-width:2px,color:#fff;
-    classDef progress fill:#55efc4,stroke:#2d3436,stroke-width:2px,color:#2d3436;
-    classDef view fill:#74b9ff,stroke:#fff,stroke-width:2px,color:#0a1f3d;
-    classDef trigger fill:#fab1a0,stroke:#fff,stroke-width:2px,color:#0a1f3d;
+erDiagram
+    USERS ||--o{ USER_CARD_PROGRESS : "practices"
+    FLASHCARDS ||--o{ USER_CARD_PROGRESS : "SRS state"
+    FLASHCARDS ||--o{ DECK_FLASHCARDS : "belongs to"
+    DECKS ||--o{ DECK_FLASHCARDS : "contains"
+    DECKS ||--o{ ROADMAP_NODES : "placed on"
+    ROADMAPS ||--o{ ROADMAP_NODES : "canvas"
+    ROADMAP_NODES }o--o| ROADMAP_NODES : "parent (arrow)"
 
-    %% === ENTITIES ===
-    U[users
-        id,
-        email, 
-        username
-    ]:::user
-    R[roadmaps 
-        lang_from → lang_to 
-        French → English
-    ]:::roadmap
-    D[decks 
-        user-made or official
-        is_public
-    ]:::deck
-    N[roadmap_nodes
-        tree structure
-        position_x/y
-    ]:::roadmap
-    C[cards
-        front → back
-        example
-    ]:::card
-    S[card_srs
-        interval,
-        ease_factor due,
-        mastered
-    ]:::srs
-    REV[reviews
-        rating,
-        time_ms
-        partitioned by month
-    ]:::progress
-    UDP[user_deck_progress
-        progress_percent
-        mastered_cards
-    ]:::progress
-    URP[user_roadmap_progress
-        current_node,
-        unlocked_nodes
-        global_progress
-    ]:::progress
-    MV[user_roadmap_full
-        materialized view blazing fast!
-    ]:::view
+    USERS {
+        uuid id PK "user"
+        text username UK
+        text email UK
+    }
 
-    %% === RELATIONSHIPS ===
-    U -->|creates| D
-    U -->|studies| S
-    U -->|progress| UDP
-    U -->|journey| URP
+    ROADMAPS {
+        uuid id PK "map"
+        char language_from
+        char language_to
+        text title
+    }
 
-    R -->|contains| N
-    N -->|links to| D
-    N -->|parent| N
-    N -->|unlock_threshold| UDP
+    DECKS {
+        uuid id PK "deck"
+        text title
+        char language_from
+        char language_to
+    }
 
-    D -->|has many| C
-    C -->|SRS state| S
-    S -->|review history| REV
-    S -->|triggers| UDP
+    ROADMAP_NODES {
+        uuid id PK "node"
+        uuid roadmap_id FK
+        uuid deck_id FK
+        uuid parent_node_id FK "arrow"
+        numeric pos_x
+        numeric pos_y
+    }
 
-    UDP -->|triggers| URP
-    URP -->|unlocks| N
+    FLASHCARDS {
+        uuid id PK "card"
+        text term
+        text translation
+        char language_from
+        char language_to
+    }
 
-    %% Materialized Magic
-    MV -->|powered by| R & N & D & UDP & URP
+    DECK_FLASHCARDS {
+        uuid deck_id PK,FK
+        uuid flashcard_id PK,FK
+    }
 
-    %% === TRIGGERS ===
-    T1[trigger: update_deck_progress<br/>on card_srs.mastered]:::trigger
-    T2[trigger: update_roadmap_progress<br/>on user_deck_progress]:::trigger
-    S --> T1 --> UDP
-    UDP --> T2 --> URP
-
-    %% === OCEAN THEME ===
-    class U,R,D,N,C,S,REV,UDP,URP,MV,T1,T2 ocean
+    USER_CARD_PROGRESS {
+        uuid user_id PK,FK
+        uuid flashcard_id PK,FK
+        numeric ease_factor
+        int interval_days
+        int repetitions
+        timestamptz next_review_at
+        timestamptz mastered_at "NULL = not mastered"
+    }
 ```
