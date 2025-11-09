@@ -67,8 +67,8 @@ CREATE TABLE deck_flashcards (
     flashcard_id UUID NOT NULL REFERENCES flashcards(id),
     PRIMARY KEY (deck_id, flashcard_id)
 );
--- -- Fast lookup: get all flashcards in a deck
--- CREATE INDEX idx_df_deck ON deck_flashcards(deck_id);
+-- Fast lookup: get all flashcards in a deck
+CREATE INDEX idx_df_deck ON deck_flashcards(deck_id);
 -- -- Covering index: includes flashcard_id so Postgres doesn't need to touch the table
 -- CREATE INDEX idx_df_deck_covering ON deck_flashcards(deck_id) INCLUDE (flashcard_id);
 
