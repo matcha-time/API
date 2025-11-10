@@ -83,19 +83,14 @@ CREATE TABLE IF NOT EXISTS user_card_progress (
     PRIMARY KEY (user_id, flashcard_id)
 );
 
--- Partial index: only cards due for review (WHERE clause = smaller, faster index)
-CREATE INDEX IF NOT EXISTS idx_progress_user_due
-    ON user_card_progress(user_id, next_review_at)
-    WHERE next_review_at <= NOW();
 -- Partial index: only mastered cards (for stats queries)
 CREATE INDEX IF NOT EXISTS idx_progress_user_mastered
     ON user_card_progress(user_id)
     WHERE mastered_at IS NOT NULL;
--- Covering index: practice session query (~2ms) - includes all fields needed for display
+-- Covering index: practice session query (~2ms) - filter due cards in WHERE clause of query
 CREATE INDEX IF NOT EXISTS idx_practice_session 
     ON user_card_progress(user_id, flashcard_id, next_review_at) 
-    INCLUDE (times_correct, times_wrong, last_review_at)
-    WHERE next_review_at <= NOW();
+    INCLUDE (times_correct, times_wrong, last_review_at);
 
 -- 8. USER_DECK_PROGRESS (aggregated stats - updated after each practice session)
 CREATE TABLE IF NOT EXISTS user_deck_progress (
