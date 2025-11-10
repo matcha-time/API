@@ -120,6 +120,7 @@ too_long_first_doc_paragraph = "allow"
 
 [workspace.dependencies]
 mms-api = { path = "crates/mms-api" }
+mms-db = { path = "crates/mms-db" }
 
 thiserror = "2.0.17"
 axum = "0.8.6"
@@ -134,3 +135,12 @@ openidconnect = "4.0.1"
 reqwest = "0.12"
 oauth2 = "5.0.0"
 time = "0.3.44"
+sqlx = { version = "0.8", default-features = false, features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "macros",
+    "migrate",
+    "chrono",
+] }
+anyhow = "1.0.100"

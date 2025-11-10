@@ -9,6 +9,7 @@ repository.workspace = true
 exclude.workspace = true
 
 [dependencies]
+mms-db.workspace = true
 
 serde_json.workspace = true
 thiserror.workspace = true
@@ -21,3 +22,4 @@ reqwest.workspace = true
 oauth2.workspace = true
 time.workspace = true
 chrono.workspace = true
+sqlx.workspace = true

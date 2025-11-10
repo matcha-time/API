@@ -11,3 +11,5 @@ exclude.workspace = true
 [dependencies]
 serde = { workspace = true }
 chrono = { workspace = true }
+sqlx = { workspace = true }
+anyhow.workspace = true
