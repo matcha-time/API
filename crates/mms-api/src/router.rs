@@ -1,6 +1,6 @@
 use axum::{Router, http::StatusCode, response::IntoResponse, routing::get};
 
-use crate::{auth, deck, state::ApiState, user};
+use crate::{auth, deck, roadmap, state::ApiState, user};
 
 pub fn router() -> Router<ApiState> {
     Router::new()
@@ -8,6 +8,7 @@ pub fn router() -> Router<ApiState> {
         .merge(user::routes::routes())
         .merge(deck::routes::routes())
         .merge(auth::routes::routes())
+        .merge(roadmap::routes())
         .fallback(handler_404)
 }
 

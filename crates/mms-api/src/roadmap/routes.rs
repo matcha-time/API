@@ -1,21 +1,95 @@
 use axum::{
-    // Json,
-    Router,
-    // extract::Path,
-    // http::StatusCode,
-    // response::IntoResponse,
-    // routing::{delete, get, post, put},
+    Json, Router,
+    extract::{Path, State},
+    http::StatusCode,
+    routing::get,
 };
+use sqlx::types::Uuid;
 
 use crate::ApiState;
+
+use mms_db::models::{Roadmap, RoadmapNodeWithProgress};
 
 /// Create the roadmap routes
 pub fn routes() -> Router<ApiState> {
     Router::new()
-    // .route("/roadmaps", get(get_all_roadmaps))
-    // .route("/roadmaps/{id}", get(get_roadmap_by_id))
-    // .route("/roadmaps", post(create_roadmap))
-    // .route("/roadmaps/{id}", put(update_roadmap))
-    // .route("/roadmaps/{id}", delete(delete_roadmap))
-    //.with_state(state)
+        .route("/roadmaps", get(list_roadmaps))
+        .route(
+            "/roadmaps/{language_from}/{language_to}",
+            get(get_roadmaps_by_language),
+        )
+        .route(
+            "/roadmaps/{roadmap_id}/progress/{user_id}",
+            get(get_roadmap_with_progress),
+        )
+}
+
+async fn list_roadmaps(State(state): State<ApiState>) -> Result<Json<Vec<Roadmap>>, StatusCode> {
+    let roadmaps = sqlx::query_as::<_, Roadmap>(
+        // language=PostgreSQL
+        r#"
+            SELECT id, title, description, language_from, language_to FROM roadmaps ORDER BY created_at DESC
+        "#
+    )
+    .fetch_all(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(roadmaps))
+}
+
+async fn get_roadmaps_by_language(
+    State(state): State<ApiState>,
+    Path((language_from, language_to)): Path<(String, String)>,
+) -> Result<Json<Vec<Roadmap>>, StatusCode> {
+    let roadmaps = sqlx::query_as::<_, Roadmap>(
+        // language=PostgreSQL
+        r#"
+            SELECT id, title, description, language_from, language_to 
+            FROM roadmaps 
+            WHERE language_from = $1 AND language_to = $2
+        "#,
+    )
+    .bind(language_from)
+    .bind(language_to)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(roadmaps))
+}
+
+async fn get_roadmap_with_progress(
+    State(state): State<ApiState>,
+    Path((roadmap_id, user_id)): Path<(Uuid, Uuid)>,
+) -> Result<Json<Vec<RoadmapNodeWithProgress>>, StatusCode> {
+    let nodes = sqlx::query_as::<_, RoadmapNodeWithProgress>(
+        // language=PostgreSQL
+        r#"
+            SELECT 
+                rn.id as node_id,
+                rn.pos_x,
+                rn.pos_y,
+                d.id as deck_id,
+                d.title as deck_title,
+                COALESCE(udp.total_cards, 0) as total_cards,
+                COALESCE(udp.mastered_cards, 0) as mastered_cards,
+                COALESCE(udp.cards_due_today, 0) as cards_due_today,
+                COALESCE(udp.total_practices, 0) as total_practices,
+                udp.last_practiced_at
+            FROM roadmap_nodes rn
+            JOIN decks d ON d.id = rn.deck_id
+            LEFT JOIN user_deck_progress udp 
+                ON udp.deck_id = d.id AND udp.user_id = $2
+            WHERE rn.roadmap_id = $1
+            ORDER BY rn.pos_y, rn.pos_x
+        "#,
+    )
+    .bind(roadmap_id)
+    .bind(user_id)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(nodes))
 }
