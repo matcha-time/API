@@ -41,8 +41,8 @@ CREATE TABLE roadmap_nodes (
     roadmap_id     UUID NOT NULL REFERENCES roadmaps(id) ON DELETE CASCADE,
     deck_id        UUID NOT NULL REFERENCES decks(id),
     parent_node_id UUID REFERENCES roadmap_nodes(id) ON DELETE SET NULL,
-    pos_x          NUMERIC(10,2) NOT NULL DEFAULT 0,
-    pos_y          NUMERIC(10,2) NOT NULL DEFAULT 0,
+    pos_x          INT NOT NULL DEFAULT 0,
+    pos_y          INT NOT NULL DEFAULT 0,
     created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 -- Fast lookup: get all nodes for a roadmap
@@ -68,9 +68,7 @@ CREATE TABLE deck_flashcards (
     PRIMARY KEY (deck_id, flashcard_id)
 );
 -- Fast lookup: get all flashcards in a deck
-CREATE INDEX idx_df_deck ON deck_flashcards(deck_id);
--- -- Covering index: includes flashcard_id so Postgres doesn't need to touch the table
--- CREATE INDEX idx_df_deck_covering ON deck_flashcards(deck_id) INCLUDE (flashcard_id);
+CREATE INDEX idx_df_deck ON deck_flashcards(deck_id) INCLUDE (flashcard_id);
 
 -- 7. USER_CARD_PROGRESS (SRS + live stats) 
 CREATE TABLE user_card_progress (
