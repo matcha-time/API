@@ -1,12 +1,11 @@
 use axum::{Router, http::StatusCode, response::IntoResponse, routing::get};
 
-use crate::{auth, deck, state::ApiState, topic, user};
+use crate::{auth, deck, state::ApiState, user};
 
 pub fn router() -> Router<ApiState> {
     Router::new()
         .route("/health", get(health))
         .merge(user::routes::routes())
-        .merge(topic::routes::routes())
         .merge(deck::routes::routes())
         .merge(auth::routes::routes())
         .fallback(handler_404)

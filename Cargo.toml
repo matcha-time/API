@@ -143,4 +143,5 @@ sqlx = { version = "0.8", default-features = false, features = [
     "migrate",
     "chrono",
 ] }
-anyhow = "1.0.100"
+anyhow = "1.0"
+uuid = { version = "1.18", features = ["serde"] }

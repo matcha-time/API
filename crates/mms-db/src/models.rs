@@ -1,1 +1,79 @@
+use chrono::{DateTime, NaiveDate, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
+#[derive(Serialize, Deserialize, sqlx::FromRow)]
+pub struct User {
+    id: Uuid,
+    username: String,
+    email: String,
+    created_at: DateTime<Utc>,
+}
+
+#[derive(Serialize, Deserialize, sqlx::FromRow)]
+pub struct Roadmap {
+    id: Uuid,
+    title: String,
+    description: Option<String>,
+    language_from: String,
+    language_to: String,
+}
+
+#[derive(Serialize, Deserialize, sqlx::FromRow)]
+pub struct Deck {
+    id: Uuid,
+    title: String,
+    description: Option<String>,
+    language_from: String,
+    language_to: String,
+}
+
+#[derive(Serialize, Deserialize, sqlx::FromRow)]
+pub struct Flashcard {
+    id: Uuid,
+    term: String,
+    translation: String,
+    language_from: String,
+    language_to: String,
+}
+
+#[derive(Serialize, sqlx::FromRow)]
+pub struct RoadmapNodeWithProgress {
+    node_id: Uuid,
+    pos_x: i32,
+    pos_y: i32,
+    deck_id: Uuid,
+    deck_title: String,
+    total_cards: i32,
+    mastered_cards: i32,
+    cards_due_today: i32,
+    total_practices: i32,
+    last_practiced_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Serialize, sqlx::FromRow)]
+pub struct FlashcardWithProgress {
+    id: Uuid,
+    term: String,
+    translation: String,
+    next_review_at: Option<DateTime<Utc>>,
+    last_review_at: Option<DateTime<Utc>>,
+    times_correct: i32,
+    times_wrong: i32,
+    mastered_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Serialize, sqlx::FromRow)]
+pub struct UserStats {
+    current_streak_days: i32,
+    longest_streak_days: i32,
+    total_reviews: i32,
+    total_cards_learned: i32,
+    last_review_date: Option<NaiveDate>,
+}
+
+#[derive(Serialize, sqlx::FromRow)]
+pub struct ActivityDay {
+    activity_date: NaiveDate,
+    reviews_count: i32,
+}
