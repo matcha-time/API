@@ -17,9 +17,16 @@
   ```json
   {
     "token": "jwt_token_string",
-    "user": {}
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "username": "John Doe",
+      "email": "john@example.com"
+    }
   }
   ```
+  - **Errors:**
+    - `400 Bad Request` - Invalid CSRF token or OIDC flow data
+    - `500 Internal Server Error` - OAuth or server error
 
 ### Email/Password
 

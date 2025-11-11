@@ -5,9 +5,11 @@ use axum::{
     routing::get,
 };
 use axum_extra::extract::{PrivateCookieJar, cookie::Cookie};
+use chrono::Utc;
 use oauth2::{AuthorizationCode, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, Scope};
 use openidconnect::{AuthenticationFlow, Nonce, TokenResponse, core::CoreResponseType};
 use serde::{Deserialize, Serialize};
+use sqlx::types::Uuid;
 
 use crate::{ApiState, auth::models::OidcFlowData, error::ApiError};
 
@@ -73,7 +75,11 @@ pub struct AuthResponse {
 }
 
 #[derive(Serialize)]
-pub struct UserResponse {}
+pub struct UserResponse {
+    pub id: Uuid,
+    pub username: String,
+    pub email: String,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
@@ -125,31 +131,141 @@ async fn auth_callback(
         .map_err(|e| ApiError::InvalidIdToken(format!("ID token verification failed: {}", e)))?;
 
     // Extract user info from ID token
-    let google_id = id_token_claims.subject().to_string();
     let email = id_token_claims
         .email()
         .ok_or_else(|| ApiError::InvalidIdToken("No email in ID token".to_string()))?
         .to_string();
     let email_verified = id_token_claims.email_verified().unwrap_or(false);
-    // let name = id_token_claims
-    //     .name()
-    //     .and_then(|n| n.get(None))
-    //     .map(|n| n.to_string())
-    //     .unwrap_or_else(|| email.clone());
-    // let picture = id_token_claims
-    //     .picture()
-    //     .and_then(|p| p.get(None))
-    //     .map(|p| p.to_string());
 
     if !email_verified {
         return Err(ApiError::Oidc("Email not verified".to_string()));
     }
 
-    // Generate JWT token
-    let now = chrono::Utc::now();
+    // Get username from name or use email prefix
+    let username = id_token_claims
+        .name()
+        .and_then(|n| n.get(None))
+        .map(|n| n.to_string())
+        .unwrap_or_else(|| {
+            // Use email prefix as username, but sanitize it
+            email.split('@').next().unwrap_or("user").to_string()
+        });
+
+    // Check if user exists, if not create them
+    let user = sqlx::query_as::<_, (Uuid, String, String)>(
+        // language=PostgreSQL
+        r#"
+            SELECT id, username, email
+            FROM users
+            WHERE email = $1
+        "#,
+    )
+    .bind(&email)
+    .fetch_optional(&state.pool)
+    .await?;
+
+    let (user_id, username, email) = if let Some(user) = user {
+        user
+    } else {
+        // Create new user with OAuth
+        // Generate a random password hash since OAuth users won't use password login
+        // We use a random string that will never match any actual password
+        let random_password_hash = bcrypt::hash(
+            &format!("oauth_{}", uuid::Uuid::new_v4()),
+            bcrypt::DEFAULT_COST,
+        )?;
+
+        // Try to insert user, handle username conflicts
+        let mut final_username = username.clone();
+        let mut attempts = 0;
+        let user_id = loop {
+            match sqlx::query_scalar::<_, Uuid>(
+                // language=PostgreSQL
+                r#"
+                    INSERT INTO users (username, email, password_hash)
+                    VALUES ($1, $2, $3)
+                    RETURNING id
+                "#,
+            )
+            .bind(&final_username)
+            .bind(&email)
+            .bind(&random_password_hash)
+            .fetch_optional(&state.pool)
+            .await
+            {
+                Ok(Some(id)) => break id,
+                Ok(None) => {
+                    // This shouldn't happen with RETURNING, but handle it
+                    return Err(ApiError::Database(sqlx::Error::RowNotFound));
+                }
+                Err(sqlx::Error::Database(db_err)) if db_err.constraint().is_some() => {
+                    // Constraint violation (username or email conflict)
+                    // Check if it's an email conflict (race condition - user created between check and insert)
+                    if db_err.message().contains("email")
+                        || db_err.message().contains("users_email_key")
+                    {
+                        // Email already exists, fetch the existing user
+                        let existing_user = sqlx::query_as::<_, (Uuid, String, String)>(
+                            // language=PostgreSQL
+                            r#"
+                                SELECT id, username, email
+                                FROM users
+                                WHERE email = $1
+                            "#,
+                        )
+                        .bind(&email)
+                        .fetch_one(&state.pool)
+                        .await?;
+                        break existing_user.0;
+                    }
+                    // Username conflict, try with a suffix
+                    attempts += 1;
+                    if attempts > 10 {
+                        return Err(ApiError::Auth(
+                            "Failed to create user after multiple attempts".to_string(),
+                        ));
+                    }
+                    let suffix = uuid::Uuid::new_v4().to_string()[..8].to_string();
+                    final_username = format!("{}_{}", username, suffix);
+                }
+                Err(e) => return Err(ApiError::Database(e)),
+            }
+        };
+
+        // Fetch the final user data (in case of race condition, get the actual username)
+        let final_user = sqlx::query_as::<_, (Uuid, String, String)>(
+            // language=PostgreSQL
+            r#"
+                SELECT id, username, email
+                FROM users
+                WHERE id = $1
+            "#,
+        )
+        .bind(user_id)
+        .fetch_one(&state.pool)
+        .await?;
+
+        // Ensure user_stats exists (idempotent - won't create if already exists)
+        sqlx::query(
+            // language=PostgreSQL
+            r#"
+                INSERT INTO user_stats (user_id)
+                VALUES ($1)
+                ON CONFLICT (user_id) DO NOTHING
+            "#,
+        )
+        .bind(user_id)
+        .execute(&state.pool)
+        .await?;
+
+        final_user
+    };
+
+    // Generate JWT token using database user ID
+    let now = Utc::now();
     let claims = Claims {
-        sub: google_id,
-        email,
+        sub: user_id.to_string(),
+        email: email.clone(),
         iat: now.timestamp() as usize,
         exp: (now + chrono::Duration::hours(24)).timestamp() as usize,
     };
@@ -175,7 +291,11 @@ async fn auth_callback(
         jar,
         Json(AuthResponse {
             token,
-            user: UserResponse {},
+            user: UserResponse {
+                id: user_id,
+                username,
+                email,
+            },
         }),
     ))
 }

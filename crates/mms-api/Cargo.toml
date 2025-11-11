@@ -24,3 +24,4 @@ time.workspace = true
 chrono.workspace = true
 sqlx.workspace = true
 bcrypt.workspace = true
+uuid.workspace = true
