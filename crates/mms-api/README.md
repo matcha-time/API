@@ -7,6 +7,8 @@
 
 ## Authentication
 
+### OAuth (Google)
+
 - `GET /auth/google` - Initiate Google OAuth flow
   - **Response:** Redirect to Google OAuth
 
@@ -18,6 +20,57 @@
     "user": {}
   }
   ```
+
+### Email/Password
+
+- `POST /users/register` - Register a new user
+  - **Request Body:**
+  ```json
+  {
+    "username": "johndoe",
+    "email": "john@example.com",
+    "password": "securepassword123"
+  }
+  ```
+  - **Response:** `200 OK`
+  ```json
+  {
+    "token": "jwt_token_string",
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "username": "johndoe",
+      "email": "john@example.com"
+    }
+  }
+  ```
+  - **Errors:**
+    - `409 Conflict` - User already exists (duplicate email or username)
+    - `500 Internal Server Error` - Server error
+
+- `POST /users/login` - Login with email and password
+  - **Request Body:**
+  ```json
+  {
+    "email": "john@example.com",
+    "password": "securepassword123"
+  }
+  ```
+  - **Response:** `200 OK`
+  ```json
+  {
+    "token": "jwt_token_string",
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "username": "johndoe",
+      "email": "john@example.com"
+    }
+  }
+  ```
+  - **Errors:**
+    - `401 Unauthorized` - Invalid email or password
+    - `500 Internal Server Error` - Server error
+
+**Note:** Both registration and login endpoints set an HTTP-only cookie (`auth_token`) containing the JWT token, in addition to returning it in the response body.
 
 ## Roadmaps
 
@@ -81,6 +134,11 @@
     ]
   }
   ```
+  - **Errors:**
+    - `404 Not Found` - User not found
+    - `500 Internal Server Error` - Server error
+
+**Note:** User registration and login endpoints are documented in the [Authentication](#authentication) section above.
 
 ## Decks
 
