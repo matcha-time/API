@@ -19,7 +19,9 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret
 REDIRECT_URL=http://localhost:3000/auth/callback
 JWT_SECRET=your_jwt_secret_key_here_min_32_chars
 COOKIE_SECRET=your_cookie_secret_key_here_min_32_chars
+ALLOWED_ORIGINS=http://localhost:5173
 ```
+**Note:** `ALLOWED_ORIGINS` should match your frontend URL (e.g., `http://localhost:5173` for Vite, `http://localhost:8080` for Vue, `http://localhost:3001` for React if API is on 3000). For multiple origins, separate with commas: `http://localhost:5173,http://localhost:8080`
 
 3. Run the server:
 ```bash
