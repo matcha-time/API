@@ -1,4 +1,6 @@
+use axum::http::{Method, header};
 use mms_api::{config::ApiConfig, state::ApiState};
+use tower_http::cors::{AllowOrigin, CorsLayer};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -9,8 +11,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize the application state
     let state = ApiState::new(config).await?;
 
+    // Configure CORS
+    let allowed_origins = std::env::var("ALLOWED_ORIGINS")
+        .unwrap_or_else(|_| "http://localhost:8080".to_string())
+        .split(',')
+        .filter_map(|s| s.trim().parse::<axum::http::HeaderValue>().ok())
+        .collect::<Vec<_>>();
+
+    let cors = CorsLayer::new()
+        .allow_origin(AllowOrigin::list(allowed_origins))
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, header::ACCEPT])
+        .allow_credentials(true);
+
     // Create the application router
-    let app = mms_api::router::router().with_state(state);
+    let app = mms_api::router::router().with_state(state).layer(cors);
 
     // Start the server
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
