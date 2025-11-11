@@ -28,10 +28,12 @@ async fn list_roadmaps(State(state): State<ApiState>) -> Result<Json<Vec<Roadmap
     let roadmaps = sqlx::query_as::<_, Roadmap>(
         // language=PostgreSQL
         r#"
-            SELECT id, title, description, language_from, language_to FROM roadmaps ORDER BY created_at DESC
-        "#
+            SELECT id, title, description, language_from, language_to
+            FROM roadmaps 
+            ORDER BY created_at DESC
+        "#,
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -52,7 +54,7 @@ async fn get_roadmaps_by_language(
     )
     .bind(language_from)
     .bind(language_to)
-    .fetch_all(&state.db)
+    .fetch_all(&state.pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -87,7 +89,7 @@ async fn get_roadmap_with_progress(
     )
     .bind(roadmap_id)
     .bind(user_id)
-    .fetch_all(&state.db)
+    .fetch_all(&state.pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 

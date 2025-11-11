@@ -23,7 +23,7 @@ pub struct ApiState {
     pub oidc_client: OpenIdClient,
     pub jwt_secret: String,
     pub cookie_key: Key,
-    pub db: PgPool,
+    pub pool: PgPool,
 }
 
 impl ApiState {
@@ -32,8 +32,8 @@ impl ApiState {
         let cookie_key = Key::from(config.cookie_secret.as_bytes());
 
         // Initialize database pool and run migrations
-        let db = mms_db::create_pool(&config.database_url).await?;
-        mms_db::ensure_db_and_migrate(&config.database_url, &db).await?;
+        let pool = mms_db::create_pool(&config.database_url).await?;
+        mms_db::ensure_db_and_migrate(&config.database_url, &pool).await?;
 
         // Discover Google's OIDC configuration
         let provider_metadata = CoreProviderMetadata::discover_async(
@@ -54,7 +54,7 @@ impl ApiState {
             oidc_client,
             jwt_secret: config.jwt_secret,
             cookie_key,
-            db,
+            pool,
         })
     }
 }
