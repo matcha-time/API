@@ -23,3 +23,4 @@ oauth2.workspace = true
 time.workspace = true
 chrono.workspace = true
 sqlx.workspace = true
+bcrypt.workspace = true

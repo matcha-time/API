@@ -15,6 +15,12 @@ pub enum ApiError {
     Jwt(#[from] jsonwebtoken::errors::Error),
     #[error("Invalid ID token: {0}")]
     InvalidIdToken(String),
+    #[error("Authentication error: {0}")]
+    Auth(String),
+    #[error("Database error: {0}")]
+    Database(#[from] sqlx::Error),
+    #[error("Password hashing error: {0}")]
+    Bcrypt(#[from] bcrypt::BcryptError),
 }
 
 impl IntoResponse for ApiError {
@@ -24,6 +30,21 @@ impl IntoResponse for ApiError {
             ApiError::Cookie(msg) => (StatusCode::BAD_REQUEST, msg),
             ApiError::Jwt(e) => (StatusCode::UNAUTHORIZED, e.to_string()),
             ApiError::InvalidIdToken(msg) => (StatusCode::BAD_REQUEST, msg),
+            ApiError::Auth(msg) => (StatusCode::UNAUTHORIZED, msg),
+            ApiError::Database(e) => {
+                // Handle specific database errors
+                if let sqlx::Error::Database(db_err) = &e {
+                    if db_err.constraint().is_some() {
+                        return (
+                            StatusCode::CONFLICT,
+                            Json(serde_json::json!({ "error": "User already exists" })),
+                        )
+                            .into_response();
+                    }
+                }
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+            }
+            ApiError::Bcrypt(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         };
 
         let error = Json(serde_json::json!({ "error": message }));

@@ -146,3 +146,4 @@ sqlx = { version = "0.8", default-features = false, features = [
 ] }
 anyhow = "1.0"
 uuid = { version = "1.18", features = ["serde"] }
+bcrypt = "0.15"

@@ -32,7 +32,7 @@
       "language_from": "es",
       "language_to": "en"
     },
-    ...
+    // ...
   ]
   ```
 
@@ -55,7 +55,7 @@
       "total_practices": 45,
       "last_practiced_at": "2024-01-15T10:30:00Z"
     },
-    ...
+    // ...
   ]
   ```
 
@@ -77,7 +77,7 @@
         "activity_date": "2024-01-15",
         "reviews_count": 10
       },
-      ...
+      // ...
     ]
   }
   ```
@@ -95,7 +95,7 @@
       "times_correct": 5,
       "times_wrong": 2
     },
-    ...
+    // ...
   ]
   ```
 
