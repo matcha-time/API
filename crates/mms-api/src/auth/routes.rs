@@ -1,7 +1,7 @@
 use axum::{
     Json, Router,
     extract::{Query, State},
-    response::Redirect,
+    response::{IntoResponse, Redirect},
     routing::get,
 };
 use axum_extra::extract::{PrivateCookieJar, cookie::Cookie};
@@ -95,7 +95,7 @@ async fn auth_callback(
     State(state): State<ApiState>,
     jar: PrivateCookieJar,
     Query(query): Query<AuthRequest>,
-) -> Result<(PrivateCookieJar, StatusCode), ApiError> {
+) -> Result<(PrivateCookieJar, impl IntoResponse), ApiError> {
     // Retrieve OIDC flow data from cookie
     let oidc_cookie = jar
         .get("oidc_flow")
@@ -179,7 +179,24 @@ async fn auth_callback(
 
     let jar = jar.add(auth_cookie);
 
-    Ok((jar, StatusCode::NO_CONTENT))
+    Ok((
+        jar,
+        axum::response::Html(
+            r#"
+    <!DOCTYPE html>
+    <html>
+    <head><title>Authentication Successful</title></head>
+    <body>
+      <script>
+        // Close popup and notify parent (optional)
+        window.close();
+      </script>
+    </body>
+    </html>
+    "#
+            .to_owned(),
+        ),
+    ))
 }
 
 async fn auth_me(
