@@ -132,6 +132,7 @@ async fn create_user(
                 id: user_id,
                 username: request.username,
                 email: request.email,
+                profile_picture_url: None,
             },
         }),
     ))
@@ -143,10 +144,10 @@ async fn login_user(
     Json(request): Json<LoginRequest>,
 ) -> Result<(PrivateCookieJar, Json<auth::routes::AuthResponse>), ApiError> {
     // Fetch user from database
-    let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>)>(
+    let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>)>(
         // language=PostgreSQL
         r#"
-            SELECT id, username, email, password_hash
+            SELECT id, username, email, password_hash, profile_picture_url
             FROM users
             WHERE email = $1 AND auth_provider = 'email'
         "#,
@@ -156,7 +157,7 @@ async fn login_user(
     .await?
     .ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
 
-    let (user_id, username, email, password_hash) = user;
+    let (user_id, username, email, password_hash, profile_picture_url) = user;
 
     // Verify password exists and matches
     let password_hash =
@@ -181,6 +182,7 @@ async fn login_user(
                 id: user_id,
                 username,
                 email,
+                profile_picture_url,
             },
         }),
     ))

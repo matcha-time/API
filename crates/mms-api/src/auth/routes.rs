@@ -74,6 +74,7 @@ pub struct UserResponse {
     pub id: Uuid,
     pub username: String,
     pub email: String,
+    pub profile_picture_url: Option<String>,
 }
 
 async fn auth_callback(
@@ -128,15 +129,24 @@ async fn auth_callback(
         .name()
         .and_then(|n| n.get(None))
         .map(|n| n.to_string());
+    let picture = id_token_claims
+        .picture()
+        .and_then(|p| p.get(None))
+        .map(|p| p.to_string());
 
     if !email_verified {
         return Err(ApiError::Oidc("Email not verified".to_string()));
     }
 
     // Find or create user in database
-    let user =
-        service::find_or_create_google_user(&state.pool, &google_id, &email, name.as_deref())
-            .await?;
+    let user = service::find_or_create_google_user(
+        &state.pool,
+        &google_id,
+        &email,
+        name.as_deref(),
+        picture.as_deref(),
+    )
+    .await?;
 
     // Generate JWT token
     let token = jwt::generate_jwt_token(user.id, user.email.clone(), &state.jwt_secret)?;
@@ -174,10 +184,10 @@ async fn auth_me(
     State(state): State<ApiState>,
 ) -> Result<Json<UserResponse>, ApiError> {
     // Fetch full user details from database
-    let user = sqlx::query_as::<_, (Uuid, String, String)>(
+    let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>)>(
         // language=PostgreSQL
         r#"
-            SELECT id, username, email
+            SELECT id, username, email, profile_picture_url
             FROM users
             WHERE id = $1
         "#,
@@ -191,13 +201,12 @@ async fn auth_me(
         id: user.0,
         username: user.1,
         email: user.2,
+        profile_picture_url: user.3,
     }))
 }
 
 async fn logout(jar: PrivateCookieJar) -> (PrivateCookieJar, Json<serde_json::Value>) {
-    let cookie = Cookie::build(("auth_token", ""))
-        .path("/")
-        .build();
+    let cookie = Cookie::build(("auth_token", "")).path("/").build();
     let jar = jar.remove(cookie);
     (
         jar,
