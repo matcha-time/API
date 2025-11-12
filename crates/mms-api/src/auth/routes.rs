@@ -156,8 +156,8 @@ async fn auth_callback(
                         <script>
                             // Close popup and notify parent
                             window.opener.postMessage(
-                            { type: 'google-auth-success', token: 'abc123' },
-                                'http://localhost:8080/' // ton domaine frontend
+                                { type: 'google-auth-success' },
+                                'http://localhost:8080/' // TODO: use env variable
                             );
                             window.close();
                         </script>
