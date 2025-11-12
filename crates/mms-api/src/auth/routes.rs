@@ -155,8 +155,10 @@ async fn auth_callback(
                     <body>
                         <script>
                             // Close popup and notify parent
-                            const channel = new BroadcastChannel('auth_channel');
-                            channel.postMessage('authenticated');
+                            window.opener.postMessage(
+                            { type: 'google-auth-success', token: 'abc123' },
+                                'http://localhost:8080/' // ton domaine frontend
+                            );
                             window.close();
                         </script>
                     </body>
