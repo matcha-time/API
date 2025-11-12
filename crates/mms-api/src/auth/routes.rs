@@ -195,7 +195,10 @@ async fn auth_me(
 }
 
 async fn logout(jar: PrivateCookieJar) -> (PrivateCookieJar, Json<serde_json::Value>) {
-    let jar = jar.remove(Cookie::from("auth_token"));
+    let cookie = Cookie::build(("auth_token", ""))
+        .path("/")
+        .build();
+    let jar = jar.remove(cookie);
     (
         jar,
         Json(serde_json::json!({ "message": "Logged out successfully" })),
