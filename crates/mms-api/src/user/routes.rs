@@ -5,12 +5,14 @@ use axum::{
     routing::{get, post},
 };
 use axum_extra::extract::PrivateCookieJar;
-use axum_extra::extract::cookie::Cookie;
-use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sqlx::types::Uuid;
 
-use crate::{ApiState, auth::routes::Claims, error::ApiError};
+use crate::{
+    ApiState,
+    auth::{self, jwt},
+    error::ApiError,
+};
 
 use mms_db::models::{ActivityDay, UserStats};
 
@@ -75,24 +77,16 @@ struct LoginRequest {
     password: String,
 }
 
-#[derive(Serialize)]
-struct AuthResponse {
-    token: String,
-    user: UserResponse,
-}
-
-#[derive(Serialize)]
-struct UserResponse {
-    id: Uuid,
-    username: String,
-    email: String,
-}
-
 async fn create_user(
     State(state): State<ApiState>,
     jar: PrivateCookieJar,
     Json(request): Json<CreateUserRequest>,
-) -> Result<(PrivateCookieJar, Json<AuthResponse>), ApiError> {
+) -> Result<(PrivateCookieJar, Json<auth::routes::AuthResponse>), ApiError> {
+    // Validate input
+    auth::validation::validate_email(&request.email)?;
+    auth::validation::validate_password(&request.password)?;
+    auth::validation::validate_username(&request.username)?;
+
     // Hash the password
     let password_hash = bcrypt::hash(&request.password, bcrypt::DEFAULT_COST)?;
 
@@ -100,8 +94,8 @@ async fn create_user(
     let user_id = sqlx::query_scalar::<_, Uuid>(
         // language=PostgreSQL
         r#"
-            INSERT INTO users (username, email, password_hash)
-            VALUES ($1, $2, $3)
+            INSERT INTO users (username, email, password_hash, auth_provider)
+            VALUES ($1, $2, $3, 'email')
             RETURNING id
         "#,
     )
@@ -124,36 +118,17 @@ async fn create_user(
     .await?;
 
     // Generate JWT token
-    let now = Utc::now();
-    let claims = Claims {
-        sub: user_id.to_string(),
-        email: request.email.clone(),
-        iat: now.timestamp() as usize,
-        exp: (now + chrono::Duration::hours(24)).timestamp() as usize,
-    };
-
-    let token = jsonwebtoken::encode(
-        &jsonwebtoken::Header::default(),
-        &claims,
-        &jsonwebtoken::EncodingKey::from_secret(state.jwt_secret.as_bytes()),
-    )?;
+    let token = jwt::generate_jwt_token(user_id, request.email.clone(), &state.jwt_secret)?;
 
     // Set auth cookie with JWT
-    let auth_cookie = Cookie::build(("auth_token", token.clone()))
-        .path("/")
-        .max_age(time::Duration::hours(24))
-        .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Lax)
-        .secure(false) // Set to true in production with HTTPS
-        .build();
-
+    let auth_cookie = jwt::create_auth_cookie(token.clone());
     let jar = jar.add(auth_cookie);
 
     Ok((
         jar,
-        Json(AuthResponse {
+        Json(auth::routes::AuthResponse {
             token,
-            user: UserResponse {
+            user: auth::routes::UserResponse {
                 id: user_id,
                 username: request.username,
                 email: request.email,
@@ -166,14 +141,14 @@ async fn login_user(
     State(state): State<ApiState>,
     jar: PrivateCookieJar,
     Json(request): Json<LoginRequest>,
-) -> Result<(PrivateCookieJar, Json<AuthResponse>), ApiError> {
+) -> Result<(PrivateCookieJar, Json<auth::routes::AuthResponse>), ApiError> {
     // Fetch user from database
-    let user = sqlx::query_as::<_, (Uuid, String, String, String)>(
+    let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>)>(
         // language=PostgreSQL
         r#"
             SELECT id, username, email, password_hash
             FROM users
-            WHERE email = $1
+            WHERE email = $1 AND auth_provider = 'email'
         "#,
     )
     .bind(&request.email)
@@ -183,42 +158,26 @@ async fn login_user(
 
     let (user_id, username, email, password_hash) = user;
 
-    // Verify password
+    // Verify password exists and matches
+    let password_hash =
+        password_hash.ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
+
     if !bcrypt::verify(&request.password, &password_hash)? {
         return Err(ApiError::Auth("Invalid email or password".to_string()));
     }
 
     // Generate JWT token
-    let now = Utc::now();
-    let claims = Claims {
-        sub: user_id.to_string(),
-        email: email.clone(),
-        iat: now.timestamp() as usize,
-        exp: (now + chrono::Duration::hours(24)).timestamp() as usize,
-    };
-
-    let token = jsonwebtoken::encode(
-        &jsonwebtoken::Header::default(),
-        &claims,
-        &jsonwebtoken::EncodingKey::from_secret(state.jwt_secret.as_bytes()),
-    )?;
+    let token = jwt::generate_jwt_token(user_id, email.clone(), &state.jwt_secret)?;
 
     // Set auth cookie with JWT
-    let auth_cookie = Cookie::build(("auth_token", token.clone()))
-        .path("/")
-        .max_age(time::Duration::hours(24))
-        .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Lax)
-        .secure(false) // Set to true in production with HTTPS
-        .build();
-
+    let auth_cookie = jwt::create_auth_cookie(token.clone());
     let jar = jar.add(auth_cookie);
 
     Ok((
         jar,
-        Json(AuthResponse {
+        Json(auth::routes::AuthResponse {
             token,
-            user: UserResponse {
+            user: auth::routes::UserResponse {
                 id: user_id,
                 username,
                 email,

@@ -1,4 +1,7 @@
-all: build format
+all: build lint format
+
+lint:
+	cargo fmt
 
 build:
 	cargo build

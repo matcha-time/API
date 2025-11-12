@@ -1,6 +1,5 @@
-use axum::http::{Method, header};
 use mms_api::{config::ApiConfig, state::ApiState};
-use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::cors::CorsLayer;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

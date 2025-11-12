@@ -5,20 +5,20 @@ use axum::{
     routing::get,
 };
 use axum_extra::extract::{PrivateCookieJar, cookie::Cookie};
-use chrono::Utc;
 use oauth2::{AuthorizationCode, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, Scope};
 use openidconnect::{AuthenticationFlow, Nonce, TokenResponse, core::CoreResponseType};
-use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use sqlx::types::Uuid;
 
-use crate::{ApiState, auth::models::OidcFlowData, error::ApiError};
+use super::{jwt, middleware::AuthUser, models::OidcFlowData, service};
+use crate::{ApiState, error::ApiError};
 
 pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/auth/google", get(google_auth))
         .route("/auth/callback", get(auth_callback))
         .route("/auth/me", get(auth_me))
+        .route("/auth/logout", get(logout))
 }
 
 async fn google_auth(
@@ -51,14 +51,7 @@ async fn google_auth(
     let oidc_json = serde_json::to_string(&oidc_data)
         .map_err(|e| ApiError::Cookie(format!("Failed to serialize OIDC data: {}", e)))?;
 
-    let cookie = Cookie::build(("oidc_flow", oidc_json))
-        .path("/")
-        .max_age(time::Duration::minutes(10))
-        .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Lax)
-        .secure(false) // Set to true in production with HTTPS
-        .build();
-
+    let cookie = jwt::create_oidc_flow_cookie(oidc_json);
     let jar = jar.add(cookie);
 
     Ok((jar, Redirect::to(auth_url.as_str())))
@@ -78,17 +71,9 @@ pub struct AuthResponse {
 
 #[derive(Serialize)]
 pub struct UserResponse {
-    //pub id: Uuid,
-    //pub username: String,
+    pub id: Uuid,
+    pub username: String,
     pub email: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Claims {
-    pub sub: String,
-    pub email: String,
-    pub exp: usize,
-    pub iat: usize,
 }
 
 async fn auth_callback(
@@ -139,85 +124,76 @@ async fn auth_callback(
         .ok_or_else(|| ApiError::InvalidIdToken("No email in ID token".to_string()))?
         .to_string();
     let email_verified = id_token_claims.email_verified().unwrap_or(false);
-    // let name = id_token_claims
-    //     .name()
-    //     .and_then(|n| n.get(None))
-    //     .map(|n| n.to_string())
-    //     .unwrap_or_else(|| email.clone());
-    // let picture = id_token_claims
-    //     .picture()
-    //     .and_then(|p| p.get(None))
-    //     .map(|p| p.to_string());
+    let name = id_token_claims
+        .name()
+        .and_then(|n| n.get(None))
+        .map(|n| n.to_string());
 
     if !email_verified {
         return Err(ApiError::Oidc("Email not verified".to_string()));
     }
 
-    // Generate JWT token
-    let now = chrono::Utc::now();
-    let claims = Claims {
-        sub: google_id,
-        email,
-        iat: now.timestamp() as usize,
-        exp: (now + chrono::Duration::hours(24)).timestamp() as usize,
-    };
+    // Find or create user in database
+    let user =
+        service::find_or_create_google_user(&state.pool, &google_id, &email, name.as_deref())
+            .await?;
 
-    let token = jsonwebtoken::encode(
-        &jsonwebtoken::Header::default(),
-        &claims,
-        &jsonwebtoken::EncodingKey::from_secret(state.jwt_secret.as_bytes()),
-    )?;
+    // Generate JWT token
+    let token = jwt::generate_jwt_token(user.id, user.email.clone(), &state.jwt_secret)?;
 
     // Set auth cookie with JWT
-    let auth_cookie = Cookie::build(("auth_token", token.clone()))
-        .path("/")
-        .max_age(time::Duration::hours(24))
-        .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Lax)
-        .secure(false) // Set to true in production with HTTPS
-        .build();
-
+    let auth_cookie = jwt::create_auth_cookie(token.clone());
     let jar = jar.add(auth_cookie);
 
     Ok((
         jar,
         axum::response::Html(
             r#"
-    <!DOCTYPE html>
-    <html>
-    <head><title>Authentication Successful</title></head>
-    <body>
-      <script>
-        // Close popup and notify parent (optional)
-        window.close();
-      </script>
-    </body>
-    </html>
-    "#
+                <!DOCTYPE html>
+                <html>
+                <head><title>Authentication Successful</title></head>
+                    <body>
+                        <script>
+                            // Close popup and notify parent (optional)
+                            window.close();
+                        </script>
+                    </body>
+                </html>
+            "#
             .to_owned(),
         ),
     ))
 }
 
 async fn auth_me(
-    jar: PrivateCookieJar,
+    auth_user: AuthUser,
     State(state): State<ApiState>,
 ) -> Result<Json<UserResponse>, ApiError> {
-    let token = jar
-        .get("auth_token")
-        .ok_or(ApiError::Auth("Not logged in".to_string()))?
-        .value()
-        .to_owned();
-
-    let claims = jsonwebtoken::decode::<Claims>(
-        token,
-        &jsonwebtoken::DecodingKey::from_secret(state.jwt_secret.as_bytes()),
-        &jsonwebtoken::Validation::default(),
+    // Fetch full user details from database
+    let user = sqlx::query_as::<_, (Uuid, String, String)>(
+        // language=PostgreSQL
+        r#"
+            SELECT id, username, email
+            FROM users
+            WHERE id = $1
+        "#,
     )
-    .map_err(|_| ApiError::Auth("Invalid token".to_string()))?
-    .claims;
+    .bind(auth_user.user_id)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(|_| ApiError::Auth("User not found".to_string()))?;
 
     Ok(Json(UserResponse {
-        email: claims.email,
+        id: user.0,
+        username: user.1,
+        email: user.2,
     }))
+}
+
+async fn logout(jar: PrivateCookieJar) -> (PrivateCookieJar, Json<serde_json::Value>) {
+    let jar = jar.remove(Cookie::from("auth_token"));
+    (
+        jar,
+        Json(serde_json::json!({ "message": "Logged out successfully" })),
+    )
 }

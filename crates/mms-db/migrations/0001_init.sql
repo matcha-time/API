@@ -1,14 +1,27 @@
--- Extensions 
+-- Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. USERS 
+-- Auth provider enum
+CREATE TYPE auth_provider AS ENUM ('email', 'google');
+
+-- 1. USERS
 CREATE TABLE IF NOT EXISTS users (
     id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username      TEXT NOT NULL UNIQUE,
     email         TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    created_at    TIMESTAMPTZ DEFAULT NOW()
+    password_hash TEXT,  -- NULL for OAuth users
+    google_id     TEXT UNIQUE,  -- Google OAuth ID
+    auth_provider auth_provider NOT NULL DEFAULT 'email',
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    -- Constraint: password_hash required for email auth, google_id required for google auth
+    CONSTRAINT check_auth_credentials CHECK (
+        (auth_provider = 'email' AND password_hash IS NOT NULL) OR
+        (auth_provider = 'google' AND google_id IS NOT NULL)
+    )
 );
+
+-- Index for fast Google ID lookups
+CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
 
 -- 2. ROADMAPS (filtered by language pair) 
 CREATE TABLE IF NOT EXISTS roadmaps (
