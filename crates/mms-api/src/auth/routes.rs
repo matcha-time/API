@@ -154,7 +154,9 @@ async fn auth_callback(
                 <head><title>Authentication Successful</title></head>
                     <body>
                         <script>
-                            // Close popup and notify parent (optional)
+                            // Close popup and notify parent
+                            const channel = new BroadcastChannel('auth_channel');
+                            channel.postMessage('authenticated');
                             window.close();
                         </script>
                     </body>
