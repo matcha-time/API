@@ -10,23 +10,38 @@
 ### OAuth (Google)
 
 - `GET /auth/google` - Initiate Google OAuth flow
-  - **Response:** Redirect to Google OAuth
+  - **Response:** Redirect to Google OAuth with PKCE challenge
+  - Sets encrypted `oidc_flow` cookie with CSRF token, nonce, and PKCE verifier
 
 - `GET /auth/callback` - OAuth callback handler
+  - **Response:** `200 OK` - HTML page that posts message to parent window and closes popup
+  - Sets HTTP-only `auth_token` cookie containing JWT
+  - **Errors:**
+    - `400 Bad Request` - Invalid CSRF token or missing OIDC flow data
+    - `500 Internal Server Error` - OAuth or server error
+
+- `GET /auth/me` - Get current authenticated user
+  - **Authentication:** Requires valid JWT cookie
   - **Response:** `200 OK`
   ```json
   {
-    "token": "jwt_token_string",
-    "user": {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "username": "John Doe",
-      "email": "john@example.com"
-    }
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "username": "John Doe",
+    "email": "john@example.com"
   }
   ```
   - **Errors:**
-    - `400 Bad Request` - Invalid CSRF token or OIDC flow data
-    - `500 Internal Server Error` - OAuth or server error
+    - `401 Unauthorized` - Missing or invalid authentication token
+    - `404 Not Found` - User not found
+
+- `GET /auth/logout` - Logout current user
+  - **Response:** `200 OK`
+  ```json
+  {
+    "message": "Logged out successfully"
+  }
+  ```
+  - Removes `auth_token` cookie
 
 ### Email/Password
 
@@ -50,7 +65,9 @@
     }
   }
   ```
+  - Sets HTTP-only `auth_token` cookie containing JWT
   - **Errors:**
+    - `400 Bad Request` - Validation error (invalid email, password, or username format)
     - `409 Conflict` - User already exists (duplicate email or username)
     - `500 Internal Server Error` - Server error
 
@@ -73,11 +90,12 @@
     }
   }
   ```
+  - Sets HTTP-only `auth_token` cookie containing JWT
   - **Errors:**
     - `401 Unauthorized` - Invalid email or password
     - `500 Internal Server Error` - Server error
 
-**Note:** Both registration and login endpoints set an HTTP-only cookie (`auth_token`) containing the JWT token, in addition to returning it in the response body.
+**Note:** All authentication endpoints (registration, login, OAuth callback) set an HTTP-only cookie (`auth_token`) containing the JWT token, in addition to returning it in the response body. The JWT is also used for authenticating protected endpoints.
 
 ## Roadmaps
 
