@@ -17,7 +17,7 @@ pub fn routes() -> Router<ApiState> {
     )
 }
 
-// TODO: This structure can be replaced by the original flashcard if needed
+// NOTE: This structure can also be replaced by the original DTO if needed
 #[derive(Serialize, sqlx::FromRow)]
 struct PracticeCard {
     id: Uuid,

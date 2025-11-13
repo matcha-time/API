@@ -24,6 +24,9 @@ struct ReviewSubmission {
     deck_id: Uuid,
 }
 
+// NOTE:
+// Here we can change the flow and validate the translation
+// We can also compute & set the SRS datas when on a correct submition
 async fn submit_review(
     State(state): State<ApiState>,
     Path((user_id, flashcard_id)): Path<(Uuid, Uuid)>,

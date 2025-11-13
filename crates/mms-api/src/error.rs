@@ -31,6 +31,7 @@ impl IntoResponse for ApiError {
             ApiError::Jwt(e) => (StatusCode::UNAUTHORIZED, e.to_string()),
             ApiError::InvalidIdToken(msg) => (StatusCode::BAD_REQUEST, msg),
             ApiError::Auth(msg) => (StatusCode::UNAUTHORIZED, msg),
+            ApiError::Bcrypt(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
             ApiError::Database(e) => {
                 // Handle specific database errors
                 if let sqlx::Error::Database(db_err) = &e {
@@ -44,7 +45,6 @@ impl IntoResponse for ApiError {
                 }
                 (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
             }
-            ApiError::Bcrypt(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         };
 
         let error = Json(serde_json::json!({ "error": message }));

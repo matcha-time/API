@@ -5,9 +5,9 @@ use crate::{auth, deck, roadmap, state::ApiState, user};
 pub fn router() -> Router<ApiState> {
     Router::new()
         .route("/health", get(health))
-        .merge(user::routes::routes())
-        .merge(deck::routes::routes())
-        .merge(auth::routes::routes())
+        .merge(user::routes())
+        .merge(deck::routes())
+        .merge(auth::routes())
         .merge(roadmap::routes())
         .fallback(handler_404)
 }

@@ -10,7 +10,7 @@ use sqlx::types::Uuid;
 
 use crate::{
     ApiState,
-    auth::{self, AuthUser, jwt},
+    auth::{self, AuthUser, jwt, routes::{AuthResponse, UserResponse}},
     error::ApiError,
 };
 
@@ -30,17 +30,13 @@ struct UserDashboard {
     heatmap: Vec<ActivityDay>,
 }
 
-// TODO: make this two database calls concurrent or on two different routes
 async fn get_user_dashboard(
-    AuthUser {
-        user_id: auth_user_id,
-        ..
-    }: AuthUser,
+    auth: AuthUser,
     State(state): State<ApiState>,
     Path(user_id): Path<Uuid>,
 ) -> Result<Json<UserDashboard>, StatusCode> {
     // Verify the authenticated user matches the requested user
-    if auth_user_id != user_id {
+    if auth.user_id != user_id {
         return Err(StatusCode::FORBIDDEN);
     }
 
@@ -90,7 +86,7 @@ async fn create_user(
     State(state): State<ApiState>,
     jar: PrivateCookieJar,
     Json(request): Json<CreateUserRequest>,
-) -> Result<(PrivateCookieJar, Json<auth::routes::AuthResponse>), ApiError> {
+) -> Result<(PrivateCookieJar, Json<AuthResponse>), ApiError> {
     // Validate input
     auth::validation::validate_email(&request.email)?;
     auth::validation::validate_password(&request.password)?;
@@ -135,9 +131,9 @@ async fn create_user(
 
     Ok((
         jar,
-        Json(auth::routes::AuthResponse {
+        Json(AuthResponse {
             token,
-            user: auth::routes::UserResponse {
+            user: UserResponse {
                 id: user_id,
                 username: request.username,
                 email: request.email,
@@ -151,7 +147,7 @@ async fn login_user(
     State(state): State<ApiState>,
     jar: PrivateCookieJar,
     Json(request): Json<LoginRequest>,
-) -> Result<(PrivateCookieJar, Json<auth::routes::AuthResponse>), ApiError> {
+) -> Result<(PrivateCookieJar, Json<AuthResponse>), ApiError> {
     // Fetch user from database
     let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>)>(
         // language=PostgreSQL
@@ -166,7 +162,7 @@ async fn login_user(
     .await?
     .ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
 
-    let (user_id, username, email, password_hash, profile_picture_url) = user;
+    let (id, username, email, password_hash, profile_picture_url) = user;
 
     // Verify password exists and matches
     let password_hash =
@@ -177,7 +173,7 @@ async fn login_user(
     }
 
     // Generate JWT token
-    let token = jwt::generate_jwt_token(user_id, email.clone(), &state.jwt_secret)?;
+    let token = jwt::generate_jwt_token(id, email.clone(), &state.jwt_secret)?;
 
     // Set auth cookie with JWT
     let auth_cookie = jwt::create_auth_cookie(token.clone());
@@ -185,10 +181,10 @@ async fn login_user(
 
     Ok((
         jar,
-        Json(auth::routes::AuthResponse {
+        Json(AuthResponse {
             token,
-            user: auth::routes::UserResponse {
-                id: user_id,
+            user: UserResponse {
+                id,
                 username,
                 email,
                 profile_picture_url,
