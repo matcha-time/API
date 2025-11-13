@@ -25,3 +25,4 @@ chrono.workspace = true
 sqlx.workspace = true
 bcrypt.workspace = true
 uuid.workspace = true
+anyhow.workspace = true

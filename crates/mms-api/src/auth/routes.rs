@@ -155,28 +155,28 @@ async fn auth_callback(
     let auth_cookie = jwt::create_auth_cookie(token.clone());
     let jar = jar.add(auth_cookie);
 
-    Ok((
-        jar,
-        axum::response::Html(
-            r#"
-                <!DOCTYPE html>
-                <html>
-                <head><title>Authentication Successful</title></head>
-                    <body>
-                        <script>
-                            // Close popup and notify parent
-                            window.opener.postMessage(
-                                { type: 'google-auth-success' },
-                                'http://localhost:8080/' // TODO: use env variable
-                            );
-                            window.close();
-                        </script>
-                    </body>
-                </html>
-            "#
-            .to_owned(),
-        ),
-    ))
+    // Create HTML response with frontend URL from config
+    let html = format!(
+        r#"
+            <!DOCTYPE html>
+            <html>
+            <head><title>Authentication Successful</title></head>
+                <body>
+                    <script>
+                        // Close popup and notify parent
+                        window.opener.postMessage(
+                            {{ type: 'google-auth-success' }},
+                            '{}'
+                        );
+                        window.close();
+                    </script>
+                </body>
+            </html>
+        "#,
+        state.frontend_url
+    );
+
+    Ok((jar, axum::response::Html(html)))
 }
 
 async fn auth_me(

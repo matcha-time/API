@@ -22,12 +22,13 @@ pub type OpenIdClient = CoreClient<
 pub struct ApiState {
     pub oidc_client: OpenIdClient,
     pub jwt_secret: String,
+    pub frontend_url: String,
     pub cookie_key: Key,
     pub pool: PgPool,
 }
 
 impl ApiState {
-    pub async fn new(config: ApiConfig) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(config: ApiConfig) -> anyhow::Result<Self> {
         // Create cookie key
         let cookie_key = Key::from(config.cookie_secret.as_bytes());
 
@@ -53,6 +54,7 @@ impl ApiState {
         Ok(Self {
             oidc_client,
             jwt_secret: config.jwt_secret,
+            frontend_url: config.frontend_url,
             cookie_key,
             pool,
         })

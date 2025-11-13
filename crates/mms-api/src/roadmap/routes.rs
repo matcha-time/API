@@ -6,7 +6,7 @@ use axum::{
 };
 use sqlx::types::Uuid;
 
-use crate::ApiState;
+use crate::{ApiState, auth::AuthUser};
 
 use mms_db::models::{Roadmap, RoadmapNodeWithProgress};
 
@@ -62,9 +62,18 @@ async fn get_roadmaps_by_language(
 }
 
 async fn get_roadmap_with_progress(
+    AuthUser {
+        user_id: auth_user_id,
+        ..
+    }: AuthUser,
     State(state): State<ApiState>,
     Path((roadmap_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Json<Vec<RoadmapNodeWithProgress>>, StatusCode> {
+    // Verify the authenticated user matches the requested user
+    if auth_user_id != user_id {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
     let nodes = sqlx::query_as::<_, RoadmapNodeWithProgress>(
         // language=PostgreSQL
         r#"

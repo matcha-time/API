@@ -7,7 +7,7 @@ use axum::{
 use serde::Serialize;
 use sqlx::types::Uuid;
 
-use crate::ApiState;
+use crate::{ApiState, auth::AuthUser};
 
 /// Create the deck routes
 pub fn routes() -> Router<ApiState> {
@@ -28,9 +28,18 @@ struct PracticeCard {
 }
 
 async fn get_practice_session(
+    AuthUser {
+        user_id: auth_user_id,
+        ..
+    }: AuthUser,
     State(state): State<ApiState>,
     Path((deck_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Json<Vec<PracticeCard>>, StatusCode> {
+    // Verify the authenticated user matches the requested user
+    if auth_user_id != user_id {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
     let cards = sqlx::query_as::<_, PracticeCard>(
         // language=PostgreSQL
         r#"

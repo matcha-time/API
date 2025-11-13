@@ -10,7 +10,7 @@ use sqlx::types::Uuid;
 
 use crate::{
     ApiState,
-    auth::{self, jwt},
+    auth::{self, AuthUser, jwt},
     error::ApiError,
 };
 
@@ -32,9 +32,18 @@ struct UserDashboard {
 
 // TODO: make this two database calls concurrent or on two different routes
 async fn get_user_dashboard(
+    AuthUser {
+        user_id: auth_user_id,
+        ..
+    }: AuthUser,
     State(state): State<ApiState>,
     Path(user_id): Path<Uuid>,
 ) -> Result<Json<UserDashboard>, StatusCode> {
+    // Verify the authenticated user matches the requested user
+    if auth_user_id != user_id {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
     let stats = sqlx::query_as::<_, UserStats>(
         // language=PostgreSQL
         r#"
