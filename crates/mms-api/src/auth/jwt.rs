@@ -51,26 +51,30 @@ pub fn verify_jwt_token(token: &str, jwt_secret: &str) -> Result<Claims, ApiErro
 
 /// Create an auth cookie with the JWT token
 pub fn create_auth_cookie(token: String) -> Cookie<'static> {
-    let is_production = std::env::var("ENV").unwrap_or_default().to_lowercase() == "production";
+    // Default to secure cookies (HTTPS-only) for safety
+    // Only allow insecure cookies if explicitly set to development
+    let is_development = std::env::var("ENV").unwrap_or_default().to_lowercase() == "development";
 
     Cookie::build(("auth_token", token))
         .path("/")
         .max_age(time::Duration::hours(24))
         .http_only(true)
         .same_site(axum_extra::extract::cookie::SameSite::Lax)
-        .secure(is_production)
+        .secure(!is_development)  // Secure by default, insecure only in development
         .build()
 }
 
 /// Create a temporary OIDC flow cookie
 pub fn create_oidc_flow_cookie(oidc_json: String) -> Cookie<'static> {
-    let is_production = std::env::var("ENV").unwrap_or_default().to_lowercase() == "production";
+    // Default to secure cookies (HTTPS-only) for safety
+    // Only allow insecure cookies if explicitly set to development
+    let is_development = std::env::var("ENV").unwrap_or_default().to_lowercase() == "development";
 
     Cookie::build(("oidc_flow", oidc_json))
         .path("/")
         .max_age(time::Duration::minutes(10))
         .http_only(true)
         .same_site(axum_extra::extract::cookie::SameSite::Lax)
-        .secure(is_production)
+        .secure(!is_development)  // Secure by default, insecure only in development
         .build()
 }
