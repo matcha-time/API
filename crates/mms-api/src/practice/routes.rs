@@ -7,7 +7,7 @@ use axum::{
 use serde::Deserialize;
 use sqlx::types::Uuid;
 
-use crate::ApiState;
+use crate::{ApiState, auth::middleware::AuthUser, error::ApiError};
 
 /// Create the practice routes
 pub fn routes() -> Router<ApiState> {
@@ -28,16 +28,19 @@ struct ReviewSubmission {
 // Here we can change the flow and validate the translation
 // We can also compute & set the SRS datas when on a correct submition
 async fn submit_review(
+    auth_user: AuthUser,
     State(state): State<ApiState>,
     Path((user_id, flashcard_id)): Path<(Uuid, Uuid)>,
     Json(payload): Json<ReviewSubmission>,
-) -> Result<StatusCode, StatusCode> {
+) -> Result<StatusCode, ApiError> {
+    // Authorization check: ensure the authenticated user matches the user_id in the path
+    if auth_user.user_id != user_id {
+        return Err(ApiError::Auth(
+            "You are not authorized to submit reviews for this user".to_string(),
+        ));
+    }
     // Single transaction for atomicity
-    let mut tx = state
-        .pool
-        .begin()
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let mut tx = state.pool.begin().await.map_err(ApiError::Database)?;
 
     sqlx::query(
         // language=PostgreSQL
@@ -59,7 +62,7 @@ async fn submit_review(
     .bind(if payload.correct { 0 } else { 1 })
     .execute(&mut *tx)
     .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .map_err(ApiError::Database)?;
 
     sqlx::query(
         // language=PostgreSQL
@@ -71,7 +74,7 @@ async fn submit_review(
     .bind(payload.deck_id)
     .execute(&mut *tx)
     .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .map_err(ApiError::Database)?;
 
     // Record activity
     sqlx::query(
@@ -86,11 +89,9 @@ async fn submit_review(
     .bind(user_id)
     .execute(&mut *tx)
     .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .map_err(ApiError::Database)?;
 
-    tx.commit()
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    tx.commit().await.map_err(ApiError::Database)?;
 
     Ok(StatusCode::OK)
 }

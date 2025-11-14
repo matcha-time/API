@@ -34,14 +34,14 @@ impl IntoResponse for ApiError {
             ApiError::Bcrypt(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
             ApiError::Database(e) => {
                 // Handle specific database errors
-                if let sqlx::Error::Database(db_err) = &e {
-                    if db_err.constraint().is_some() {
-                        return (
-                            StatusCode::CONFLICT,
-                            Json(serde_json::json!({ "error": "User already exists" })),
-                        )
-                            .into_response();
-                    }
+                if let sqlx::Error::Database(db_err) = &e
+                    && db_err.constraint().is_some()
+                {
+                    return (
+                        StatusCode::CONFLICT,
+                        Json(serde_json::json!({ "error": "User already exists" })),
+                    )
+                        .into_response();
                 }
                 (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
             }

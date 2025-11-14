@@ -1,13 +1,12 @@
 use axum::{
     Json, Router,
     extract::{Path, State},
-    http::StatusCode,
     routing::get,
 };
 use serde::Serialize;
 use sqlx::types::Uuid;
 
-use crate::{ApiState, auth::AuthUser};
+use crate::{ApiState, auth::AuthUser, error::ApiError};
 
 /// Create the deck routes
 pub fn routes() -> Router<ApiState> {
@@ -34,10 +33,12 @@ async fn get_practice_session(
     }: AuthUser,
     State(state): State<ApiState>,
     Path((deck_id, user_id)): Path<(Uuid, Uuid)>,
-) -> Result<Json<Vec<PracticeCard>>, StatusCode> {
+) -> Result<Json<Vec<PracticeCard>>, ApiError> {
     // Verify the authenticated user matches the requested user
     if auth_user_id != user_id {
-        return Err(StatusCode::FORBIDDEN);
+        return Err(ApiError::Auth(
+            "You are not authorized to access this deck".to_string(),
+        ));
     }
 
     let cards = sqlx::query_as::<_, PracticeCard>(
@@ -63,7 +64,7 @@ async fn get_practice_session(
     .bind(user_id)
     .fetch_all(&state.pool)
     .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .map_err(ApiError::Database)?;
 
     Ok(Json(cards))
 }

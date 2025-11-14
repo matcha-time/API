@@ -1,7 +1,6 @@
 use axum::{
     Json, Router,
     extract::{Path, State},
-    http::StatusCode,
     routing::{get, post},
 };
 use axum_extra::extract::PrivateCookieJar;
@@ -37,10 +36,12 @@ async fn get_user_dashboard(
     auth: AuthUser,
     State(state): State<ApiState>,
     Path(user_id): Path<Uuid>,
-) -> Result<Json<UserDashboard>, StatusCode> {
+) -> Result<Json<UserDashboard>, ApiError> {
     // Verify the authenticated user matches the requested user
     if auth.user_id != user_id {
-        return Err(StatusCode::FORBIDDEN);
+        return Err(ApiError::Auth(
+            "You are not authorized to access this dashboard".to_string(),
+        ));
     }
 
     let stats = sqlx::query_as::<_, UserStats>(
@@ -53,7 +54,7 @@ async fn get_user_dashboard(
     .bind(user_id)
     .fetch_one(&state.pool)
     .await
-    .map_err(|_| StatusCode::NOT_FOUND)?;
+    .map_err(ApiError::Database)?;
 
     let heatmap = sqlx::query_as::<_, ActivityDay>(
         // language=PostgreSQL
@@ -67,7 +68,7 @@ async fn get_user_dashboard(
     .bind(user_id)
     .fetch_all(&state.pool)
     .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .map_err(ApiError::Database)?;
 
     Ok(Json(UserDashboard { stats, heatmap }))
 }

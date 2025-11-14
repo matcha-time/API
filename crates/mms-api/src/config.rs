@@ -1,18 +1,13 @@
 use serde::Deserialize;
 
 /// Environment mode for the application
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Environment {
     Development,
+    /// Default to production for safety
+    #[default]
     Production,
-}
-
-impl Default for Environment {
-    fn default() -> Self {
-        // Default to production for safety
-        Environment::Production
-    }
 }
 
 impl Environment {

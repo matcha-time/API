@@ -10,7 +10,7 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 /// A configured `CorsLayer` with:
 /// - Allowed origins parsed from the provided list
 /// - Standard HTTP methods (GET, POST, PUT, PATCH, DELETE, OPTIONS)
-/// - Standard headers (Content-Type, Authorization, Accept)
+/// - Standard headers (Content-Type, Accept)
 /// - Credentials enabled
 pub fn create_cors_layer(allowed_origins: Vec<String>) -> CorsLayer {
     let origins = allowed_origins
@@ -28,6 +28,6 @@ pub fn create_cors_layer(allowed_origins: Vec<String>) -> CorsLayer {
             Method::DELETE,
             Method::OPTIONS,
         ])
-        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, header::ACCEPT])
+        .allow_headers([header::CONTENT_TYPE, header::ACCEPT])
         .allow_credentials(true)
 }

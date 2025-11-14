@@ -1,12 +1,11 @@
 use axum::{
     Json, Router,
     extract::{Path, State},
-    http::StatusCode,
     routing::get,
 };
 use sqlx::types::Uuid;
 
-use crate::{ApiState, auth::AuthUser};
+use crate::{ApiState, auth::AuthUser, error::ApiError};
 
 use mms_db::models::{Roadmap, RoadmapNodeWithProgress};
 
@@ -24,18 +23,18 @@ pub fn routes() -> Router<ApiState> {
         )
 }
 
-async fn list_roadmaps(State(state): State<ApiState>) -> Result<Json<Vec<Roadmap>>, StatusCode> {
+async fn list_roadmaps(State(state): State<ApiState>) -> Result<Json<Vec<Roadmap>>, ApiError> {
     let roadmaps = sqlx::query_as::<_, Roadmap>(
         // language=PostgreSQL
         r#"
             SELECT id, title, description, language_from, language_to
-            FROM roadmaps 
+            FROM roadmaps
             ORDER BY created_at DESC
         "#,
     )
     .fetch_all(&state.pool)
     .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .map_err(ApiError::Database)?;
 
     Ok(Json(roadmaps))
 }
@@ -43,12 +42,12 @@ async fn list_roadmaps(State(state): State<ApiState>) -> Result<Json<Vec<Roadmap
 async fn get_roadmaps_by_language(
     State(state): State<ApiState>,
     Path((language_from, language_to)): Path<(String, String)>,
-) -> Result<Json<Vec<Roadmap>>, StatusCode> {
+) -> Result<Json<Vec<Roadmap>>, ApiError> {
     let roadmaps = sqlx::query_as::<_, Roadmap>(
         // language=PostgreSQL
         r#"
-            SELECT id, title, description, language_from, language_to 
-            FROM roadmaps 
+            SELECT id, title, description, language_from, language_to
+            FROM roadmaps
             WHERE language_from = $1 AND language_to = $2
         "#,
     )
@@ -56,7 +55,7 @@ async fn get_roadmaps_by_language(
     .bind(language_to)
     .fetch_all(&state.pool)
     .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .map_err(ApiError::Database)?;
 
     Ok(Json(roadmaps))
 }
@@ -68,10 +67,12 @@ async fn get_roadmap_with_progress(
     }: AuthUser,
     State(state): State<ApiState>,
     Path((roadmap_id, user_id)): Path<(Uuid, Uuid)>,
-) -> Result<Json<Vec<RoadmapNodeWithProgress>>, StatusCode> {
+) -> Result<Json<Vec<RoadmapNodeWithProgress>>, ApiError> {
     // Verify the authenticated user matches the requested user
     if auth_user_id != user_id {
-        return Err(StatusCode::FORBIDDEN);
+        return Err(ApiError::Auth(
+            "You are not authorized to access this roadmap progress".to_string(),
+        ));
     }
 
     let nodes = sqlx::query_as::<_, RoadmapNodeWithProgress>(
@@ -100,7 +101,7 @@ async fn get_roadmap_with_progress(
     .bind(user_id)
     .fetch_all(&state.pool)
     .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    .map_err(ApiError::Database)?;
 
     Ok(Json(nodes))
 }
