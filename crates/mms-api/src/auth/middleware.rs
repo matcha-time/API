@@ -15,11 +15,16 @@ use crate::{ApiState, error::ApiError};
 ///
 /// # Example
 /// ```
-/// async fn my_protected_route(
+/// use axum::extract::State;
+/// use mms_api::{error::ApiError, auth::AuthUser, ApiState};
+///
+///
+/// async fn protected_route(
 ///     auth_user: AuthUser,
 ///     State(state): State<ApiState>,
-/// ) -> Result<Json<Data>, ApiError> {
+/// ) -> Result<(), ApiError> {
 ///     // auth_user.user_id and auth_user.email are available
+///     Ok(())
 /// }
 /// ```
 #[derive(Debug, Clone)]

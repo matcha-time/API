@@ -5,7 +5,7 @@ use axum::{
 };
 use sqlx::types::Uuid;
 
-use crate::{ApiState, auth::AuthUser, error::ApiError};
+use crate::{ApiState, auth::AuthUser, error::ApiError, validation};
 
 use mms_db::models::{Roadmap, RoadmapNodeWithProgress};
 
@@ -43,6 +43,10 @@ async fn get_roadmaps_by_language(
     State(state): State<ApiState>,
     Path((language_from, language_to)): Path<(String, String)>,
 ) -> Result<Json<Vec<Roadmap>>, ApiError> {
+    // Validate language codes
+    validation::validate_language_code(&language_from)?;
+    validation::validate_language_code(&language_to)?;
+
     let roadmaps = sqlx::query_as::<_, Roadmap>(
         // language=PostgreSQL
         r#"

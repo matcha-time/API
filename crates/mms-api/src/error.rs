@@ -17,6 +17,8 @@ pub enum ApiError {
     InvalidIdToken(String),
     #[error("Authentication error: {0}")]
     Auth(String),
+    #[error("Validation error: {0}")]
+    Validation(String),
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),
     #[error("Password hashing error: {0}")]
@@ -31,6 +33,7 @@ impl IntoResponse for ApiError {
             ApiError::Jwt(e) => (StatusCode::UNAUTHORIZED, e.to_string()),
             ApiError::InvalidIdToken(msg) => (StatusCode::BAD_REQUEST, msg),
             ApiError::Auth(msg) => (StatusCode::UNAUTHORIZED, msg),
+            ApiError::Validation(msg) => (StatusCode::BAD_REQUEST, msg),
             ApiError::Bcrypt(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
             ApiError::Database(e) => {
                 // Handle specific database errors

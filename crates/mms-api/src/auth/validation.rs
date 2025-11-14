@@ -3,17 +3,17 @@ use crate::error::ApiError;
 /// Validate email format
 pub fn validate_email(email: &str) -> Result<(), ApiError> {
     if email.is_empty() {
-        return Err(ApiError::Auth("Email cannot be empty".to_string()));
+        return Err(ApiError::Validation("Email cannot be empty".to_string()));
     }
 
     // Basic email validation
     if !email.contains('@') || !email.contains('.') {
-        return Err(ApiError::Auth("Invalid email format".to_string()));
+        return Err(ApiError::Validation("Invalid email format".to_string()));
     }
 
     let parts: Vec<&str> = email.split('@').collect();
     if parts.len() != 2 || parts[0].is_empty() || parts[1].is_empty() {
-        return Err(ApiError::Auth("Invalid email format".to_string()));
+        return Err(ApiError::Validation("Invalid email format".to_string()));
     }
 
     Ok(())
@@ -22,13 +22,13 @@ pub fn validate_email(email: &str) -> Result<(), ApiError> {
 /// Validate password strength
 pub fn validate_password(password: &str) -> Result<(), ApiError> {
     if password.len() < 8 {
-        return Err(ApiError::Auth(
+        return Err(ApiError::Validation(
             "Password must be at least 8 characters long".to_string(),
         ));
     }
 
     if password.len() > 128 {
-        return Err(ApiError::Auth(
+        return Err(ApiError::Validation(
             "Password must be at most 128 characters long".to_string(),
         ));
     }
@@ -38,7 +38,7 @@ pub fn validate_password(password: &str) -> Result<(), ApiError> {
     let has_number = password.chars().any(|c| c.is_numeric());
 
     if !has_letter || !has_number {
-        return Err(ApiError::Auth(
+        return Err(ApiError::Validation(
             "Password must contain at least one letter and one number".to_string(),
         ));
     }
@@ -49,17 +49,17 @@ pub fn validate_password(password: &str) -> Result<(), ApiError> {
 /// Validate username
 pub fn validate_username(username: &str) -> Result<(), ApiError> {
     if username.is_empty() {
-        return Err(ApiError::Auth("Username cannot be empty".to_string()));
+        return Err(ApiError::Validation("Username cannot be empty".to_string()));
     }
 
     if username.len() < 3 {
-        return Err(ApiError::Auth(
+        return Err(ApiError::Validation(
             "Username must be at least 3 characters long".to_string(),
         ));
     }
 
     if username.len() > 30 {
-        return Err(ApiError::Auth(
+        return Err(ApiError::Validation(
             "Username must be at most 30 characters long".to_string(),
         ));
     }
@@ -69,7 +69,7 @@ pub fn validate_username(username: &str) -> Result<(), ApiError> {
         .chars()
         .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
     {
-        return Err(ApiError::Auth(
+        return Err(ApiError::Validation(
             "Username can only contain letters, numbers, underscores, and hyphens".to_string(),
         ));
     }

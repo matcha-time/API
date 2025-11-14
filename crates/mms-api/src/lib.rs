@@ -9,6 +9,7 @@ pub mod roadmap;
 pub mod router;
 pub mod state;
 pub mod user;
+pub mod validation;
 
 pub use config::ApiConfig;
 pub use state::ApiState;
