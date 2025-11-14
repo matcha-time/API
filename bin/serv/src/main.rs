@@ -1,6 +1,4 @@
-use axum::http::{Method, header};
 use mms_api::{config::ApiConfig, state::ApiState};
-use tower_http::cors::{AllowOrigin, CorsLayer};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -11,24 +9,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = ApiState::new(config.clone()).await?;
 
     // Configure CORS with allowed origins from config
-    let allowed_origins = config
-        .parsed_allowed_origins()
-        .into_iter()
-        .filter_map(|s| s.parse::<axum::http::HeaderValue>().ok())
-        .collect::<Vec<_>>();
-
-    let cors = CorsLayer::new()
-        .allow_origin(AllowOrigin::list(allowed_origins))
-        .allow_methods([
-            Method::GET,
-            Method::POST,
-            Method::PUT,
-            Method::PATCH,
-            Method::DELETE,
-            Method::OPTIONS,
-        ])
-        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, header::ACCEPT])
-        .allow_credentials(true);
+    let cors = mms_api::middleware::cors::create_cors_layer(config.parsed_allowed_origins());
 
     // Create the application router
     let app = mms_api::router::router().with_state(state).layer(cors);

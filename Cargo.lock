@@ -1615,6 +1615,7 @@ dependencies = [
  "sqlx",
  "thiserror 2.0.17",
  "time",
+ "tower-http",
  "uuid",
 ]
 
@@ -2583,10 +2584,8 @@ name = "serv"
 version = "0.1.0"
 dependencies = [
  "axum",
- "dotenvy",
  "mms-api",
  "tokio",
- "tower-http",
 ]
 
 [[package]]
