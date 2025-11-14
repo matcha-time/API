@@ -10,7 +10,10 @@ use sqlx::types::Uuid;
 
 use crate::{
     ApiState,
-    auth::{self, AuthUser, jwt, routes::{AuthResponse, UserResponse}},
+    auth::{
+        self, AuthUser, jwt,
+        routes::{AuthResponse, UserResponse},
+    },
     error::ApiError,
 };
 
@@ -126,7 +129,7 @@ async fn create_user(
     let token = jwt::generate_jwt_token(user_id, request.email.clone(), &state.jwt_secret)?;
 
     // Set auth cookie with JWT
-    let auth_cookie = jwt::create_auth_cookie(token.clone());
+    let auth_cookie = jwt::create_auth_cookie(token.clone(), &state.environment);
     let jar = jar.add(auth_cookie);
 
     Ok((
@@ -176,7 +179,7 @@ async fn login_user(
     let token = jwt::generate_jwt_token(id, email.clone(), &state.jwt_secret)?;
 
     // Set auth cookie with JWT
-    let auth_cookie = jwt::create_auth_cookie(token.clone());
+    let auth_cookie = jwt::create_auth_cookie(token.clone(), &state.environment);
     let jar = jar.add(auth_cookie);
 
     Ok((

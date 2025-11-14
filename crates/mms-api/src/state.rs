@@ -6,7 +6,7 @@ use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
 };
 
-use crate::ApiConfig;
+use crate::{ApiConfig, config::Environment};
 use sqlx::PgPool;
 
 pub type OpenIdClient = CoreClient<
@@ -25,6 +25,7 @@ pub struct ApiState {
     pub frontend_url: String,
     pub cookie_key: Key,
     pub pool: PgPool,
+    pub environment: Environment,
 }
 
 impl ApiState {
@@ -57,6 +58,7 @@ impl ApiState {
             frontend_url: config.frontend_url,
             cookie_key,
             pool,
+            environment: config.env,
         })
     }
 }

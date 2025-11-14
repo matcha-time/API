@@ -5,17 +5,16 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load configuration from environment variables
-    dotenvy::dotenv().ok();
     let config = ApiConfig::from_env()?;
 
     // Initialize the application state
-    let state = ApiState::new(config).await?;
+    let state = ApiState::new(config.clone()).await?;
 
-    // Configure CORS with allowed origins from environment
-    let allowed_origins = std::env::var("ALLOWED_ORIGINS")
-        .unwrap_or_else(|_| "http://localhost:8080".to_string())
-        .split(',')
-        .filter_map(|s| s.trim().parse::<axum::http::HeaderValue>().ok())
+    // Configure CORS with allowed origins from config
+    let allowed_origins = config
+        .parsed_allowed_origins()
+        .into_iter()
+        .filter_map(|s| s.parse::<axum::http::HeaderValue>().ok())
         .collect::<Vec<_>>();
 
     let cors = CorsLayer::new()

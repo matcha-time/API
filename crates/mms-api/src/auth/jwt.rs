@@ -4,7 +4,7 @@ use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use sqlx::types::Uuid;
 
-use crate::error::ApiError;
+use crate::{config::Environment, error::ApiError};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Claims {
@@ -50,10 +50,11 @@ pub fn verify_jwt_token(token: &str, jwt_secret: &str) -> Result<Claims, ApiErro
 }
 
 /// Create an auth cookie with the JWT token
-pub fn create_auth_cookie(token: String) -> Cookie<'static> {
-    // Default to secure cookies (HTTPS-only) for safety
-    // Only allow insecure cookies if explicitly set to development
-    let is_development = std::env::var("ENV").unwrap_or_default().to_lowercase() == "development";
+///
+/// Cookies are secure (HTTPS-only) by default in production.
+/// In development mode, cookies can be used over HTTP.
+pub fn create_auth_cookie(token: String, environment: &Environment) -> Cookie<'static> {
+    let is_development = environment.is_development();
 
     Cookie::build(("auth_token", token))
         .path("/")
@@ -65,10 +66,11 @@ pub fn create_auth_cookie(token: String) -> Cookie<'static> {
 }
 
 /// Create a temporary OIDC flow cookie
-pub fn create_oidc_flow_cookie(oidc_json: String) -> Cookie<'static> {
-    // Default to secure cookies (HTTPS-only) for safety
-    // Only allow insecure cookies if explicitly set to development
-    let is_development = std::env::var("ENV").unwrap_or_default().to_lowercase() == "development";
+///
+/// Cookies are secure (HTTPS-only) by default in production.
+/// In development mode, cookies can be used over HTTP.
+pub fn create_oidc_flow_cookie(oidc_json: String, environment: &Environment) -> Cookie<'static> {
+    let is_development = environment.is_development();
 
     Cookie::build(("oidc_flow", oidc_json))
         .path("/")

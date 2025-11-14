@@ -26,3 +26,5 @@ sqlx.workspace = true
 bcrypt.workspace = true
 uuid.workspace = true
 anyhow.workspace = true
+dotenvy.workspace = true
+envy.workspace = true

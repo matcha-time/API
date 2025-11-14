@@ -51,7 +51,7 @@ async fn google_auth(
     let oidc_json = serde_json::to_string(&oidc_data)
         .map_err(|e| ApiError::Cookie(format!("Failed to serialize OIDC data: {}", e)))?;
 
-    let cookie = jwt::create_oidc_flow_cookie(oidc_json);
+    let cookie = jwt::create_oidc_flow_cookie(oidc_json, &state.environment);
     let jar = jar.add(cookie);
 
     Ok((jar, Redirect::to(auth_url.as_str())))
@@ -152,7 +152,7 @@ async fn auth_callback(
     let token = jwt::generate_jwt_token(user.id, user.email.clone(), &state.jwt_secret)?;
 
     // Set auth cookie with JWT
-    let auth_cookie = jwt::create_auth_cookie(token.clone());
+    let auth_cookie = jwt::create_auth_cookie(token.clone(), &state.environment);
     let jar = jar.add(auth_cookie);
 
     // Create HTML response with frontend URL from config

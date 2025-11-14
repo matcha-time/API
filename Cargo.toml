@@ -148,3 +148,4 @@ anyhow = "1.0"
 uuid = { version = "1.18", features = ["serde", "v4"] }
 bcrypt = "0.15"
 tower-http = { version = "0.6", features = ["cors"] }
+envy = "0.4"
