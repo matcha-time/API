@@ -49,6 +49,15 @@ pub struct ApiConfig {
     #[serde(default = "default_allowed_origins")]
     pub allowed_origins: String,
 
+    // Rate Limiting
+    /// Number of requests allowed per second (default: 2)
+    #[serde(default = "default_rate_limit_per_second")]
+    pub rate_limit_per_second: u64,
+
+    /// Maximum burst size for rate limiting (default: 100)
+    #[serde(default = "default_rate_limit_burst_size")]
+    pub rate_limit_burst_size: u32,
+
     /// Environment mode (development/production)
     #[serde(default)]
     pub env: Environment,
@@ -57,6 +66,16 @@ pub struct ApiConfig {
 /// Default value for allowed_origins
 fn default_allowed_origins() -> String {
     "http://localhost:8080".to_string()
+}
+
+/// Default value for rate_limit_per_second
+fn default_rate_limit_per_second() -> u64 {
+    2
+}
+
+/// Default value for rate_limit_burst_size
+fn default_rate_limit_burst_size() -> u32 {
+    100
 }
 
 /// Custom error type for configuration
