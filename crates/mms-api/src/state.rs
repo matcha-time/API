@@ -6,7 +6,7 @@ use openidconnect::{
     core::{CoreClient, CoreProviderMetadata},
 };
 
-use crate::{ApiConfig, config::Environment};
+use crate::{ApiConfig, config::Environment, user::email::EmailService};
 use sqlx::PgPool;
 
 pub type OpenIdClient = CoreClient<
@@ -26,6 +26,7 @@ pub struct ApiState {
     pub cookie_key: Key,
     pub pool: PgPool,
     pub environment: Environment,
+    pub email_service: Option<EmailService>,
 }
 
 impl ApiState {
@@ -52,13 +53,34 @@ impl ApiState {
         )
         .set_redirect_uri(RedirectUrl::new(config.redirect_url)?);
 
+        // Initialize email service if SMTP is configured
+        let email_service = if let (Some(host), Some(username), Some(password), Some(from_email), Some(from_name)) = (
+            config.smtp_host.as_ref(),
+            config.smtp_username.as_ref(),
+            config.smtp_password.as_ref(),
+            config.smtp_from_email.as_ref(),
+            config.smtp_from_name.as_ref(),
+        ) {
+            match EmailService::new(host, username, password, from_email, from_name, &config.frontend_url) {
+                Ok(service) => Some(service),
+                Err(e) => {
+                    eprintln!("Warning: Failed to initialize email service: {}", e);
+                    None
+                }
+            }
+        } else {
+            eprintln!("Warning: Email service not configured (missing SMTP environment variables)");
+            None
+        };
+
         Ok(Self {
             oidc_client,
             jwt_secret: config.jwt_secret,
-            frontend_url: config.frontend_url,
+            frontend_url: config.frontend_url.clone(),
             cookie_key,
             pool,
             environment: config.env,
+            email_service,
         })
     }
 }

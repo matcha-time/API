@@ -39,6 +39,13 @@ pub struct ApiConfig {
     pub jwt_secret: String,
     pub cookie_secret: String,
 
+    // Email / SMTP (optional)
+    pub smtp_host: Option<String>,
+    pub smtp_username: Option<String>,
+    pub smtp_password: Option<String>,
+    pub smtp_from_email: Option<String>,
+    pub smtp_from_name: Option<String>,
+
     // Database
     pub database_url: String,
 

@@ -23,6 +23,8 @@ pub enum ApiError {
     Database(#[from] sqlx::Error),
     #[error("Password hashing error: {0}")]
     Bcrypt(#[from] bcrypt::BcryptError),
+    #[error("Email error: {0}")]
+    Email(String),
 }
 
 impl IntoResponse for ApiError {
@@ -35,6 +37,7 @@ impl IntoResponse for ApiError {
             ApiError::Auth(msg) => (StatusCode::UNAUTHORIZED, msg),
             ApiError::Validation(msg) => (StatusCode::BAD_REQUEST, msg),
             ApiError::Bcrypt(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+            ApiError::Email(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
             ApiError::Database(e) => {
                 // Handle specific database errors
                 if let sqlx::Error::Database(db_err) = &e

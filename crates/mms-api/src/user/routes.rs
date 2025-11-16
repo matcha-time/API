@@ -14,6 +14,7 @@ use crate::{
         routes::{AuthResponse, UserResponse},
     },
     error::ApiError,
+    user::password_reset,
 };
 
 use mms_db::models::{ActivityDay, UserStats};
@@ -24,6 +25,8 @@ pub fn routes() -> Router<ApiState> {
         .route("/users/register", post(create_user))
         .route("/users/login", post(login_user))
         .route("/users/{user_id}/dashboard", get(get_user_dashboard))
+        .route("/users/request-password-reset", post(request_password_reset))
+        .route("/users/reset-password", post(reset_password))
 }
 
 #[derive(Serialize)]
@@ -195,4 +198,108 @@ async fn login_user(
             },
         }),
     ))
+}
+
+#[derive(Debug, Deserialize)]
+struct RequestPasswordResetRequest {
+    email: String,
+}
+
+#[derive(Debug, Serialize)]
+struct RequestPasswordResetResponse {
+    message: String,
+}
+
+async fn request_password_reset(
+    State(state): State<ApiState>,
+    Json(request): Json<RequestPasswordResetRequest>,
+) -> Result<Json<RequestPasswordResetResponse>, ApiError> {
+    // Validate email format
+    auth::validation::validate_email(&request.email)?;
+
+    // Find user by email (only for email auth provider)
+    let user = sqlx::query_as::<_, (Uuid, String)>(
+        // language=PostgreSQL
+        r#"
+            SELECT id, username
+            FROM users
+            WHERE email = $1 AND auth_provider = 'email'
+        "#,
+    )
+    .bind(&request.email)
+    .fetch_optional(&state.pool)
+    .await?;
+
+    // If user exists, create token and send email
+    // Note: We don't reveal if the email exists or not for security
+    if let Some((user_id, username)) = user {
+        // Create reset token (expires in 1 hour)
+        let token = password_reset::create_reset_token(&state.pool, user_id, 1).await?;
+
+        // Send password reset email
+        if let Some(ref email_service) = state.email_service {
+            email_service
+                .send_password_reset_email(&request.email, &username, &token)
+                .map_err(|e| {
+                    eprintln!("Failed to send password reset email: {}", e);
+                    ApiError::Email("Failed to send password reset email".to_string())
+                })?;
+        } else {
+            // Email service not configured - log the token for development
+            eprintln!(
+                "Email service not configured. Password reset token for {}: {}",
+                request.email, token
+            );
+        }
+    }
+
+    // Always return success to prevent email enumeration
+    Ok(Json(RequestPasswordResetResponse {
+        message: "If an account exists with that email, a password reset link has been sent."
+            .to_string(),
+    }))
+}
+
+#[derive(Debug, Deserialize)]
+struct ResetPasswordRequest {
+    token: String,
+    new_password: String,
+}
+
+#[derive(Debug, Serialize)]
+struct ResetPasswordResponse {
+    message: String,
+}
+
+async fn reset_password(
+    State(state): State<ApiState>,
+    Json(request): Json<ResetPasswordRequest>,
+) -> Result<Json<ResetPasswordResponse>, ApiError> {
+    // Validate new password
+    auth::validation::validate_password(&request.new_password)?;
+
+    // Verify token and get user_id (this marks the token as used)
+    let user_id = password_reset::verify_reset_token(&state.pool, &request.token).await?;
+
+    // Hash the new password
+    let password_hash = bcrypt::hash(&request.new_password, bcrypt::DEFAULT_COST)?;
+
+    // Update user's password
+    sqlx::query(
+        // language=PostgreSQL
+        r#"
+            UPDATE users
+            SET password_hash = $1
+            WHERE id = $2 AND auth_provider = 'email'
+        "#,
+    )
+    .bind(&password_hash)
+    .bind(user_id)
+    .execute(&state.pool)
+    .await?;
+
+    Ok(Json(ResetPasswordResponse {
+        message: "Password has been reset successfully. You can now log in with your new password."
+            .to_string(),
+    }))
 }
