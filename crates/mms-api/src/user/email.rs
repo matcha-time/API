@@ -1,7 +1,6 @@
 use lettre::{
-    message::{header::ContentType, Mailbox},
-    transport::smtp::authentication::Credentials,
-    Message, SmtpTransport, Transport,
+    message::Mailbox, transport::smtp::authentication::Credentials, Message, SmtpTransport,
+    Transport,
 };
 
 use crate::error::ApiError;
@@ -64,50 +63,9 @@ impl EmailService {
 
         let reset_url = format!("{}/reset-password?token={}", self.frontend_url, reset_token);
 
-        let html_body = format!(
-            r#"
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-        <h1 style="color: #2c3e50; margin-bottom: 20px;">Password Reset Request</h1>
-
-        <p>Hi <strong>{}</strong>,</p>
-
-        <p>We received a request to reset your password for your Matcha Time account. If you didn't make this request, you can safely ignore this email.</p>
-
-        <p>To reset your password, click the button below:</p>
-
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="{}"
-               style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                Reset Password
-            </a>
-        </div>
-
-        <p>Or copy and paste this link into your browser:</p>
-        <p style="background-color: #fff; padding: 10px; border-left: 4px solid #007bff; word-break: break-all;">
-            <a href="{}" style="color: #007bff;">{}</a>
-        </p>
-
-        <p style="color: #666; font-size: 14px; margin-top: 30px;">
-            <strong>Note:</strong> This link will expire in 1 hour for security reasons.
-        </p>
-
-        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-
-        <p style="color: #999; font-size: 12px;">
-            If you didn't request a password reset, please ignore this email or contact support if you have concerns.
-        </p>
-    </div>
-</body>
-</html>
-            "#,
-            username, reset_url, reset_url, reset_url
+        let body = format!(
+            "Hi {},\n\nYou requested to reset your password for your Matcha Time account.\n\nReset your password by clicking this link:\n{}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, you can safely ignore this email.",
+            username, reset_url
         );
 
         let email = Message::builder()
@@ -116,8 +74,7 @@ impl EmailService {
                 .parse()
                 .map_err(|e| ApiError::Validation(format!("Invalid recipient email: {}", e)))?)
             .subject("Reset Your Matcha Time Password")
-            .header(ContentType::TEXT_HTML)
-            .body(html_body)
+            .body(body)
             .map_err(|e| ApiError::Email(format!("Failed to build email: {}", e)))?;
 
         smtp_transport

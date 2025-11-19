@@ -5,16 +5,5 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     token_hash    TEXT NOT NULL UNIQUE,
     expires_at    TIMESTAMPTZ NOT NULL,
     used_at       TIMESTAMPTZ,
-    created_at    TIMESTAMPTZ DEFAULT NOW(),
-
-    -- Ensure only one active token per user
-    CONSTRAINT one_active_token_per_user UNIQUE (user_id, used_at)
-        WHERE used_at IS NULL
+    created_at    TIMESTAMPTZ DEFAULT NOW()
 );
-
--- Index for fast token lookup
-CREATE INDEX IF NOT EXISTS idx_reset_tokens_hash ON password_reset_tokens(token_hash)
-    WHERE used_at IS NULL AND expires_at > NOW();
-
--- Index for cleanup of expired tokens
-CREATE INDEX IF NOT EXISTS idx_reset_tokens_expires ON password_reset_tokens(expires_at);
