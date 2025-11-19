@@ -27,7 +27,7 @@ impl EmailService {
         // Validate email format
         let _from_mailbox: Mailbox = format!("{} <{}>", from_name, from_email)
             .parse()
-            .map_err(|e| ApiError::Email(format!("Invalid from email: {}", e)))?;
+            .map_err(|e| ApiError::Email(format!("Invalid from email: {e}")))?;
 
         Ok(Self {
             smtp_host: smtp_host.to_string(),
@@ -43,7 +43,7 @@ impl EmailService {
         let credentials = Credentials::new(self.smtp_username.clone(), self.smtp_password.clone());
 
         let transport = SmtpTransport::relay(&self.smtp_host)
-            .map_err(|e| ApiError::Email(format!("Failed to create SMTP transport: {}", e)))?
+            .map_err(|e| ApiError::Email(format!("Failed to create SMTP transport: {e}")))?
             .credentials(credentials)
             .build();
 
@@ -59,7 +59,7 @@ impl EmailService {
         let smtp_transport = self.create_transport()?;
         let from_email: Mailbox = format!("{} <{}>", self.from_name, self.from_email_str)
             .parse()
-            .map_err(|e| ApiError::Validation(format!("Invalid from email: {}", e)))?;
+            .map_err(|e| ApiError::Validation(format!("Invalid from email: {e}")))?;
 
         let reset_url = format!("{}/reset-password?token={}", self.frontend_url, reset_token);
 
@@ -72,14 +72,14 @@ impl EmailService {
             .from(from_email)
             .to(to_email
                 .parse()
-                .map_err(|e| ApiError::Validation(format!("Invalid recipient email: {}", e)))?)
+                .map_err(|e| ApiError::Validation(format!("Invalid recipient email: {e}")))?)
             .subject("Reset Your Matcha Time Password")
             .body(body)
-            .map_err(|e| ApiError::Email(format!("Failed to build email: {}", e)))?;
+            .map_err(|e| ApiError::Email(format!("Failed to build email: {e}")))?;
 
         smtp_transport
             .send(&email)
-            .map_err(|e| ApiError::Email(format!("Failed to send email: {}", e)))?;
+            .map_err(|e| ApiError::Email(format!("Failed to send email: {e}")))?;
 
         Ok(())
     }

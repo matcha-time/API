@@ -240,7 +240,7 @@ async fn request_password_reset(
         let token = password_reset::create_reset_token(&state.pool, user_id, 1).await?;
 
         // Send password reset email
-        if let Some(ref email_service) = state.email_service {
+        if let Some(email_service) = &state.email_service {
             email_service
                 .send_password_reset_email(&request.email, &username, &token)
                 .map_err(|e| {

@@ -77,12 +77,12 @@ impl ApiState {
             ) {
                 Ok(service) => Some(service),
                 Err(e) => {
-                    eprintln!("Warning: Failed to initialize email service: {}", e);
+                    eprintln!("Failed to initialize email service: {e}");
                     None
                 }
             }
         } else {
-            eprintln!("Warning: Email service not configured (missing SMTP environment variables)");
+            eprintln!("Email service not configured (missing SMTP environment variables)");
             None
         };
 
