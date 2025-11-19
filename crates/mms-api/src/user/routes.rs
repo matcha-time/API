@@ -25,7 +25,10 @@ pub fn routes() -> Router<ApiState> {
         .route("/users/register", post(create_user))
         .route("/users/login", post(login_user))
         .route("/users/{user_id}/dashboard", get(get_user_dashboard))
-        .route("/users/request-password-reset", post(request_password_reset))
+        .route(
+            "/users/request-password-reset",
+            post(request_password_reset),
+        )
         .route("/users/reset-password", post(reset_password))
 }
 

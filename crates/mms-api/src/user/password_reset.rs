@@ -1,8 +1,8 @@
 use chrono::{DateTime, Duration, Utc};
 use rand::Rng;
 use sha2::{Digest, Sha256};
-use sqlx::types::Uuid;
 use sqlx::PgPool;
+use sqlx::types::Uuid;
 
 use crate::error::ApiError;
 

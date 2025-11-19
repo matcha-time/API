@@ -1,6 +1,6 @@
 use lettre::{
-    message::Mailbox, transport::smtp::authentication::Credentials, Message, SmtpTransport,
-    Transport,
+    Message, SmtpTransport, Transport, message::Mailbox,
+    transport::smtp::authentication::Credentials,
 };
 
 use crate::error::ApiError;

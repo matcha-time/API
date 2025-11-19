@@ -54,14 +54,27 @@ impl ApiState {
         .set_redirect_uri(RedirectUrl::new(config.redirect_url)?);
 
         // Initialize email service if SMTP is configured
-        let email_service = if let (Some(host), Some(username), Some(password), Some(from_email), Some(from_name)) = (
+        let email_service = if let (
+            Some(host),
+            Some(username),
+            Some(password),
+            Some(from_email),
+            Some(from_name),
+        ) = (
             config.smtp_host.as_ref(),
             config.smtp_username.as_ref(),
             config.smtp_password.as_ref(),
             config.smtp_from_email.as_ref(),
             config.smtp_from_name.as_ref(),
         ) {
-            match EmailService::new(host, username, password, from_email, from_name, &config.frontend_url) {
+            match EmailService::new(
+                host,
+                username,
+                password,
+                from_email,
+                from_name,
+                &config.frontend_url,
+            ) {
                 Ok(service) => Some(service),
                 Err(e) => {
                     eprintln!("Warning: Failed to initialize email service: {}", e);
