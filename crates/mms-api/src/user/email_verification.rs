@@ -5,8 +5,8 @@ use sqlx::types::Uuid;
 use crate::error::ApiError;
 use super::token::{generate_token, hash_token};
 
-/// Create a password reset token in the database
-pub async fn create_reset_token(
+/// Create an email verification token in the database
+pub async fn create_verification_token(
     pool: &PgPool,
     user_id: Uuid,
     expires_in_hours: i64,
@@ -22,7 +22,7 @@ pub async fn create_reset_token(
     sqlx::query(
         // language=PostgreSQL
         r#"
-            UPDATE password_reset_tokens
+            UPDATE email_verification_tokens
             SET used_at = NOW()
             WHERE user_id = $1 AND used_at IS NULL
         "#,
@@ -35,7 +35,7 @@ pub async fn create_reset_token(
     sqlx::query(
         // language=PostgreSQL
         r#"
-            INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+            INSERT INTO email_verification_tokens (user_id, token_hash, expires_at)
             VALUES ($1, $2, $3)
         "#,
     )
@@ -48,15 +48,18 @@ pub async fn create_reset_token(
     Ok(token)
 }
 
-/// Verify a reset token and return the associated user_id
-pub async fn verify_reset_token(pool: &PgPool, token: &str) -> Result<Uuid, ApiError> {
+/// Verify an email verification token and mark the user's email as verified
+pub async fn verify_email_token(pool: &PgPool, token: &str) -> Result<Uuid, ApiError> {
     let token_hash = hash_token(token);
+
+    // Start a transaction to ensure both operations succeed or fail together
+    let mut tx = pool.begin().await?;
 
     // Find the token and mark it as used
     let result = sqlx::query_as::<_, (Uuid,)>(
         // language=PostgreSQL
         r#"
-            UPDATE password_reset_tokens
+            UPDATE email_verification_tokens
             SET used_at = NOW()
             WHERE token_hash = $1
                 AND used_at IS NULL
@@ -65,12 +68,30 @@ pub async fn verify_reset_token(pool: &PgPool, token: &str) -> Result<Uuid, ApiE
         "#,
     )
     .bind(&token_hash)
-    .fetch_optional(pool)
+    .fetch_optional(&mut *tx)
     .await?;
 
-    result
+    let user_id = result
         .map(|(user_id,)| user_id)
-        .ok_or_else(|| ApiError::Auth("Invalid or expired reset token".to_string()))
+        .ok_or_else(|| ApiError::Auth("Invalid or expired verification token".to_string()))?;
+
+    // Mark the user's email as verified
+    sqlx::query(
+        // language=PostgreSQL
+        r#"
+            UPDATE users
+            SET email_verified = TRUE
+            WHERE id = $1
+        "#,
+    )
+    .bind(user_id)
+    .execute(&mut *tx)
+    .await?;
+
+    // Commit the transaction
+    tx.commit().await?;
+
+    Ok(user_id)
 }
 
 /// Clean up expired tokens (can be run periodically)
@@ -78,7 +99,7 @@ pub async fn cleanup_expired_tokens(pool: &PgPool) -> Result<u64, ApiError> {
     let result = sqlx::query(
         // language=PostgreSQL
         r#"
-            DELETE FROM password_reset_tokens
+            DELETE FROM email_verification_tokens
             WHERE expires_at < NOW() OR used_at IS NOT NULL
         "#,
     )

@@ -1,6 +1,6 @@
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     routing::{get, post},
 };
 use axum_extra::extract::PrivateCookieJar;
@@ -14,7 +14,7 @@ use crate::{
         routes::{AuthResponse, UserResponse},
     },
     error::ApiError,
-    user::password_reset,
+    user::{email_verification, password_reset},
 };
 
 use mms_db::models::{ActivityDay, UserStats};
@@ -25,6 +25,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/users/register", post(create_user))
         .route("/users/login", post(login_user))
         .route("/users/{user_id}/dashboard", get(get_user_dashboard))
+        .route("/users/verify-email", get(verify_email))
         .route(
             "/users/request-password-reset",
             post(request_password_reset),
@@ -94,9 +95,8 @@ struct LoginRequest {
 
 async fn create_user(
     State(state): State<ApiState>,
-    jar: PrivateCookieJar,
     Json(request): Json<CreateUserRequest>,
-) -> Result<(PrivateCookieJar, Json<AuthResponse>), ApiError> {
+) -> Result<Json<serde_json::Value>, ApiError> {
     // Validate input
     auth::validation::validate_email(&request.email)?;
     auth::validation::validate_password(&request.password)?;
@@ -132,25 +132,30 @@ async fn create_user(
     .execute(&state.pool)
     .await?;
 
-    // Generate JWT token
-    let token = jwt::generate_jwt_token(user_id, request.email.clone(), &state.jwt_secret)?;
+    // Generate verification token (24 hour expiry)
+    let verification_token =
+        email_verification::create_verification_token(&state.pool, user_id, 24).await?;
 
-    // Set auth cookie with JWT
-    let auth_cookie = jwt::create_auth_cookie(token.clone(), &state.environment);
-    let jar = jar.add(auth_cookie);
+    // Send verification email if email service is configured
+    if let Some(email_service) = &state.email_service {
+        email_service.send_verification_email(
+            &request.email,
+            &request.username,
+            &verification_token,
+        )?;
+    } else {
+        // If email service is not configured, log the verification URL to the console
+        eprintln!(
+            "Email service not configured. Verification token for user {}: {}",
+            user_id,
+            verification_token
+        );
+    }
 
-    Ok((
-        jar,
-        Json(AuthResponse {
-            token,
-            user: UserResponse {
-                id: user_id,
-                username: request.username,
-                email: request.email,
-                profile_picture_url: None,
-            },
-        }),
-    ))
+    Ok(Json(serde_json::json!({
+        "message": "Registration successful. Please check your email to verify your account.",
+        "email": request.email
+    })))
 }
 
 async fn login_user(
@@ -159,10 +164,10 @@ async fn login_user(
     Json(request): Json<LoginRequest>,
 ) -> Result<(PrivateCookieJar, Json<AuthResponse>), ApiError> {
     // Fetch user from database
-    let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>)>(
+    let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>, bool)>(
         // language=PostgreSQL
         r#"
-            SELECT id, username, email, password_hash, profile_picture_url
+            SELECT id, username, email, password_hash, profile_picture_url, email_verified
             FROM users
             WHERE email = $1 AND auth_provider = 'email'
         "#,
@@ -172,7 +177,7 @@ async fn login_user(
     .await?
     .ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
 
-    let (id, username, email, password_hash, profile_picture_url) = user;
+    let (id, username, email, password_hash, profile_picture_url, email_verified) = user;
 
     // Verify password exists and matches
     let password_hash =
@@ -180,6 +185,13 @@ async fn login_user(
 
     if !bcrypt::verify(&request.password, &password_hash)? {
         return Err(ApiError::Auth("Invalid email or password".to_string()));
+    }
+
+    // Check if email is verified
+    if !email_verified {
+        return Err(ApiError::Auth(
+            "Please verify your email address before logging in. Check your inbox for the verification link.".to_string()
+        ));
     }
 
     // Generate JWT token
@@ -305,4 +317,22 @@ async fn reset_password(
         message: "Password has been reset successfully. You can now log in with your new password."
             .to_string(),
     }))
+}
+
+#[derive(Debug, Deserialize)]
+struct VerifyEmailQuery {
+    token: String,
+}
+
+async fn verify_email(
+    State(state): State<ApiState>,
+    Query(query): Query<VerifyEmailQuery>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    // Verify the token and mark the user's email as verified
+    let user_id = email_verification::verify_email_token(&state.pool, &query.token).await?;
+
+    Ok(Json(serde_json::json!({
+        "message": "Email verified successfully. You can now log in to your account.",
+        "user_id": user_id
+    })))
 }
