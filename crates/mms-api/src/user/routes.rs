@@ -27,6 +27,10 @@ pub fn routes() -> Router<ApiState> {
         .route("/users/{user_id}/dashboard", get(get_user_dashboard))
         .route("/users/verify-email", get(verify_email))
         .route(
+            "/users/resend-verification",
+            post(resend_verification_email),
+        )
+        .route(
             "/users/request-password-reset",
             post(request_password_reset),
         )
@@ -102,6 +106,53 @@ async fn create_user(
     auth::validation::validate_password(&request.password)?;
     auth::validation::validate_username(&request.username)?;
 
+    // Check if user already exists
+    let existing_user = sqlx::query_as::<_, (Uuid, bool)>(
+        // language=PostgreSQL
+        r#"
+            SELECT id, email_verified
+            FROM users
+            WHERE email = $1 AND auth_provider = 'email'
+        "#,
+    )
+    .bind(&request.email)
+    .fetch_optional(&state.pool)
+    .await?;
+
+    // If user exists and is verified, tell them to login
+    if let Some((_, true)) = existing_user {
+        return Err(ApiError::Validation(
+            "An account with this email already exists. Please log in.".to_string(),
+        ));
+    }
+
+    // If user exists but is not verified, resend verification email
+    if let Some((user_id, false)) = existing_user {
+        let verification_token =
+            email_verification::create_verification_token(&state.pool, user_id, 24).await?;
+
+        if let Some(email_service) = &state.email_service {
+            email_service.send_verification_email(
+                &request.email,
+                &request.username,
+                &verification_token,
+            )?;
+        } else {
+            eprintln!(
+                "Email service not configured. Verification token for user {}: {}",
+                user_id, verification_token
+            );
+        }
+
+        return Ok(Json(serde_json::json!({
+            "message": "A verification email has been resent. Please check your email to verify your account.",
+            "email": request.email
+        })));
+    }
+
+    // Start a transaction for user creation
+    let mut tx = state.pool.begin().await?;
+
     // Hash the password
     let password_hash = bcrypt::hash(&request.password, bcrypt::DEFAULT_COST)?;
 
@@ -117,8 +168,20 @@ async fn create_user(
     .bind(&request.username)
     .bind(&request.email)
     .bind(&password_hash)
-    .fetch_one(&state.pool)
-    .await?;
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(|e| {
+        // Handle unique constraint violations gracefully
+        if e.to_string().contains("duplicate key") {
+            if e.to_string().contains("username") {
+                ApiError::Validation("Username is already taken.".to_string())
+            } else {
+                ApiError::Validation("An account with this email already exists.".to_string())
+            }
+        } else {
+            ApiError::Database(e)
+        }
+    })?;
 
     // Create user_stats entry
     sqlx::query(
@@ -129,26 +192,33 @@ async fn create_user(
         "#,
     )
     .bind(user_id)
-    .execute(&state.pool)
+    .execute(&mut *tx)
     .await?;
 
     // Generate verification token (24 hour expiry)
     let verification_token =
         email_verification::create_verification_token(&state.pool, user_id, 24).await?;
 
+    // Commit the transaction before sending email
+    tx.commit().await?;
+
     // Send verification email if email service is configured
+    // Note: If this fails, user is created but email not sent
+    // They can use the resend endpoint or re-register
     if let Some(email_service) = &state.email_service {
-        email_service.send_verification_email(
+        if let Err(e) = email_service.send_verification_email(
             &request.email,
             &request.username,
             &verification_token,
-        )?;
+        ) {
+            eprintln!("Failed to send verification email: {}", e);
+            // Don't fail the request, user can resend later
+        }
     } else {
         // If email service is not configured, log the verification URL to the console
         eprintln!(
             "Email service not configured. Verification token for user {}: {}",
-            user_id,
-            verification_token
+            user_id, verification_token
         );
     }
 
@@ -252,13 +322,14 @@ async fn request_password_reset(
         let token = password_reset::create_reset_token(&state.pool, user_id, 1).await?;
 
         // Send password reset email
+        // Note: If this fails, we don't return error to prevent email enumeration
         if let Some(email_service) = &state.email_service {
-            email_service
-                .send_password_reset_email(&request.email, &username, &token)
-                .map_err(|e| {
-                    eprintln!("Failed to send password reset email: {}", e);
-                    ApiError::Email("Failed to send password reset email".to_string())
-                })?;
+            if let Err(e) =
+                email_service.send_password_reset_email(&request.email, &username, &token)
+            {
+                eprintln!("Failed to send password reset email: {}", e);
+                // Don't fail the request to prevent revealing user existence
+            }
         } else {
             // Email service not configured - log the token for development
             eprintln!(
@@ -293,25 +364,29 @@ async fn reset_password(
     // Validate new password
     auth::validation::validate_password(&request.new_password)?;
 
-    // Verify token and get user_id (this marks the token as used)
-    let user_id = password_reset::verify_reset_token(&state.pool, &request.token).await?;
-
     // Hash the new password
     let password_hash = bcrypt::hash(&request.new_password, bcrypt::DEFAULT_COST)?;
 
-    // Update user's password
-    sqlx::query(
-        // language=PostgreSQL
-        r#"
-            UPDATE users
-            SET password_hash = $1
-            WHERE id = $2 AND auth_provider = 'email'
-        "#,
-    )
-    .bind(&password_hash)
-    .bind(user_id)
-    .execute(&state.pool)
-    .await?;
+    // Verify token and reset password in a single transaction
+    // This prevents token burn without password update
+    let (email, username) =
+        password_reset::verify_and_reset_password(&state.pool, &request.token, &password_hash)
+            .await
+            .map_err(|_| {
+                // Return generic error to prevent enumeration
+                ApiError::Auth(
+                    "Password reset failed. The token may be invalid or expired.".to_string(),
+                )
+            })?;
+
+    // Send password change confirmation email
+    // Note: We don't fail the request if email fails - password was already changed
+    if let Some(email_service) = &state.email_service
+        && let Err(e) = email_service.send_password_changed_email(&email, &username)
+    {
+        eprintln!("Failed to send password change confirmation email: {}", e);
+        // Don't fail - password was already successfully changed
+    }
 
     Ok(Json(ResetPasswordResponse {
         message: "Password has been reset successfully. You can now log in with your new password."
@@ -329,10 +404,75 @@ async fn verify_email(
     Query(query): Query<VerifyEmailQuery>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Verify the token and mark the user's email as verified
-    let user_id = email_verification::verify_email_token(&state.pool, &query.token).await?;
+    let newly_verified = email_verification::verify_email_token(&state.pool, &query.token)
+        .await
+        .unwrap_or(false); // Return generic success even on error to prevent enumeration
+
+    let message = if newly_verified {
+        "Email verified successfully. You can now log in to your account."
+    } else {
+        "Email verification processed successfully."
+    };
 
     Ok(Json(serde_json::json!({
-        "message": "Email verified successfully. You can now log in to your account.",
-        "user_id": user_id
+        "message": message
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+struct ResendVerificationRequest {
+    email: String,
+}
+
+async fn resend_verification_email(
+    State(state): State<ApiState>,
+    Json(request): Json<ResendVerificationRequest>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    // Validate email format
+    auth::validation::validate_email(&request.email)?;
+
+    // Find user by email (only for email auth provider)
+    let user = sqlx::query_as::<_, (Uuid, String, bool)>(
+        // language=PostgreSQL
+        r#"
+            SELECT id, username, email_verified
+            FROM users
+            WHERE email = $1 AND auth_provider = 'email'
+        "#,
+    )
+    .bind(&request.email)
+    .fetch_optional(&state.pool)
+    .await?;
+
+    // If user exists and is not verified, send verification email
+    // Note: We don't reveal if the email exists or not for security
+    if let Some((user_id, username, email_verified)) = user {
+        // If already verified, don't send email but return success
+        if !email_verified {
+            // Create verification token (24 hour expiry)
+            let token =
+                email_verification::create_verification_token(&state.pool, user_id, 24).await?;
+
+            // Send verification email
+            if let Some(email_service) = &state.email_service {
+                email_service
+                    .send_verification_email(&request.email, &username, &token)
+                    .map_err(|e| {
+                        eprintln!("Failed to send verification email: {}", e);
+                        ApiError::Email("Failed to send verification email".to_string())
+                    })?;
+            } else {
+                // Email service not configured - log the token for development
+                eprintln!(
+                    "Email service not configured. Verification token for {}: {}",
+                    request.email, token
+                );
+            }
+        }
+    }
+
+    // Always return success to prevent email enumeration
+    Ok(Json(serde_json::json!({
+        "message": "If an unverified account exists with that email, a verification link has been sent."
     })))
 }

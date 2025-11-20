@@ -95,7 +95,10 @@ impl EmailService {
             .parse()
             .map_err(|e| ApiError::Validation(format!("Invalid from email: {e}")))?;
 
-        let verification_url = format!("{}/verify-email?token={}", self.frontend_url, verification_token);
+        let verification_url = format!(
+            "{}/verify-email?token={}",
+            self.frontend_url, verification_token
+        );
 
         let body = format!(
             "Hi {},\n\nWelcome to Matcha Time! Please verify your email address to complete your registration.\n\nVerify your email by clicking this link:\n{}\n\nThis link will expire in 24 hours.\n\nIf you didn't create this account, you can safely ignore this email.",
@@ -108,6 +111,37 @@ impl EmailService {
                 .parse()
                 .map_err(|e| ApiError::Validation(format!("Invalid recipient email: {e}")))?)
             .subject("Verify Your Matcha Time Email")
+            .body(body)
+            .map_err(|e| ApiError::Email(format!("Failed to build email: {e}")))?;
+
+        smtp_transport
+            .send(&email)
+            .map_err(|e| ApiError::Email(format!("Failed to send email: {e}")))?;
+
+        Ok(())
+    }
+
+    pub fn send_password_changed_email(
+        &self,
+        to_email: &str,
+        username: &str,
+    ) -> Result<(), ApiError> {
+        let smtp_transport = self.create_transport()?;
+        let from_email: Mailbox = format!("{} <{}>", self.from_name, self.from_email_str)
+            .parse()
+            .map_err(|e| ApiError::Validation(format!("Invalid from email: {e}")))?;
+
+        let body = format!(
+            "Hi {},\n\nYour Matcha Time password has been successfully changed.\n\nIf you did not make this change, please contact support immediately and secure your account.\n\nFor security, you can request a password reset at:\n{}/reset-password\n\nBest regards,\nMatcha Time Team",
+            username, self.frontend_url
+        );
+
+        let email = Message::builder()
+            .from(from_email)
+            .to(to_email
+                .parse()
+                .map_err(|e| ApiError::Validation(format!("Invalid recipient email: {e}")))?)
+            .subject("Your Matcha Time Password Has Been Changed")
             .body(body)
             .map_err(|e| ApiError::Email(format!("Failed to build email: {e}")))?;
 

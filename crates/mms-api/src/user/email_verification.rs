@@ -2,8 +2,8 @@ use chrono::{DateTime, Duration, Utc};
 use sqlx::PgPool;
 use sqlx::types::Uuid;
 
-use crate::error::ApiError;
 use super::token::{generate_token, hash_token};
+use crate::error::ApiError;
 
 /// Create an email verification token in the database
 pub async fn create_verification_token(
@@ -49,7 +49,8 @@ pub async fn create_verification_token(
 }
 
 /// Verify an email verification token and mark the user's email as verified
-pub async fn verify_email_token(pool: &PgPool, token: &str) -> Result<Uuid, ApiError> {
+/// Returns Ok(true) if email was newly verified, Ok(false) if already verified
+pub async fn verify_email_token(pool: &PgPool, token: &str) -> Result<bool, ApiError> {
     let token_hash = hash_token(token);
 
     // Start a transaction to ensure both operations succeed or fail together
@@ -75,6 +76,25 @@ pub async fn verify_email_token(pool: &PgPool, token: &str) -> Result<Uuid, ApiE
         .map(|(user_id,)| user_id)
         .ok_or_else(|| ApiError::Auth("Invalid or expired verification token".to_string()))?;
 
+    // Check if user's email is already verified
+    let already_verified = sqlx::query_scalar::<_, bool>(
+        // language=PostgreSQL
+        r#"
+            SELECT email_verified
+            FROM users
+            WHERE id = $1
+        "#,
+    )
+    .bind(user_id)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    // If already verified, just return success without updating
+    if already_verified {
+        tx.commit().await?;
+        return Ok(false);
+    }
+
     // Mark the user's email as verified
     sqlx::query(
         // language=PostgreSQL
@@ -91,7 +111,7 @@ pub async fn verify_email_token(pool: &PgPool, token: &str) -> Result<Uuid, ApiE
     // Commit the transaction
     tx.commit().await?;
 
-    Ok(user_id)
+    Ok(true)
 }
 
 /// Clean up expired tokens (can be run periodically)

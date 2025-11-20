@@ -23,7 +23,17 @@ ALLOWED_ORIGINS=http://localhost:5173
 ```
 **Note:** `ALLOWED_ORIGINS` should match your frontend URL (e.g., `http://localhost:5173` for Vite, `http://localhost:8080` for Vue, `http://localhost:3001` for React if API is on 3000). For multiple origins, separate with commas: `http://localhost:5173,http://localhost:8080`
 
-3. Run the server:
+3. Add optional email configuration for production (or dev tokens logged to console):
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_FROM_EMAIL=noreply@matcha-time.com
+SMTP_FROM_NAME=Matcha Time
+FRONTEND_URL=http://localhost:5173
+```
+
+4. Run the server:
 ```bash
 cargo run
 ```
