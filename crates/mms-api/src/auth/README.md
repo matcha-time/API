@@ -30,8 +30,8 @@ Both methods use a dual-token system:
 │ Client  │                                        │   API   │
 └────┬────┘                                        └────┬────┘
      │                                                  │
-     │  POST /users/register                           │
-     │  { email, username, password }                  │
+     │  POST /users/register                            │
+     │  { email, username, password }                   │
      ├─────────────────────────────────────────────────>│
      │                                                  │
      │                                                  ├─> Hash password (bcrypt)
@@ -39,20 +39,20 @@ Both methods use a dual-token system:
      │                                                  ├─> Generate verification token
      │                                                  └─> Send verification email
      │                                                  │
-     │  { message: "Check your email" }                │
+     │  { message: "Check your email" }                 │
      │<─────────────────────────────────────────────────┤
      │                                                  │
-     │  GET /users/verify-email?token=xxx              │
+     │  GET /users/verify-email?token=xxx               │
      ├─────────────────────────────────────────────────>│
      │                                                  │
      │                                                  ├─> Verify token
      │                                                  └─> Set email_verified=true
      │                                                  │
-     │  { message: "Email verified" }                  │
+     │  { message: "Email verified" }                   │
      │<─────────────────────────────────────────────────┤
      │                                                  │
-     │  POST /users/login                              │
-     │  { email, password }                            │
+     │  POST /users/login                               │
+     │  { email, password }                             │
      ├─────────────────────────────────────────────────>│
      │                                                  │
      │                                                  ├─> Verify password (bcrypt)
@@ -61,9 +61,9 @@ Both methods use a dual-token system:
      │                                                  ├─> Generate refresh token (30d)
      │                                                  └─> Store refresh token hash in DB
      │                                                  │
-     │  Set-Cookie: auth_token=xxx                     │
-     │  Set-Cookie: refresh_token=yyy                  │
-     │  { token, refresh_token, user }                 │
+     │  Set-Cookie: auth_token=xxx                      │
+     │  Set-Cookie: refresh_token=yyy                   │
+     │  { token, refresh_token, user }                  │
      │<─────────────────────────────────────────────────┤
      │                                                  │
 ```
@@ -75,12 +75,12 @@ Both methods use a dual-token system:
 │ Client  │                             │   API   │                      │  Google  │
 └────┬────┘                             └────┬────┘                      └────┬─────┘
      │                                       │                                │
-     │  GET /auth/google                    │                                │
+     │  GET /auth/google                     │                                │
      ├──────────────────────────────────────>│                                │
      │                                       │                                │
-     │                                       ├─> Generate PKCE challenge     │
-     │                                       ├─> Generate CSRF token         │
-     │                                       └─> Store in encrypted cookie   │
+     │                                       ├─> Generate PKCE challenge      │
+     │                                       ├─> Generate CSRF token          │
+     │                                       └─> Store in encrypted cookie    │
      │                                       │                                │
      │  Redirect to Google with              │                                │
      │  state, nonce, PKCE challenge         │                                │
@@ -89,10 +89,10 @@ Both methods use a dual-token system:
      │  User authorizes app                                                   │
      ├───────────────────────────────────────────────────────────────────────>│
      │                                       │                                │
-     │  Redirect to /auth/callback?code=xxx&state=yyy                        │
+     │  Redirect to /auth/callback?code=xxx&state=yyy                         │
      │<───────────────────────────────────────────────────────────────────────┤
      │                                       │                                │
-     │  GET /auth/callback?code=xxx&state=yyy                                │
+     │  GET /auth/callback?code=xxx&state=yyy                                 │
      ├──────────────────────────────────────>│                                │
      │                                       │                                │
      │                                       ├─> Verify CSRF token            │
@@ -110,9 +110,9 @@ Both methods use a dual-token system:
      │                                       ├─> Generate refresh token       │
      │                                       └─> Store refresh token hash     │
      │                                       │                                │
-     │  Set-Cookie: auth_token=xxx          │                                │
-     │  Set-Cookie: refresh_token=yyy       │                                │
-     │  HTML with postMessage to parent     │                                │
+     │  Set-Cookie: auth_token=xxx           │                                │
+     │  Set-Cookie: refresh_token=yyy        │                                │
+     │  HTML with postMessage to parent      │                                │
      │<──────────────────────────────────────┤                                │
      │                                       │                                │
 ```
@@ -124,18 +124,18 @@ Both methods use a dual-token system:
 │ Client  │                                        │   API   │
 └────┬────┘                                        └────┬────┘
      │                                                  │
-     │  GET /protected-resource                        │
-     │  Cookie: auth_token=expired_jwt                 │
+     │  GET /protected-resource                         │
+     │  Cookie: auth_token=expired_jwt                  │
      ├─────────────────────────────────────────────────>│
      │                                                  │
      │                                                  ├─> Verify JWT
      │                                                  └─> JWT expired ❌
      │                                                  │
-     │  401 Unauthorized                               │
+     │  401 Unauthorized                                │
      │<─────────────────────────────────────────────────┤
      │                                                  │
-     │  GET /auth/refresh                              │
-     │  Cookie: refresh_token=xxx                      │
+     │  GET /auth/refresh                               │
+     │  Cookie: refresh_token=xxx                       │
      ├─────────────────────────────────────────────────>│
      │                                                  │
      │                                                  ├─> Hash refresh token
@@ -146,19 +146,19 @@ Both methods use a dual-token system:
      │                                                  ├─> Generate new refresh token
      │                                                  └─> Store new refresh token hash
      │                                                  │
-     │  Set-Cookie: auth_token=new_jwt                 │
-     │  Set-Cookie: refresh_token=new_token            │
-     │  { token: "new_jwt" }                           │
+     │  Set-Cookie: auth_token=new_jwt                  │
+     │  Set-Cookie: refresh_token=new_token             │
+     │  { token: "new_jwt" }                            │
      │<─────────────────────────────────────────────────┤
      │                                                  │
-     │  Retry: GET /protected-resource                 │
-     │  Cookie: auth_token=new_jwt                     │
+     │  Retry: GET /protected-resource                  │
+     │  Cookie: auth_token=new_jwt                      │
      ├─────────────────────────────────────────────────>│
      │                                                  │
      │                                                  ├─> Verify JWT
      │                                                  └─> Valid ✅
      │                                                  │
-     │  200 OK { data }                                │
+     │  200 OK { data }                                 │
      │<─────────────────────────────────────────────────┤
      │                                                  │
 ```
@@ -170,17 +170,17 @@ Both methods use a dual-token system:
 │ Client  │                                        │   API   │
 └────┬────┘                                        └────┬────┘
      │                                                  │
-     │  GET /auth/logout                               │
-     │  Cookie: refresh_token=xxx                      │
+     │  GET /auth/logout                                │
+     │  Cookie: refresh_token=xxx                       │
      ├─────────────────────────────────────────────────>│
      │                                                  │
      │                                                  ├─> Hash refresh token
      │                                                  ├─> Delete from DB
      │                                                  └─> Clear cookies
      │                                                  │
-     │  Set-Cookie: auth_token=; expires=past          │
-     │  Set-Cookie: refresh_token=; expires=past       │
-     │  { message: "Logged out" }                      │
+     │  Set-Cookie: auth_token=; expires=past           │
+     │  Set-Cookie: refresh_token=; expires=past        │
+     │  { message: "Logged out" }                       │
      │<─────────────────────────────────────────────────┤
      │                                                  │
 ```
