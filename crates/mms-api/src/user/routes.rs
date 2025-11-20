@@ -266,17 +266,23 @@ async fn login_user(
         ));
     }
 
-    // Generate JWT token
+    // Generate JWT access token
     let token = jwt::generate_jwt_token(id, email.clone(), &state.jwt_secret)?;
 
-    // Set auth cookie with JWT
+    // Generate refresh token
+    let (refresh_token, refresh_token_hash) = auth::refresh_token::generate_refresh_token();
+    auth::refresh_token::store_refresh_token(&state.pool, id, &refresh_token_hash, None, None).await?;
+
+    // Set cookies with JWT and refresh token
     let auth_cookie = jwt::create_auth_cookie(token.clone(), &state.environment);
-    let jar = jar.add(auth_cookie);
+    let refresh_cookie = create_refresh_token_cookie(refresh_token.clone(), &state.environment);
+    let jar = jar.add(auth_cookie).add(refresh_cookie);
 
     Ok((
         jar,
         Json(AuthResponse {
             token,
+            refresh_token,
             user: UserResponse {
                 id,
                 username,
@@ -497,6 +503,9 @@ async fn delete_user(
         ));
     }
 
+    // Revoke all refresh tokens for this user
+    let _ = auth::refresh_token::revoke_all_user_tokens(&state.pool, user_id).await;
+
     // Delete the user - cascade will handle all related data
     let result = sqlx::query(
         // language=PostgreSQL
@@ -514,9 +523,10 @@ async fn delete_user(
         return Err(ApiError::NotFound("User not found".to_string()));
     }
 
-    // Clear the auth cookie
-    let cookie = Cookie::build(("auth_token", "")).path("/").build();
-    let jar = jar.remove(cookie);
+    // Clear both auth and refresh token cookies
+    let auth_cookie = Cookie::build(("auth_token", "")).path("/").build();
+    let refresh_cookie = Cookie::build(("refresh_token", "")).path("/").build();
+    let jar = jar.remove(auth_cookie).remove(refresh_cookie);
 
     Ok((
         jar,
@@ -541,6 +551,7 @@ struct UpdateUserProfileResponse {
     user: UserResponse,
 }
 
+// TODO: refactor this giant
 async fn update_user_profile(
     auth: AuthUser,
     State(state): State<ApiState>,
@@ -735,4 +746,20 @@ async fn update_user_profile(
             user: user_response,
         }),
     ))
+}
+
+/// Create a refresh token cookie
+///
+/// Cookies are secure (HTTPS-only) by default in production.
+/// In development mode, cookies can be used over HTTP.
+fn create_refresh_token_cookie(token: String, environment: &crate::config::Environment) -> Cookie<'static> {
+    let is_development = environment.is_development();
+
+    Cookie::build(("refresh_token", token))
+        .path("/")
+        .max_age(time::Duration::days(30))
+        .http_only(true)
+        .same_site(axum_extra::extract::cookie::SameSite::Lax)
+        .secure(!is_development)
+        .build()
 }

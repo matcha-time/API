@@ -10,7 +10,7 @@ use openidconnect::{AuthenticationFlow, Nonce, TokenResponse, core::CoreResponse
 use serde::{Deserialize, Serialize};
 use sqlx::types::Uuid;
 
-use super::{jwt, middleware::AuthUser, models::OidcFlowData, service};
+use super::{jwt, middleware::AuthUser, models::OidcFlowData, refresh_token as rt, service};
 use crate::{ApiState, error::ApiError};
 
 pub fn routes() -> Router<ApiState> {
@@ -18,6 +18,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/auth/google", get(google_auth))
         .route("/auth/callback", get(auth_callback))
         .route("/auth/me", get(auth_me))
+        .route("/auth/refresh", get(refresh_token))
         .route("/auth/logout", get(logout))
 }
 
@@ -66,6 +67,7 @@ struct AuthRequest {
 #[derive(Serialize)]
 pub struct AuthResponse {
     pub token: String,
+    pub refresh_token: String,
     pub user: UserResponse,
 }
 
@@ -148,12 +150,17 @@ async fn auth_callback(
     )
     .await?;
 
-    // Generate JWT token
+    // Generate JWT access token
     let token = jwt::generate_jwt_token(user.id, user.email.clone(), &state.jwt_secret)?;
 
-    // Set auth cookie with JWT
+    // Generate refresh token
+    let (refresh_token, refresh_token_hash) = rt::generate_refresh_token();
+    rt::store_refresh_token(&state.pool, user.id, &refresh_token_hash, None, None).await?;
+
+    // Set cookies with JWT and refresh token
     let auth_cookie = jwt::create_auth_cookie(token.clone(), &state.environment);
-    let jar = jar.add(auth_cookie);
+    let refresh_cookie = create_refresh_token_cookie(refresh_token, &state.environment);
+    let jar = jar.add(auth_cookie).add(refresh_cookie);
 
     // Create HTML response with frontend URL from config
     let html = format!(
@@ -205,11 +212,81 @@ async fn auth_me(
     }))
 }
 
-async fn logout(jar: PrivateCookieJar) -> (PrivateCookieJar, Json<serde_json::Value>) {
-    let cookie = Cookie::build(("auth_token", "")).path("/").build();
-    let jar = jar.remove(cookie);
+async fn refresh_token(
+    State(state): State<ApiState>,
+    jar: PrivateCookieJar,
+) -> Result<(PrivateCookieJar, Json<serde_json::Value>), ApiError> {
+    // Get refresh token from cookie
+    let refresh_cookie = jar
+        .get("refresh_token")
+        .ok_or_else(|| ApiError::Auth("No refresh token found".to_string()))?;
+
+    let old_refresh_token = refresh_cookie.value();
+
+    // Verify and rotate the refresh token
+    let (user_id, new_refresh_token, _) = rt::verify_and_rotate_refresh_token(&state.pool, old_refresh_token).await?;
+
+    // Fetch user email for JWT
+    let email = sqlx::query_scalar::<_, String>(
+        // language=PostgreSQL
+        r#"
+            SELECT email FROM users WHERE id = $1
+        "#,
+    )
+    .bind(user_id)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(|_| ApiError::Auth("User not found".to_string()))?;
+
+    // Generate new JWT access token
+    let new_access_token = jwt::generate_jwt_token(user_id, email, &state.jwt_secret)?;
+
+    // Update cookies
+    let auth_cookie = jwt::create_auth_cookie(new_access_token.clone(), &state.environment);
+    let refresh_cookie = create_refresh_token_cookie(new_refresh_token, &state.environment);
+    let jar = jar.add(auth_cookie).add(refresh_cookie);
+
+    Ok((
+        jar,
+        Json(serde_json::json!({
+            "token": new_access_token,
+            "message": "Token refreshed successfully"
+        })),
+    ))
+}
+
+async fn logout(
+    State(state): State<ApiState>,
+    jar: PrivateCookieJar,
+) -> (PrivateCookieJar, Json<serde_json::Value>) {
+    // Revoke refresh token if present
+    if let Some(refresh_cookie) = jar.get("refresh_token") {
+        let _ = rt::revoke_refresh_token(&state.pool, refresh_cookie.value()).await;
+    }
+
+    // Remove both auth and refresh token cookies
+    let auth_cookie = Cookie::build(("auth_token", "")).path("/").build();
+    let refresh_cookie = Cookie::build(("refresh_token", "")).path("/").build();
+    let jar = jar.remove(auth_cookie).remove(refresh_cookie);
+
     (
         jar,
         Json(serde_json::json!({ "message": "Logged out successfully" })),
     )
+}
+
+/// Create a refresh token cookie
+///
+/// Cookies are secure (HTTPS-only) by default in production.
+/// In development mode, cookies can be used over HTTP.
+fn create_refresh_token_cookie(token: String, environment: &crate::config::Environment) -> Cookie<'static> {
+    let is_development = environment.is_development();
+
+    Cookie::build(("refresh_token", token))
+        .path("/")
+        .max_age(time::Duration::days(30))
+        .http_only(true)
+        .same_site(axum_extra::extract::cookie::SameSite::Lax)
+        .secure(!is_development)
+        .build()
 }
