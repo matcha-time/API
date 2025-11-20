@@ -1,7 +1,7 @@
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
-    routing::{delete, get, post},
+    routing::{delete, get, patch, post},
 };
 use axum_extra::extract::{PrivateCookieJar, cookie::Cookie};
 use serde::{Deserialize, Serialize};
@@ -25,6 +25,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/users/register", post(create_user))
         .route("/users/login", post(login_user))
         .route("/users/{user_id}/dashboard", get(get_user_dashboard))
+        .route("/users/{user_id}", patch(update_user_profile))
         .route("/users/{user_id}", delete(delete_user))
         .route("/users/verify-email", get(verify_email))
         .route(
@@ -521,6 +522,217 @@ async fn delete_user(
         jar,
         Json(DeleteUserResponse {
             message: "Account deleted successfully".to_string(),
+        }),
+    ))
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateUserProfileRequest {
+    username: Option<String>,
+    email: Option<String>,
+    current_password: Option<String>,
+    new_password: Option<String>,
+    profile_picture_url: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct UpdateUserProfileResponse {
+    message: String,
+    user: UserResponse,
+}
+
+async fn update_user_profile(
+    auth: AuthUser,
+    State(state): State<ApiState>,
+    jar: PrivateCookieJar,
+    Path(user_id): Path<Uuid>,
+    Json(request): Json<UpdateUserProfileRequest>,
+) -> Result<(PrivateCookieJar, Json<UpdateUserProfileResponse>), ApiError> {
+    // Verify the authenticated user matches the user to update
+    if auth.user_id != user_id {
+        return Err(ApiError::Auth(
+            "You are not authorized to update this profile".to_string(),
+        ));
+    }
+
+    // Get current user data
+    let user = sqlx::query_as::<_, (String, String, Option<String>, String)>(
+        // language=PostgreSQL
+        r#"
+            SELECT username, email, password_hash, auth_provider
+            FROM users
+            WHERE id = $1
+        "#,
+    )
+    .bind(user_id)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| ApiError::NotFound("User not found".to_string()))?;
+
+    let (current_username, current_email, password_hash, auth_provider) = user;
+
+    // Validate password change request
+    if let Some(ref new_password) = request.new_password {
+        // Ensure this is an email auth user
+        if auth_provider != "email" {
+            return Err(ApiError::Validation(
+                "Password changes are only available for email authentication users".to_string(),
+            ));
+        }
+
+        // Require current password for password changes
+        let current_password = request.current_password.as_ref().ok_or_else(|| {
+            ApiError::Validation("Current password is required to set a new password".to_string())
+        })?;
+
+        // Verify current password
+        let password_hash = password_hash.ok_or_else(|| {
+            ApiError::Auth("Password authentication not available for this account".to_string())
+        })?;
+
+        if !bcrypt::verify(current_password, &password_hash)? {
+            return Err(ApiError::Auth("Current password is incorrect".to_string()));
+        }
+
+        // Validate new password
+        auth::validation::validate_password(new_password)?;
+    }
+
+    // Validate optional fields
+    if let Some(ref username) = request.username {
+        auth::validation::validate_username(username)?;
+    }
+
+    if let Some(ref email) = request.email {
+        auth::validation::validate_email(email)?;
+    }
+
+    // Build dynamic update query
+    let mut updates = Vec::new();
+    let mut param_count = 1;
+
+    let new_username = request.username.as_ref().unwrap_or(&current_username);
+    let new_email = request.email.as_ref().unwrap_or(&current_email);
+    let mut new_password_hash: Option<String> = None;
+
+    if request.username.is_some() {
+        updates.push(format!("username = ${}", param_count));
+        param_count += 1;
+    }
+
+    if request.email.is_some() {
+        updates.push(format!("email = ${}", param_count));
+        param_count += 1;
+        // When email changes, mark as unverified
+        updates.push("email_verified = FALSE".to_string());
+    }
+
+    if let Some(ref new_pwd) = request.new_password {
+        new_password_hash = Some(bcrypt::hash(new_pwd, bcrypt::DEFAULT_COST)?);
+        updates.push(format!("password_hash = ${}", param_count));
+        param_count += 1;
+    }
+
+    if request.profile_picture_url.is_some() {
+        updates.push(format!("profile_picture_url = ${}", param_count));
+        param_count += 1;
+    }
+
+    // If nothing to update, return current data
+    if updates.is_empty() {
+        let user_response = UserResponse {
+            id: user_id,
+            username: current_username,
+            email: current_email,
+            profile_picture_url: None,
+        };
+
+        return Ok((
+            jar,
+            Json(UpdateUserProfileResponse {
+                message: "No changes were made".to_string(),
+                user: user_response,
+            }),
+        ));
+    }
+
+    // Build and execute query
+    let query_str = format!(
+        "UPDATE users SET {} WHERE id = ${} RETURNING id, username, email, profile_picture_url",
+        updates.join(", "),
+        param_count
+    );
+
+    let mut query = sqlx::query_as::<_, (Uuid, String, String, Option<String>)>(&query_str);
+
+    // Bind parameters in order
+    if request.username.is_some() {
+        query = query.bind(new_username);
+    }
+    if request.email.is_some() {
+        query = query.bind(new_email);
+    }
+    if let Some(ref hash) = new_password_hash {
+        query = query.bind(hash);
+    }
+    if let Some(ref pic_url) = request.profile_picture_url {
+        query = query.bind(pic_url);
+    }
+    query = query.bind(user_id);
+
+    let (id, username, email, profile_picture_url) =
+        query.fetch_one(&state.pool).await.map_err(|e| {
+            if e.to_string().contains("duplicate key") {
+                if e.to_string().contains("username") {
+                    ApiError::Validation("Username is already taken".to_string())
+                } else {
+                    ApiError::Validation("Email is already in use".to_string())
+                }
+            } else {
+                ApiError::Database(e)
+            }
+        })?;
+
+    // If email changed, send verification email
+    if request.email.is_some() && request.email.as_ref() != Some(&current_email) {
+        let verification_token =
+            email_verification::create_verification_token(&state.pool, user_id, 24).await?;
+
+        if let Some(email_service) = &state.email_service {
+            if let Err(e) =
+                email_service.send_verification_email(&email, &username, &verification_token)
+            {
+                eprintln!("Failed to send verification email: {}", e);
+            }
+        } else {
+            eprintln!(
+                "Email service not configured. Verification token for user {}: {}",
+                user_id, verification_token
+            );
+        }
+    }
+
+    let user_response = UserResponse {
+        id,
+        username: username.clone(),
+        email: email.clone(),
+        profile_picture_url,
+    };
+
+    // Generate new JWT if email changed
+    let jar = if request.email.is_some() && request.email.as_ref() != Some(&current_email) {
+        let token = jwt::generate_jwt_token(id, email, &state.jwt_secret)?;
+        let auth_cookie = jwt::create_auth_cookie(token, &state.environment);
+        jar.add(auth_cookie)
+    } else {
+        jar
+    };
+
+    Ok((
+        jar,
+        Json(UpdateUserProfileResponse {
+            message: "Profile updated successfully".to_string(),
+            user: user_response,
         }),
     ))
 }
