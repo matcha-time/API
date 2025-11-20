@@ -25,6 +25,8 @@ pub enum ApiError {
     Bcrypt(#[from] bcrypt::BcryptError),
     #[error("Email error: {0}")]
     Email(String),
+    #[error("Not found: {0}")]
+    NotFound(String),
 }
 
 impl IntoResponse for ApiError {
@@ -38,6 +40,7 @@ impl IntoResponse for ApiError {
             ApiError::Validation(msg) => (StatusCode::BAD_REQUEST, msg),
             ApiError::Bcrypt(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
             ApiError::Email(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+            ApiError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
             ApiError::Database(e) => {
                 // Handle specific database errors
                 if let sqlx::Error::Database(db_err) = &e

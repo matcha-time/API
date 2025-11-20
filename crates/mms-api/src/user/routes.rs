@@ -1,9 +1,9 @@
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
-    routing::{get, post},
+    routing::{delete, get, post},
 };
-use axum_extra::extract::PrivateCookieJar;
+use axum_extra::extract::{PrivateCookieJar, cookie::Cookie};
 use serde::{Deserialize, Serialize};
 use sqlx::types::Uuid;
 
@@ -25,6 +25,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/users/register", post(create_user))
         .route("/users/login", post(login_user))
         .route("/users/{user_id}/dashboard", get(get_user_dashboard))
+        .route("/users/{user_id}", delete(delete_user))
         .route("/users/verify-email", get(verify_email))
         .route(
             "/users/resend-verification",
@@ -475,4 +476,51 @@ async fn resend_verification_email(
     Ok(Json(serde_json::json!({
         "message": "If an unverified account exists with that email, a verification link has been sent."
     })))
+}
+
+#[derive(Debug, Serialize)]
+struct DeleteUserResponse {
+    message: String,
+}
+
+async fn delete_user(
+    auth: AuthUser,
+    State(state): State<ApiState>,
+    jar: PrivateCookieJar,
+    Path(user_id): Path<Uuid>,
+) -> Result<(PrivateCookieJar, Json<DeleteUserResponse>), ApiError> {
+    // Verify the authenticated user matches the user to delete
+    if auth.user_id != user_id {
+        return Err(ApiError::Auth(
+            "You are not authorized to delete this account".to_string(),
+        ));
+    }
+
+    // Delete the user - cascade will handle all related data
+    let result = sqlx::query(
+        // language=PostgreSQL
+        r#"
+            DELETE FROM users WHERE id = $1
+        "#,
+    )
+    .bind(user_id)
+    .execute(&state.pool)
+    .await
+    .map_err(ApiError::Database)?;
+
+    // Check if user was actually deleted
+    if result.rows_affected() == 0 {
+        return Err(ApiError::NotFound("User not found".to_string()));
+    }
+
+    // Clear the auth cookie
+    let cookie = Cookie::build(("auth_token", "")).path("/").build();
+    let jar = jar.remove(cookie);
+
+    Ok((
+        jar,
+        Json(DeleteUserResponse {
+            message: "Account deleted successfully".to_string(),
+        }),
+    ))
 }
