@@ -33,7 +33,7 @@ Production-ready email verification and password reset system.
 
 ## Module Structure
 
-```
+```bash
 user/
 ├── mod.rs                    - Module exports
 ├── routes.rs                 - API endpoints
@@ -114,7 +114,7 @@ FRONTEND_URL=https://your-domain.com
 
 Tokens are logged to console:
 
-```
+```bash
 Email service not configured. Verification token for user {uuid}: {token}
 ```
 
