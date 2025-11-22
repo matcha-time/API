@@ -77,12 +77,12 @@ impl ApiState {
             ) {
                 Ok(service) => Some(service),
                 Err(e) => {
-                    eprintln!("Failed to initialize email service: {e}");
+                    tracing::error!("Failed to initialize email service: {e}");
                     None
                 }
             }
         } else {
-            eprintln!("Email service not configured (missing SMTP environment variables)");
+            tracing::warn!("Email service not configured (missing SMTP environment variables)");
             None
         };
 

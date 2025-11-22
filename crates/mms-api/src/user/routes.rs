@@ -140,9 +140,10 @@ async fn create_user(
                 &verification_token,
             )?;
         } else {
-            eprintln!(
-                "Email service not configured. Verification token for user {}: {}",
-                user_id, verification_token
+            tracing::info!(
+                user_id = %user_id,
+                token = %verification_token,
+                "Email service not configured - verification token generated"
             );
         }
 
@@ -213,14 +214,15 @@ async fn create_user(
             &request.username,
             &verification_token,
         ) {
-            eprintln!("Failed to send verification email: {}", e);
+            tracing::error!(error = %e, "Failed to send verification email");
             // Don't fail the request, user can resend later
         }
     } else {
         // If email service is not configured, log the verification URL to the console
-        eprintln!(
-            "Email service not configured. Verification token for user {}: {}",
-            user_id, verification_token
+        tracing::info!(
+            user_id = %user_id,
+            token = %verification_token,
+            "Email service not configured - verification token generated"
         );
     }
 
@@ -336,14 +338,15 @@ async fn request_password_reset(
             if let Err(e) =
                 email_service.send_password_reset_email(&request.email, &username, &token)
             {
-                eprintln!("Failed to send password reset email: {}", e);
+                tracing::error!(error = %e, "Failed to send password reset email");
                 // Don't fail the request to prevent revealing user existence
             }
         } else {
             // Email service not configured - log the token for development
-            eprintln!(
-                "Email service not configured. Password reset token for {}: {}",
-                request.email, token
+            tracing::info!(
+                email = %request.email,
+                token = %token,
+                "Email service not configured - password reset token generated"
             );
         }
     }
@@ -393,7 +396,7 @@ async fn reset_password(
     if let Some(email_service) = &state.email_service
         && let Err(e) = email_service.send_password_changed_email(&email, &username)
     {
-        eprintln!("Failed to send password change confirmation email: {}", e);
+        tracing::error!(error = %e, "Failed to send password change confirmation email");
         // Don't fail - password was already successfully changed
     }
 
@@ -467,14 +470,15 @@ async fn resend_verification_email(
                 email_service
                     .send_verification_email(&request.email, &username, &token)
                     .map_err(|e| {
-                        eprintln!("Failed to send verification email: {}", e);
+                        tracing::error!(error = %e, "Failed to send verification email");
                         ApiError::Email("Failed to send verification email".to_string())
                     })?;
             } else {
                 // Email service not configured - log the token for development
-                eprintln!(
-                    "Email service not configured. Verification token for {}: {}",
-                    request.email, token
+                tracing::info!(
+                    email = %request.email,
+                    token = %token,
+                    "Email service not configured - verification token generated"
                 );
             }
         }
@@ -714,12 +718,13 @@ async fn update_user_profile(
             if let Err(e) =
                 email_service.send_verification_email(&email, &username, &verification_token)
             {
-                eprintln!("Failed to send verification email: {}", e);
+                tracing::error!(error = %e, "Failed to send verification email");
             }
         } else {
-            eprintln!(
-                "Email service not configured. Verification token for user {}: {}",
-                user_id, verification_token
+            tracing::info!(
+                user_id = %user_id,
+                token = %verification_token,
+                "Email service not configured - verification token generated"
             );
         }
     }
