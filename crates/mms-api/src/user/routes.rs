@@ -271,7 +271,8 @@ async fn login_user(
 
     // Generate refresh token
     let (refresh_token, refresh_token_hash) = auth::refresh_token::generate_refresh_token();
-    auth::refresh_token::store_refresh_token(&state.pool, id, &refresh_token_hash, None, None).await?;
+    auth::refresh_token::store_refresh_token(&state.pool, id, &refresh_token_hash, None, None)
+        .await?;
 
     // Set cookies with JWT and refresh token
     let auth_cookie = jwt::create_auth_cookie(token.clone(), &state.environment);
@@ -752,7 +753,10 @@ async fn update_user_profile(
 ///
 /// Cookies are secure (HTTPS-only) by default in production.
 /// In development mode, cookies can be used over HTTP.
-fn create_refresh_token_cookie(token: String, environment: &crate::config::Environment) -> Cookie<'static> {
+fn create_refresh_token_cookie(
+    token: String,
+    environment: &crate::config::Environment,
+) -> Cookie<'static> {
     let is_development = environment.is_development();
 
     Cookie::build(("refresh_token", token))

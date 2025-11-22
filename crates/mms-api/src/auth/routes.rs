@@ -224,7 +224,8 @@ async fn refresh_token(
     let old_refresh_token = refresh_cookie.value();
 
     // Verify and rotate the refresh token
-    let (user_id, new_refresh_token, _) = rt::verify_and_rotate_refresh_token(&state.pool, old_refresh_token).await?;
+    let (user_id, new_refresh_token, _) =
+        rt::verify_and_rotate_refresh_token(&state.pool, old_refresh_token).await?;
 
     // Fetch user email for JWT
     let email = sqlx::query_scalar::<_, String>(
@@ -279,7 +280,10 @@ async fn logout(
 ///
 /// Cookies are secure (HTTPS-only) by default in production.
 /// In development mode, cookies can be used over HTTP.
-fn create_refresh_token_cookie(token: String, environment: &crate::config::Environment) -> Cookie<'static> {
+fn create_refresh_token_cookie(
+    token: String,
+    environment: &crate::config::Environment,
+) -> Cookie<'static> {
     let is_development = environment.is_development();
 
     Cookie::build(("refresh_token", token))

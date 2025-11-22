@@ -17,7 +17,7 @@ pub fn generate_refresh_token() -> (String, String) {
     rand::thread_rng().fill(&mut token_bytes);
 
     // Encode as base64 for safe transmission
-    let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&token_bytes);
+    let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(token_bytes);
 
     // Hash the token for storage
     let mut hasher = Sha256::new();
@@ -72,7 +72,16 @@ pub async fn verify_and_rotate_refresh_token(
     let mut tx = pool.begin().await?;
 
     // Fetch and verify the token
-    let result = sqlx::query_as::<_, (Uuid, Uuid, chrono::DateTime<Utc>, Option<String>, Option<String>)>(
+    let result = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            Uuid,
+            chrono::DateTime<Utc>,
+            Option<String>,
+            Option<String>,
+        ),
+    >(
         // language=PostgreSQL
         r#"
             SELECT id, user_id, expires_at, device_info, ip_address
@@ -85,8 +94,8 @@ pub async fn verify_and_rotate_refresh_token(
     .fetch_optional(&mut *tx)
     .await?;
 
-    let (token_id, user_id, expires_at, device_info, ip_address) = result
-        .ok_or_else(|| ApiError::Auth("Invalid refresh token".to_string()))?;
+    let (token_id, user_id, expires_at, device_info, ip_address) =
+        result.ok_or_else(|| ApiError::Auth("Invalid refresh token".to_string()))?;
 
     // Check if token is expired
     if expires_at < Utc::now() {
