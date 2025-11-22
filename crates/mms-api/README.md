@@ -23,6 +23,7 @@
 - `GET /auth/me` - Get current authenticated user
   - **Authentication:** Requires valid JWT cookie
   - **Response:** `200 OK`
+
   ```json
   {
     "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -30,23 +31,27 @@
     "email": "john@example.com"
   }
   ```
+
   - **Errors:**
     - `401 Unauthorized` - Missing or invalid authentication token
     - `404 Not Found` - User not found
 
 - `GET /auth/logout` - Logout current user
   - **Response:** `200 OK`
+
   ```json
   {
     "message": "Logged out successfully"
   }
   ```
+
   - Removes `auth_token` cookie
 
 ### Email/Password
 
 - `POST /users/register` - Register a new user
   - **Request Body:**
+
   ```json
   {
     "username": "johndoe",
@@ -54,7 +59,9 @@
     "password": "securepassword123"
   }
   ```
+
   - **Response:** `200 OK`
+
   ```json
   {
     "token": "jwt_token_string",
@@ -65,6 +72,7 @@
     }
   }
   ```
+
   - Sets HTTP-only `auth_token` cookie containing JWT
   - **Errors:**
     - `400 Bad Request` - Validation error (invalid email, password, or username format)
@@ -73,13 +81,16 @@
 
 - `POST /users/login` - Login with email and password
   - **Request Body:**
+
   ```json
   {
     "email": "john@example.com",
     "password": "securepassword123"
   }
   ```
+
   - **Response:** `200 OK`
+
   ```json
   {
     "token": "jwt_token_string",
@@ -90,6 +101,7 @@
     }
   }
   ```
+
   - Sets HTTP-only `auth_token` cookie containing JWT
   - **Errors:**
     - `401 Unauthorized` - Invalid email or password
@@ -101,6 +113,7 @@
 
 - `GET /roadmaps` - List all roadmaps
   - **Response:** `200 OK`
+
   ```json
   [
     {
@@ -119,6 +132,7 @@
 
 - `GET /roadmaps/{roadmap_id}/progress/{user_id}` - Get roadmap with user progress
   - **Response:** `200 OK`
+
   ```json
   [
     {
@@ -141,6 +155,7 @@
 
 - `GET /users/{user_id}/dashboard` - Get user dashboard stats and activity
   - **Response:** `200 OK`
+
   ```json
   {
     "stats": {
@@ -159,6 +174,7 @@
     ]
   }
   ```
+
   - **Errors:**
     - `404 Not Found` - User not found
     - `500 Internal Server Error` - Server error
@@ -169,6 +185,7 @@
 
 - `GET /decks/{deck_id}/practice/{user_id}` - Get practice session cards for a deck
   - **Response:** `200 OK`
+
   ```json
   [
     {
@@ -186,6 +203,7 @@
 
 - `POST /practice/{user_id}/{flashcard_id}/review` - Submit a flashcard review
   - **Request Body:**
+
   ```json
   {
     "correct": true,
@@ -193,5 +211,5 @@
     "deck_id": "880e8400-e29b-41d4-a716-446655440000"
   }
   ```
-  - **Response:** `200 OK`
 
+  - **Response:** `200 OK`

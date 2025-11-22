@@ -14,10 +14,12 @@ This module handles all authentication and authorization logic for the API, incl
 ## Overview
 
 The authentication system supports two methods:
+
 1. **Email/Password** - Traditional authentication with email verification
 2. **Google OAuth** - Social login via OpenID Connect
 
 Both methods use a dual-token system:
+
 - **Access Token (JWT)** - Short-lived (24 hours), used for API requests
 - **Refresh Token** - Long-lived (30 days), used to obtain new access tokens
 
@@ -25,7 +27,7 @@ Both methods use a dual-token system:
 
 ### Email/Password Registration & Login
 
-```
+```aasci
 ┌─────────┐                                        ┌─────────┐
 │ Client  │                                        │   API   │
 └────┬────┘                                        └────┬────┘
@@ -70,7 +72,7 @@ Both methods use a dual-token system:
 
 ### Google OAuth Flow
 
-```
+```aasci
 ┌─────────┐                             ┌─────────┐                      ┌──────────┐
 │ Client  │                             │   API   │                      │  Google  │
 └────┬────┘                             └────┬────┘                      └────┬─────┘
@@ -119,7 +121,7 @@ Both methods use a dual-token system:
 
 ### Token Refresh Flow (Seamless UX)
 
-```
+```aasci
 ┌─────────┐                                        ┌─────────┐
 │ Client  │                                        │   API   │
 └────┬────┘                                        └────┬────┘
@@ -165,7 +167,7 @@ Both methods use a dual-token system:
 
 ### Logout Flow
 
-```
+```aasci
 ┌─────────┐                                        ┌─────────┐
 │ Client  │                                        │   API   │
 └────┬────┘                                        └────┬────┘
@@ -193,6 +195,7 @@ Both methods use a dual-token system:
 **Lifetime**: 24 hours
 **Storage**: httpOnly cookie + returned in response
 **Format**:
+
 ```json
 {
   "sub": "user-uuid",
@@ -203,6 +206,7 @@ Both methods use a dual-token system:
 ```
 
 **Why short-lived?**
+
 - Minimizes damage if stolen
 - Forces periodic verification via refresh
 
@@ -211,10 +215,12 @@ Both methods use a dual-token system:
 **Purpose**: Obtain new access tokens without re-login
 **Lifetime**: 30 days
 **Storage**:
+
 - Client: httpOnly cookie (secure, not accessible to JS)
 - Server: SHA-256 hash in `refresh_tokens` table
 
 **Security Features**:
+
 1. **Hashed Storage** - Plain token never stored in DB
 2. **Token Rotation** - Each refresh invalidates the old token and issues a new one
 3. **Revocation** - Can be invalidated server-side (logout, suspicious activity)
@@ -222,7 +228,7 @@ Both methods use a dual-token system:
 
 ## Module Structure
 
-```
+```bash
 auth/
 ├── jwt.rs              - JWT token generation and verification
 ├── middleware.rs       - Auth middleware (validates JWT on protected routes)
@@ -239,9 +245,11 @@ auth/
 ### Public Endpoints (No Auth Required)
 
 #### `POST /users/register`
+
 Register a new user with email/password.
 
 **Request**:
+
 ```json
 {
   "email": "user@example.com",
@@ -251,6 +259,7 @@ Register a new user with email/password.
 ```
 
 **Response**: `200 OK`
+
 ```json
 {
   "message": "Registration successful. Please check your email to verify your account.",
@@ -259,9 +268,11 @@ Register a new user with email/password.
 ```
 
 #### `POST /users/login`
+
 Login with email/password.
 
 **Request**:
+
 ```json
 {
   "email": "user@example.com",
@@ -270,6 +281,7 @@ Login with email/password.
 ```
 
 **Response**: `200 OK`
+
 ```json
 {
   "token": "eyJhbGciOiJIUzI1...",
@@ -284,25 +296,30 @@ Login with email/password.
 ```
 
 **Cookies Set**:
+
 - `auth_token` (httpOnly, secure, 24h expiry)
 - `refresh_token` (httpOnly, secure, 30d expiry)
 
 #### `GET /auth/google`
+
 Initiate Google OAuth flow.
 
 **Response**: `302 Redirect` to Google OAuth consent screen
 
 #### `GET /auth/callback?code=xxx&state=yyy`
+
 OAuth callback (handled by Google).
 
 **Response**: HTML page that posts message to parent window
 
 #### `GET /auth/refresh`
+
 Refresh the access token using refresh token.
 
 **Cookies Required**: `refresh_token`
 
 **Response**: `200 OK`
+
 ```json
 {
   "token": "new_jwt_token",
@@ -311,13 +328,16 @@ Refresh the access token using refresh token.
 ```
 
 **Cookies Updated**:
+
 - `auth_token` (new JWT)
 - `refresh_token` (rotated token)
 
 #### `GET /auth/logout`
+
 Logout and revoke refresh token.
 
 **Response**: `200 OK`
+
 ```json
 {
   "message": "Logged out successfully"
@@ -329,11 +349,13 @@ Logout and revoke refresh token.
 ### Protected Endpoints (Auth Required)
 
 #### `GET /auth/me`
+
 Get current authenticated user info.
 
 **Headers Required**: `Cookie: auth_token=xxx`
 
 **Response**: `200 OK`
+
 ```json
 {
   "id": "uuid",
@@ -346,20 +368,24 @@ Get current authenticated user info.
 ## Security Features
 
 ### 1. Password Security
+
 - **bcrypt** hashing with default cost factor (12)
 - Passwords validated for minimum strength (see [validation.rs](validation.rs:11))
 
 ### 2. Email Verification
+
 - Users must verify email before login
 - Verification tokens expire after 24 hours
 - Tokens are single-use (burned after verification)
 
 ### 3. JWT Security
+
 - Signed with secret key (HS256)
 - Short expiry (24h) limits exposure window
 - Contains minimal claims (user_id, email)
 
 ### 4. Refresh Token Security
+
 - **Never stored in plain text** - SHA-256 hashed in database
 - **Token rotation** - Each use generates a new token, old one is revoked
 - **httpOnly cookies** - Not accessible to JavaScript (XSS protection)
@@ -367,21 +393,27 @@ Get current authenticated user info.
 - **Revocable** - Can be invalidated server-side
 
 ### 5. CSRF Protection
+
 - OAuth flow uses state parameter to prevent CSRF
 - SameSite=Lax cookies provide additional protection
 
 ### 6. PKCE (Proof Key for Code Exchange)
+
 - OAuth flow uses PKCE to prevent authorization code interception
 - Code verifier stored in encrypted cookie during flow
 
 ### 7. Rate Limiting
+
 (To be implemented) - Recommend adding rate limiting on:
+
 - `/users/login` - Prevent brute force
 - `/auth/refresh` - Prevent token abuse
 - `/users/register` - Prevent spam
 
 ### 8. Input Validation
+
 All user inputs validated:
+
 - Email format (RFC 5322)
 - Password strength (min length, complexity)
 - Username constraints
@@ -389,6 +421,7 @@ All user inputs validated:
 ## Frontend Integration Guide
 
 ### 1. Login/Register
+
 ```typescript
 // Login
 const response = await fetch('/users/login', {
@@ -403,6 +436,7 @@ const { token, refresh_token, user } = await response.json();
 ```
 
 ### 2. Authenticated Requests
+
 ```typescript
 // Access token is automatically sent via cookie
 const response = await fetch('/protected-resource', {
@@ -417,6 +451,7 @@ if (response.status === 401) {
 ```
 
 ### 3. Token Refresh (Automatic)
+
 ```typescript
 async function refreshToken() {
   const response = await fetch('/auth/refresh', {
@@ -447,6 +482,7 @@ axios.interceptors.response.use(
 ```
 
 ### 4. Logout
+
 ```typescript
 await fetch('/auth/logout', {
   credentials: 'include'
@@ -473,6 +509,7 @@ CREATE TABLE refresh_tokens (
 ```
 
 **Indexes**:
+
 - `idx_refresh_tokens_hash` - Fast token lookup
 - `idx_refresh_tokens_user` - Get all tokens for a user
 
@@ -495,23 +532,28 @@ Recommended schedule: Daily or weekly
 ## Common Issues & Troubleshooting
 
 ### "Invalid or expired token" on /auth/refresh
+
 - Refresh token may have expired (30 days)
 - Token may have been revoked (logout)
 - User should be redirected to login
 
 ### "No refresh token found"
+
 - Cookie not being sent (check `credentials: 'include'`)
 - Cookie expired or cleared
 - User needs to login again
 
 ### CORS issues with cookies
+
 Ensure backend CORS config includes:
+
 ```rust
 .allow_credentials(true)
 .allow_origin(frontend_url) // Must be specific origin, not "*"
 ```
 
 ### Cookies not being set
+
 - Check secure flag (disable in development)
 - Verify SameSite attribute
 - Ensure path is "/"
