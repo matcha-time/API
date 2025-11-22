@@ -151,10 +151,15 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 tower_governor = "0.8.0"
 tower = "0.5"
 envy = "0.4"
-lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "builder", "rustls-tls"] }
+lettre = { version = "0.11", default-features = false, features = [
+    "smtp-transport",
+    "builder",
+    "rustls-tls",
+] }
 rand = "0.8"
 sha2 = "0.10"
 hex = "0.4"
+base64 = "0.22.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tracing-appender = "0.2"
