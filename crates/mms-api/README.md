@@ -47,6 +47,13 @@
 
   - Removes `auth_token` cookie
 
+- `GET /auth/refresh` - Refresh access token
+  - **Authentication:** Requires valid refresh token cookie
+  - **Response:** `200 OK`
+  - Sets new HTTP-only `auth_token` cookie containing refreshed JWT
+  - **Errors:**
+    - `401 Unauthorized` - Missing or invalid refresh token
+
 ### Email/Password
 
 - `POST /users/register` - Register a new user
@@ -178,6 +185,128 @@
   - **Errors:**
     - `404 Not Found` - User not found
     - `500 Internal Server Error` - Server error
+
+- `PATCH /users/{user_id}` - Update user profile
+  - **Authentication:** Requires valid JWT cookie
+  - **Request Body:** (all fields optional)
+
+  ```json
+  {
+    "username": "newusername",
+    "email": "newemail@example.com",
+    "password": "newsecurepassword123",
+    "profile_picture_url": "https://example.com/profile.jpg"
+  }
+  ```
+
+  - **Response:** `200 OK`
+
+  ```json
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "username": "newusername",
+    "email": "newemail@example.com",
+    "profile_picture_url": "https://example.com/profile.jpg"
+  }
+  ```
+
+  - **Errors:**
+    - `400 Bad Request` - Validation error
+    - `401 Unauthorized` - Missing or invalid authentication token
+    - `404 Not Found` - User not found
+    - `409 Conflict` - Username or email already exists
+
+- `DELETE /users/{user_id}` - Delete user account
+  - **Authentication:** Requires valid JWT cookie
+  - **Response:** `200 OK`
+
+  ```json
+  {
+    "message": "User deleted successfully"
+  }
+  ```
+
+  - **Errors:**
+    - `401 Unauthorized` - Missing or invalid authentication token
+    - `404 Not Found` - User not found
+
+- `GET /users/verify-email` - Verify email address
+  - **Query Parameters:**
+    - `token` - Email verification token
+  - **Response:** `200 OK`
+
+  ```json
+  {
+    "message": "Email verified successfully"
+  }
+  ```
+
+  - **Errors:**
+    - `400 Bad Request` - Invalid or expired token
+    - `404 Not Found` - User not found
+
+- `POST /users/resend-verification` - Resend email verification link
+  - **Request Body:**
+
+  ```json
+  {
+    "email": "john@example.com"
+  }
+  ```
+
+  - **Response:** `200 OK`
+
+  ```json
+  {
+    "message": "Verification email sent"
+  }
+  ```
+
+  - **Errors:**
+    - `400 Bad Request` - Invalid email or already verified
+    - `404 Not Found` - User not found
+
+- `POST /users/request-password-reset` - Request password reset email
+  - **Request Body:**
+
+  ```json
+  {
+    "email": "john@example.com"
+  }
+  ```
+
+  - **Response:** `200 OK`
+
+  ```json
+  {
+    "message": "Password reset email sent"
+  }
+  ```
+
+  - **Errors:**
+    - `404 Not Found` - User not found
+
+- `POST /users/reset-password` - Reset password using reset token
+  - **Request Body:**
+
+  ```json
+  {
+    "token": "reset_token_string",
+    "new_password": "newsecurepassword123"
+  }
+  ```
+
+  - **Response:** `200 OK`
+
+  ```json
+  {
+    "message": "Password reset successfully"
+  }
+  ```
+
+  - **Errors:**
+    - `400 Bad Request` - Invalid or expired token
+    - `404 Not Found` - User not found
 
 **Note:** User registration and login endpoints are documented in the [Authentication](#authentication) section above.
 
