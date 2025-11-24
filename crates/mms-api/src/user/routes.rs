@@ -26,7 +26,7 @@ pub fn routes() -> Router<ApiState> {
     let sensitive_routes = Router::new()
         .route("/users/request-password-reset", post(request_password_reset))
         .route("/users/resend-verification", post(resend_verification_email))
-        .layer(rate_limit::sensitive_rate_limit())
+        .layer(rate_limit::sensitive_rate_limit::<ApiState>())
         .route_layer(axum::middleware::from_fn(rate_limit::timing_safe_middleware));
 
     // Auth routes with strict rate limiting and timing-safe middleware
@@ -34,7 +34,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/users/register", post(create_user))
         .route("/users/login", post(login_user))
         .route("/users/reset-password", post(reset_password))
-        .layer(rate_limit::auth_rate_limit())
+        .layer(rate_limit::auth_rate_limit::<ApiState>())
         .route_layer(axum::middleware::from_fn(rate_limit::timing_safe_middleware));
 
     // General authenticated routes with moderate rate limiting
@@ -43,7 +43,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/users/{user_id}", patch(update_user_profile))
         .route("/users/{user_id}", delete(delete_user))
         .route("/users/verify-email", get(verify_email))
-        .layer(rate_limit::general_rate_limit());
+        .layer(rate_limit::general_rate_limit::<ApiState>());
 
     // Merge all route groups
     Router::new()
