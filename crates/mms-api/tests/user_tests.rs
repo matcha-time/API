@@ -1,7 +1,5 @@
-mod common;
-
+use crate::common::{self, TestClient, TestStateBuilder};
 use axum::http::StatusCode;
-use common::{TestClient, TestStateBuilder};
 use mms_api::router;
 use serde_json::json;
 
@@ -192,7 +190,10 @@ async fn test_user_login_success() {
         json["user"]["email"].as_str().unwrap(),
         "login_success@example.com"
     );
-    assert_eq!(json["user"]["username"].as_str().unwrap(), "login_success_user");
+    assert_eq!(
+        json["user"]["username"].as_str().unwrap(),
+        "login_success_user"
+    );
 
     // Verify auth cookie was set
     let auth_cookie = response.get_cookie("auth_token");
@@ -219,9 +220,13 @@ async fn test_user_login_invalid_credentials() {
         .expect("Failed to create test state");
 
     // Create a verified user
-    common::db::create_verified_user(&state.pool, "invalid_creds@example.com", "invalid_creds_user")
-        .await
-        .expect("Failed to create test user");
+    common::db::create_verified_user(
+        &state.pool,
+        "invalid_creds@example.com",
+        "invalid_creds_user",
+    )
+    .await
+    .expect("Failed to create test user");
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -287,9 +292,10 @@ async fn test_get_user_dashboard() {
         .expect("Failed to create test state");
 
     // Create a verified user
-    let user_id = common::db::create_verified_user(&state.pool, "dashboard@example.com", "dashboard_user")
-        .await
-        .expect("Failed to create test user");
+    let user_id =
+        common::db::create_verified_user(&state.pool, "dashboard@example.com", "dashboard_user")
+            .await
+            .expect("Failed to create test user");
 
     // Generate auth token
     let token = common::jwt::create_test_token(user_id, "dashboard@example.com", &state.jwt_secret);
@@ -298,7 +304,13 @@ async fn test_get_user_dashboard() {
     let client = TestClient::new(app);
 
     // Get dashboard with authentication
-    let response = client.get_with_auth(&format!("/users/{}/dashboard", user_id), &token, &state.cookie_key).await;
+    let response = client
+        .get_with_auth(
+            &format!("/users/{}/dashboard", user_id),
+            &token,
+            &state.cookie_key,
+        )
+        .await;
 
     response.assert_status(StatusCode::OK);
 
@@ -327,29 +339,31 @@ async fn test_get_dashboard_unauthorized() {
         .expect("Failed to create test state");
 
     // Create two users
-    let user1_id = common::db::create_verified_user(&state.pool, "user1_dash@example.com", "user1_dash")
-        .await
-        .expect("Failed to create user1");
+    let user1_id =
+        common::db::create_verified_user(&state.pool, "user1_dash@example.com", "user1_dash")
+            .await
+            .expect("Failed to create user1");
 
-    let user2_id = common::db::create_verified_user(&state.pool, "user2_dash@example.com", "user2_dash")
-        .await
-        .expect("Failed to create user2");
+    let user2_id =
+        common::db::create_verified_user(&state.pool, "user2_dash@example.com", "user2_dash")
+            .await
+            .expect("Failed to create user2");
 
     // Generate auth token for user1
-    let token = common::jwt::create_test_token(user1_id, "user1_dash@example.com", &state.jwt_secret);
+    let token =
+        common::jwt::create_test_token(user1_id, "user1_dash@example.com", &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
     // Try to access user2's dashboard with user1's token
-    let request = axum::http::Request::builder()
-        .method("GET")
-        .uri(format!("/users/{}/dashboard", user2_id))
-        .header("cookie", format!("auth_token={}", token))
-        .body(axum::body::Body::empty())
-        .expect("Failed to build request");
-
-    let response = client.with_auth_cookie(request, &token, &state.cookie_key).await;
+    let response = client
+        .get_with_auth(
+            &format!("/users/{}/dashboard", user2_id),
+            &token,
+            &state.cookie_key,
+        )
+        .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
@@ -373,12 +387,17 @@ async fn test_update_user_profile() {
         .expect("Failed to create test state");
 
     // Create a verified user
-    let user_id = common::db::create_verified_user(&state.pool, "update_profile@example.com", "update_profile_user")
-        .await
-        .expect("Failed to create test user");
+    let user_id = common::db::create_verified_user(
+        &state.pool,
+        "update_profile@example.com",
+        "update_profile_user",
+    )
+    .await
+    .expect("Failed to create test user");
 
     // Generate auth token
-    let token = common::jwt::create_test_token(user_id, "update_profile@example.com", &state.jwt_secret);
+    let token =
+        common::jwt::create_test_token(user_id, "update_profile@example.com", &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -388,7 +407,14 @@ async fn test_update_user_profile() {
         "username": "updateduser"
     });
 
-    let response = client.patch_json_with_auth(&format!("/users/{}", user_id), &body, &token, &state.cookie_key).await;
+    let response = client
+        .patch_json_with_auth(
+            &format!("/users/{}", user_id),
+            &body,
+            &token,
+            &state.cookie_key,
+        )
+        .await;
 
     response.assert_status(StatusCode::OK);
 
@@ -419,18 +445,22 @@ async fn test_delete_user() {
         .expect("Failed to create test state");
 
     // Create a verified user
-    let user_id = common::db::create_verified_user(&state.pool, "delete_user@example.com", "delete_user")
-        .await
-        .expect("Failed to create test user");
+    let user_id =
+        common::db::create_verified_user(&state.pool, "delete_user@example.com", "delete_user")
+            .await
+            .expect("Failed to create test user");
 
     // Generate auth token
-    let token = common::jwt::create_test_token(user_id, "delete_user@example.com", &state.jwt_secret);
+    let token =
+        common::jwt::create_test_token(user_id, "delete_user@example.com", &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
     // Delete user
-    let response = client.delete_with_auth(&format!("/users/{}", user_id), &token, &state.cookie_key).await;
+    let response = client
+        .delete_with_auth(&format!("/users/{}", user_id), &token, &state.cookie_key)
+        .await;
 
     response.assert_status(StatusCode::OK);
 

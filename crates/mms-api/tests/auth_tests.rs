@@ -1,7 +1,5 @@
-mod common;
-
+use crate::common::{self, TestClient, TestStateBuilder};
 use axum::http::StatusCode;
-use common::{TestClient, TestStateBuilder};
 use mms_api::router;
 
 #[tokio::test]
@@ -18,11 +16,7 @@ async fn test_health_check() {
 
     response.assert_status(StatusCode::OK);
     // Health endpoint returns 200 OK status code with empty body
-
-    // Cleanup
-    common::db::cleanup(&state.pool)
-        .await
-        .expect("Failed to cleanup database");
+    // No cleanup needed - no data created
 }
 
 #[tokio::test]
@@ -42,10 +36,7 @@ async fn test_auth_me_without_token() {
     let body: serde_json::Value = response.json();
     assert!(body["error"].is_string(), "Should have error message");
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
-        .await
-        .expect("Failed to cleanup database");
+    // No cleanup needed - no data created
 }
 
 #[tokio::test]
@@ -56,18 +47,22 @@ async fn test_auth_me_with_valid_token() {
         .expect("Failed to create test state");
 
     // Create a test user
-    let user_id = common::db::create_verified_user(&state.pool, "test_valid@example.com", "testuser_valid")
-        .await
-        .expect("Failed to create test user");
+    let user_id =
+        common::db::create_verified_user(&state.pool, "test_valid@example.com", "testuser_valid")
+            .await
+            .expect("Failed to create test user");
 
     // Generate a valid JWT token
-    let token = common::jwt::create_test_token(user_id, "test_valid@example.com", &state.jwt_secret);
+    let token =
+        common::jwt::create_test_token(user_id, "test_valid@example.com", &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
     // Use the simplified method
-    let response = client.get_with_auth("/auth/me", &token, &state.cookie_key).await;
+    let response = client
+        .get_with_auth("/auth/me", &token, &state.cookie_key)
+        .await;
 
     response.assert_status(StatusCode::OK);
 
@@ -76,9 +71,9 @@ async fn test_auth_me_with_valid_token() {
     assert_eq!(body["username"].as_str().unwrap(), "testuser_valid");
 
     // Cleanup
-    common::db::cleanup(&state.pool)
+    common::db::delete_user_by_email(&state.pool, "test_valid@example.com")
         .await
-        .expect("Failed to cleanup database");
+        .expect("Failed to cleanup test user");
 }
 
 #[tokio::test]
@@ -92,17 +87,16 @@ async fn test_auth_me_with_invalid_token() {
     let client = TestClient::new(app);
 
     // Use invalid token
-    let response = client.get_with_auth("/auth/me", "invalid_token", &state.cookie_key).await;
+    let response = client
+        .get_with_auth("/auth/me", "invalid_token", &state.cookie_key)
+        .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
     let body: serde_json::Value = response.json();
     assert!(body["error"].is_string(), "Should have error message");
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
-        .await
-        .expect("Failed to cleanup database");
+    // No cleanup needed - no data created
 }
 
 #[tokio::test]
@@ -113,9 +107,13 @@ async fn test_auth_me_with_expired_token() {
         .expect("Failed to create test state");
 
     // Create a test user
-    let user_id = common::db::create_verified_user(&state.pool, "test_expired@example.com", "testuser_expired")
-        .await
-        .expect("Failed to create test user");
+    let user_id = common::db::create_verified_user(
+        &state.pool,
+        "test_expired@example.com",
+        "testuser_expired",
+    )
+    .await
+    .expect("Failed to create test user");
 
     // Create an expired token by using a token that was issued in the past
     use chrono::Utc;
@@ -141,7 +139,9 @@ async fn test_auth_me_with_expired_token() {
     let client = TestClient::new(app);
 
     // Use expired token
-    let response = client.get_with_auth("/auth/me", &expired_token, &state.cookie_key).await;
+    let response = client
+        .get_with_auth("/auth/me", &expired_token, &state.cookie_key)
+        .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
@@ -149,9 +149,9 @@ async fn test_auth_me_with_expired_token() {
     assert!(body["error"].is_string(), "Should have error message");
 
     // Cleanup
-    common::db::cleanup(&state.pool)
+    common::db::delete_user_by_email(&state.pool, "test_expired@example.com")
         .await
-        .expect("Failed to cleanup database");
+        .expect("Failed to cleanup test user");
 }
 
 #[tokio::test]
@@ -162,12 +162,14 @@ async fn test_logout() {
         .expect("Failed to create test state");
 
     // Create a test user
-    let user_id = common::db::create_verified_user(&state.pool, "test_logout@example.com", "testuser_logout")
-        .await
-        .expect("Failed to create test user");
+    let user_id =
+        common::db::create_verified_user(&state.pool, "test_logout@example.com", "testuser_logout")
+            .await
+            .expect("Failed to create test user");
 
     // Generate a valid JWT token
-    let token = common::jwt::create_test_token(user_id, "test_logout@example.com", &state.jwt_secret);
+    let token =
+        common::jwt::create_test_token(user_id, "test_logout@example.com", &state.jwt_secret);
 
     // Create a refresh token in the database
     let refresh_token = uuid::Uuid::new_v4().to_string();
@@ -194,7 +196,9 @@ async fn test_logout() {
     let client = TestClient::new(app);
 
     // Use the get_with_auth_and_refresh method for logout (needs both cookies)
-    let response = client.get_with_auth_and_refresh("/auth/logout", &token, &refresh_token, &state.cookie_key).await;
+    let response = client
+        .get_with_auth_and_refresh("/auth/logout", &token, &refresh_token, &state.cookie_key)
+        .await;
 
     response.assert_status(StatusCode::OK);
 
@@ -202,7 +206,7 @@ async fn test_logout() {
     let token_count = sqlx::query_scalar::<_, i64>(
         r#"
         SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1
-        "#
+        "#,
     )
     .bind(user_id)
     .fetch_one(&state.pool)
@@ -212,9 +216,9 @@ async fn test_logout() {
     assert_eq!(token_count, 0, "All refresh tokens should be deleted");
 
     // Cleanup
-    common::db::cleanup(&state.pool)
+    common::db::delete_user_by_email(&state.pool, "test_logout@example.com")
         .await
-        .expect("Failed to cleanup database");
+        .expect("Failed to cleanup test user");
 }
 
 #[tokio::test]
@@ -249,8 +253,5 @@ async fn test_google_auth_redirect() {
         "Should redirect to Google"
     );
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
-        .await
-        .expect("Failed to cleanup database");
+    // No cleanup needed - no data created
 }

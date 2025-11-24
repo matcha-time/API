@@ -1,6 +1,6 @@
 use chrono::{DateTime, Duration, Utc};
-use sqlx::{PgPool, Postgres, Transaction};
 use sqlx::types::Uuid;
+use sqlx::{PgPool, Postgres, Transaction};
 
 use super::token::{generate_token, hash_token};
 use crate::error::ApiError;

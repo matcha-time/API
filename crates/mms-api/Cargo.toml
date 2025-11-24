@@ -8,6 +8,8 @@ homepage.workspace = true
 repository.workspace = true
 exclude.workspace = true
 
+autotests = false
+
 [dependencies]
 mms-db.workspace = true
 
@@ -38,15 +40,13 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
-http-body-util = "0.1"
 tower.workspace = true
 tokio.workspace = true
+
+http-body-util = "0.1"
 cookie = { version = "0.18", features = ["private"] }
 
+# Single integration test that includes all test modules
 [[test]]
-name = "auth_tests"
-path = "tests/auth_tests.rs"
-
-[[test]]
-name = "user_tests"
-path = "tests/user_tests.rs"
+name = "integration"
+path = "tests/integration.rs"

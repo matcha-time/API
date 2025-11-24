@@ -158,25 +158,27 @@ cargo test -- --nocapture
 cargo test -- --show-output
 ```
 
-### Run Tests Sequentially
+### Parallel vs Sequential Execution
 
-Integration tests share a test database and may have race conditions when run in parallel. For deterministic results, run integration tests sequentially:
+**Parallel Execution** (Recommended):
+All tests are designed to run safely in parallel using unique test data:
 
 ```bash
-# From the crates/mms-api directory:
-cd crates/mms-api
-cargo test auth_tests -- --test-threads=1
-cargo test user_tests -- --test-threads=1
+# From the workspace root
+cargo test
 
-# Or from the workspace root:
-cargo test --package mms-api --test auth_tests -- --test-threads=1
-cargo test --package mms-api --test user_tests -- --test-threads=1
+# Or specifically for mms-api
+cargo test --package mms-api
+```
 
-# Run all tests sequentially
+**Sequential Execution** (Optional):
+If you encounter any issues, you can run tests sequentially:
+
+```bash
 cargo test -- --test-threads=1
 ```
 
-**Note**: Sequential execution takes longer but ensures reliable test results.
+**Note**: Our tests use targeted cleanup and unique identifiers, so parallel execution is reliable and much faster!
 
 ## Test Structure
 
@@ -243,12 +245,15 @@ let cookie = response.get_cookie("auth_token");
 #### Database Helpers (`common::db`)
 
 ```rust
-// Clean up all test data
+// Clean up entire database (used only in test_000_setup_clean_database)
 common::db::cleanup(&pool).await?;
 
 // Create test users
 let user_id = common::db::create_verified_user(&pool, "test@example.com", "testuser").await?;
 let user_id = common::db::create_test_user(&pool, "test@example.com", "testuser", &password_hash).await?;
+
+// Delete specific user (recommended for test cleanup)
+common::db::delete_user_by_email(&pool, "test@example.com").await?;
 
 // Query users
 let user_id = common::db::get_user_by_email(&pool, "test@example.com").await?;
@@ -282,6 +287,11 @@ async fn test_my_endpoint() {
         .await
         .expect("Failed to create test state");
 
+    // Create test user with unique email
+    let user_id = common::db::create_verified_user(&state.pool, "test_myendpoint@example.com", "testuser")
+        .await
+        .expect("Failed to create test user");
+
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
@@ -294,10 +304,10 @@ async fn test_my_endpoint() {
     let json: serde_json::Value = response.json();
     assert_eq!(json["key"], "expected_value");
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
+    // Cleanup - delete only the test user created in this test
+    common::db::delete_user_by_email(&state.pool, "test_myendpoint@example.com")
         .await
-        .expect("Failed to cleanup database");
+        .expect("Failed to cleanup test user");
 }
 ```
 
@@ -326,12 +336,15 @@ mod tests {
 
 ### Best Practices
 
-1. **Database Cleanup**: Always cleanup test data after each test
-2. **Isolation**: Each test should be independent and not rely on others
-3. **Descriptive Names**: Use clear test names like `test_user_registration_with_duplicate_email`
-4. **Arrange-Act-Assert**: Structure tests with clear setup, execution, and assertion phases
-5. **Error Messages**: Use descriptive assertion messages for debugging
-6. **Test Both Success and Failure**: Cover happy paths and error cases
+1. **Unique Test Data**: Use unique emails per test (e.g., `test_login@example.com`, `test_dashboard@example.com`) to avoid conflicts
+2. **Targeted Cleanup**: Delete only the specific test data created in each test using `delete_user_by_email()`
+3. **Isolation**: Each test should be independent and not rely on others
+4. **Parallel Execution**: Tests are designed to run in parallel safely
+5. **Descriptive Names**: Use clear test names like `test_user_registration_with_duplicate_email`
+6. **Arrange-Act-Assert**: Structure tests with clear setup, execution, and assertion phases
+7. **Error Messages**: Use descriptive assertion messages for debugging
+8. **Test Both Success and Failure**: Cover happy paths and error cases
+9. **No Cleanup for Failed Requests**: If a test never creates data (e.g., validation errors), skip cleanup
 
 ### Testing Authenticated Endpoints
 
@@ -364,11 +377,11 @@ async fn test_protected_endpoint() {
         .header("cookie", format!("auth_token={}", token))
         .body(axum::body::Body::empty())?;
 
-    let response = client.with_auth_cookie(request, &token).await;
+    let response = client.get_with_auth("/protected/endpoint", &token, &state.cookie_key).await;
     response.assert_status(StatusCode::OK);
 
     // Cleanup
-    common::db::cleanup(&state.pool).await?;
+    common::db::delete_user_by_email(&state.pool, "test@example.com").await?;
 }
 ```
 

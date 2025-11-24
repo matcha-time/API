@@ -7,9 +7,11 @@ use axum_extra::extract::cookie::Key;
 use http_body_util::BodyExt;
 use mms_api::{config::Environment, state::ApiState};
 use oauth2::{ClientId, ClientSecret, RedirectUrl};
-use openidconnect::{IssuerUrl, core::{CoreClient, CoreProviderMetadata}};
+use openidconnect::{
+    IssuerUrl,
+    core::{CoreClient, CoreProviderMetadata},
+};
 use serde::Deserialize;
-use sqlx::PgPool;
 use tower::ServiceExt;
 
 /// Test configuration
@@ -44,16 +46,6 @@ impl TestStateBuilder {
         Self {
             config: TestConfig::default(),
         }
-    }
-
-    pub fn with_database_url(mut self, url: String) -> Self {
-        self.config.database_url = url;
-        self
-    }
-
-    pub fn with_jwt_secret(mut self, secret: String) -> Self {
-        self.config.jwt_secret = secret;
-        self
     }
 
     /// Build a test ApiState with a real database connection
@@ -161,22 +153,14 @@ impl TestClient {
         self.request(request).await
     }
 
-    /// Send a PATCH request with JSON body
-    pub async fn patch_json<T: serde::Serialize>(&self, uri: &str, body: &T) -> TestResponse {
-        let json_body = serde_json::to_string(body).expect("Failed to serialize body");
-
-        let request = Request::builder()
-            .method("PATCH")
-            .uri(uri)
-            .header("content-type", "application/json")
-            .body(Body::from(json_body))
-            .expect("Failed to build request");
-
-        self.request(request).await
-    }
-
     /// Send a PATCH request with JSON body and authentication cookie
-    pub async fn patch_json_with_auth<T: serde::Serialize>(&self, uri: &str, body: &T, token: &str, cookie_key: &Key) -> TestResponse {
+    pub async fn patch_json_with_auth<T: serde::Serialize>(
+        &self,
+        uri: &str,
+        body: &T,
+        token: &str,
+        cookie_key: &Key,
+    ) -> TestResponse {
         use cookie::{CookieJar as RawCookieJar, Key as RawKey};
 
         let raw_key = RawKey::try_from(cookie_key.master()).expect("Invalid key");
@@ -191,20 +175,12 @@ impl TestClient {
             .method("PATCH")
             .uri(uri)
             .header("content-type", "application/json")
-            .header("cookie", format!("{}={}", encrypted.name(), encrypted.value()))
+            .header(
+                "cookie",
+                format!("{}={}", encrypted.name(), encrypted.value()),
+            )
             .body(Body::from(json_body))
             .expect("Failed to build authenticated request");
-
-        self.request(request).await
-    }
-
-    /// Send a DELETE request
-    pub async fn delete(&self, uri: &str) -> TestResponse {
-        let request = Request::builder()
-            .method("DELETE")
-            .uri(uri)
-            .body(Body::empty())
-            .expect("Failed to build request");
 
         self.request(request).await
     }
@@ -223,7 +199,10 @@ impl TestClient {
         let request = Request::builder()
             .method("DELETE")
             .uri(uri)
-            .header("cookie", format!("{}={}", encrypted.name(), encrypted.value()))
+            .header(
+                "cookie",
+                format!("{}={}", encrypted.name(), encrypted.value()),
+            )
             .body(Body::empty())
             .expect("Failed to build authenticated request");
 
@@ -231,23 +210,7 @@ impl TestClient {
     }
 
     /// Send a GET request with authentication cookie
-    /// Note: This uses encrypted cookies via PrivateCookieJar
     pub async fn get_with_auth(&self, uri: &str, token: &str, cookie_key: &Key) -> TestResponse {
-        use axum_extra::extract::cookie::Cookie;
-        use axum_extra::extract::PrivateCookieJar;
-
-        // Create a cookie with owned string using Cookie::build
-        let cookie = Cookie::build(("auth_token", token.to_string())).build();
-
-        // Create an empty jar and add the cookie (this encrypts it)
-        let empty_jar = PrivateCookieJar::<Key>::new(cookie_key.clone());
-        let jar_with_cookie = empty_jar.add(cookie);
-
-        // We need to extract the Set-Cookie header value from the jar
-        // The way to do this in axum is to use the IntoResponseParts trait
-        // But for testing, we can manually encrypt using the cookie crate's private jar
-
-        // Actually, let's use a different approach: create a CookieJar and manually encrypt
         use cookie::{CookieJar as RawCookieJar, Key as RawKey};
 
         let raw_key = RawKey::try_from(cookie_key.master()).expect("Invalid key");
@@ -255,13 +218,15 @@ impl TestClient {
         let raw_cookie = cookie::Cookie::new("auth_token", token.to_string());
         raw_jar.private_mut(&raw_key).add(raw_cookie);
 
-        // Get the encrypted cookie
         let encrypted = raw_jar.get("auth_token").expect("Cookie should exist");
 
         let request = Request::builder()
             .method("GET")
             .uri(uri)
-            .header("cookie", format!("{}={}", encrypted.name(), encrypted.value()))
+            .header(
+                "cookie",
+                format!("{}={}", encrypted.name(), encrypted.value()),
+            )
             .body(Body::empty())
             .expect("Failed to build authenticated request");
 
@@ -269,7 +234,13 @@ impl TestClient {
     }
 
     /// Send a GET request with both auth and refresh token cookies
-    pub async fn get_with_auth_and_refresh(&self, uri: &str, auth_token: &str, refresh_token: &str, cookie_key: &Key) -> TestResponse {
+    pub async fn get_with_auth_and_refresh(
+        &self,
+        uri: &str,
+        auth_token: &str,
+        refresh_token: &str,
+        cookie_key: &Key,
+    ) -> TestResponse {
         use cookie::{CookieJar as RawCookieJar, Key as RawKey};
 
         let raw_key = RawKey::try_from(cookie_key.master()).expect("Invalid key");
@@ -285,35 +256,25 @@ impl TestClient {
 
         // Get both encrypted cookies
         let encrypted_auth = raw_jar.get("auth_token").expect("Auth cookie should exist");
-        let encrypted_refresh = raw_jar.get("refresh_token").expect("Refresh cookie should exist");
+        let encrypted_refresh = raw_jar
+            .get("refresh_token")
+            .expect("Refresh cookie should exist");
 
         let request = Request::builder()
             .method("GET")
             .uri(uri)
-            .header("cookie", format!("{}={}; {}={}",
-                encrypted_auth.name(), encrypted_auth.value(),
-                encrypted_refresh.name(), encrypted_refresh.value()))
+            .header(
+                "cookie",
+                format!(
+                    "{}={}; {}={}",
+                    encrypted_auth.name(),
+                    encrypted_auth.value(),
+                    encrypted_refresh.name(),
+                    encrypted_refresh.value()
+                ),
+            )
             .body(Body::empty())
             .expect("Failed to build authenticated request");
-
-        self.request(request).await
-    }
-
-    /// Send a request with authentication cookie
-    pub async fn with_auth_cookie(&self, mut request: Request<Body>, token: &str, cookie_key: &Key) -> TestResponse {
-        use cookie::{CookieJar as RawCookieJar, Key as RawKey};
-
-        let raw_key = RawKey::try_from(cookie_key.master()).expect("Invalid key");
-        let mut raw_jar = RawCookieJar::new();
-        let raw_cookie = cookie::Cookie::new("auth_token", token.to_string());
-        raw_jar.private_mut(&raw_key).add(raw_cookie);
-
-        // Get the encrypted cookie
-        let encrypted = raw_jar.get("auth_token").expect("Cookie should exist");
-
-        request
-            .headers_mut()
-            .insert("cookie", format!("{}={}", encrypted.name(), encrypted.value()).parse().unwrap());
 
         self.request(request).await
     }
@@ -369,13 +330,8 @@ pub mod db {
     use sqlx::PgPool;
     use uuid::Uuid;
 
-    /// Setup test database - cleanup before running tests
-    /// Call this at the start of each test to ensure a clean state
-    pub async fn setup(pool: &PgPool) -> anyhow::Result<()> {
-        cleanup(pool).await
-    }
-
     /// Clean up test database - delete all data from tables
+    /// Used for initial database setup before running tests
     pub async fn cleanup(pool: &PgPool) -> anyhow::Result<()> {
         sqlx::query!("DELETE FROM user_card_progress")
             .execute(pool)
@@ -389,16 +345,12 @@ pub mod db {
         sqlx::query!("DELETE FROM deck_flashcards")
             .execute(pool)
             .await?;
-        sqlx::query!("DELETE FROM flashcards")
-            .execute(pool)
-            .await?;
+        sqlx::query!("DELETE FROM flashcards").execute(pool).await?;
         sqlx::query!("DELETE FROM decks").execute(pool).await?;
         sqlx::query!("DELETE FROM roadmap_nodes")
             .execute(pool)
             .await?;
-        sqlx::query!("DELETE FROM roadmaps")
-            .execute(pool)
-            .await?;
+        sqlx::query!("DELETE FROM roadmaps").execute(pool).await?;
         sqlx::query!("DELETE FROM refresh_tokens")
             .execute(pool)
             .await?;
@@ -408,9 +360,7 @@ pub mod db {
         sqlx::query!("DELETE FROM password_reset_tokens")
             .execute(pool)
             .await?;
-        sqlx::query!("DELETE FROM user_stats")
-            .execute(pool)
-            .await?;
+        sqlx::query!("DELETE FROM user_stats").execute(pool).await?;
         sqlx::query!("DELETE FROM users").execute(pool).await?;
 
         Ok(())
