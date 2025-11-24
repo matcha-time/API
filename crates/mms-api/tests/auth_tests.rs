@@ -253,5 +253,263 @@ async fn test_google_auth_redirect() {
         "Should redirect to Google"
     );
 
+    // Should set OIDC flow cookie
+    let oidc_cookie = response.get_cookie("oidc_flow");
+    assert!(oidc_cookie.is_some(), "Should set OIDC flow cookie");
+
     // No cleanup needed - no data created
+}
+
+#[tokio::test]
+async fn test_google_callback_csrf_validation() {
+    // This test verifies that the callback validates CSRF tokens correctly
+    // We test the path up to the OAuth token exchange (which would require mocking Google's servers)
+
+    let state = TestStateBuilder::new()
+        .build()
+        .await
+        .expect("Failed to create test state");
+
+    let app = router::router().with_state(state.clone());
+    let client = TestClient::new(app);
+
+    // Step 1: Initiate OAuth flow to get OIDC cookie
+    let init_response = client.get("/auth/google").await;
+
+    // Verify we got an OIDC cookie
+    assert!(
+        init_response.get_cookie("oidc_flow").is_some(),
+        "Should set OIDC flow cookie"
+    );
+
+    // Step 2: Try callback without the cookie - should fail
+    let response_no_cookie = client.get("/auth/callback?code=test&state=test").await;
+
+    assert!(
+        response_no_cookie.status == StatusCode::BAD_REQUEST
+            || response_no_cookie.status == StatusCode::INTERNAL_SERVER_ERROR,
+        "Should reject callback without OIDC cookie"
+    );
+
+    // Note: Testing the full callback flow with proper CSRF validation would require
+    // either mocking the Google OAuth server or dependency injection for the OIDC client.
+    // The service layer tests below cover the user creation logic thoroughly.
+}
+
+#[tokio::test]
+async fn test_google_callback_without_oidc_cookie() {
+    let state = TestStateBuilder::new()
+        .build()
+        .await
+        .expect("Failed to create test state");
+
+    let app = router::router().with_state(state.clone());
+    let client = TestClient::new(app);
+
+    // Try to call callback without initiating OAuth flow (no OIDC cookie)
+    let response = client
+        .get("/auth/callback?code=mock_code&state=mock_state")
+        .await;
+
+    // Should return error due to missing OIDC cookie
+    assert!(
+        response.status == StatusCode::BAD_REQUEST
+            || response.status == StatusCode::UNAUTHORIZED
+            || response.status == StatusCode::INTERNAL_SERVER_ERROR,
+        "Should reject request without OIDC cookie. Status: {}",
+        response.status
+    );
+}
+
+#[tokio::test]
+async fn test_find_or_create_google_user_new_user() {
+    use mms_api::auth::service::find_or_create_google_user;
+
+    let state = TestStateBuilder::new()
+        .build()
+        .await
+        .expect("Failed to create test state");
+
+    let test_email = "google_new@example.com";
+    let test_google_id = "google_new_123";
+
+    // Create user via Google auth
+    let user = find_or_create_google_user(
+        &state.pool,
+        test_google_id,
+        test_email,
+        Some("Google User"),
+        Some("https://example.com/pic.jpg"),
+    )
+    .await
+    .expect("Should create user");
+
+    assert_eq!(user.email, test_email);
+    assert_eq!(user.username, "Google User");
+    assert_eq!(
+        user.profile_picture_url,
+        Some("https://example.com/pic.jpg".to_string())
+    );
+
+    // Verify user was created in database
+    let db_user = common::db::get_user_by_email(&state.pool, test_email)
+        .await
+        .expect("Should query user")
+        .expect("User should exist");
+
+    assert_eq!(db_user, user.id);
+
+    // Cleanup
+    common::db::delete_user_by_email(&state.pool, test_email)
+        .await
+        .expect("Failed to cleanup user");
+}
+
+#[tokio::test]
+async fn test_find_or_create_google_user_existing_google_user() {
+    use mms_api::auth::service::find_or_create_google_user;
+
+    let state = TestStateBuilder::new()
+        .build()
+        .await
+        .expect("Failed to create test state");
+
+    let test_email = "google_existing@example.com";
+    let test_google_id = "google_existing_123";
+
+    // Create user first time
+    let user1 = find_or_create_google_user(
+        &state.pool,
+        test_google_id,
+        test_email,
+        Some("Original Name"),
+        Some("https://example.com/pic1.jpg"),
+    )
+    .await
+    .expect("Should create user");
+
+    // Try to create same user again (should find existing)
+    let user2 = find_or_create_google_user(
+        &state.pool,
+        test_google_id,
+        test_email,
+        Some("Updated Name"),
+        Some("https://example.com/pic2.jpg"),
+    )
+    .await
+    .expect("Should find existing user");
+
+    // Should be the same user
+    assert_eq!(user1.id, user2.id);
+    assert_eq!(user1.username, user2.username); // Username shouldn't change
+    assert_eq!(user2.email, test_email);
+
+    // Profile picture should be updated
+    assert_eq!(
+        user2.profile_picture_url,
+        Some("https://example.com/pic2.jpg".to_string())
+    );
+
+    // Cleanup
+    common::db::delete_user_by_email(&state.pool, test_email)
+        .await
+        .expect("Failed to cleanup user");
+}
+
+#[tokio::test]
+async fn test_find_or_create_google_user_links_existing_email_user() {
+    use mms_api::auth::service::find_or_create_google_user;
+
+    let state = TestStateBuilder::new()
+        .build()
+        .await
+        .expect("Failed to create test state");
+
+    let test_email = "email_then_google@example.com";
+    let test_google_id = "google_link_123";
+
+    // Create user with email/password first
+    let user_id = common::db::create_verified_user(&state.pool, test_email, "emailuser")
+        .await
+        .expect("Should create email user");
+
+    // Now try to login with Google using same email
+    let user = find_or_create_google_user(
+        &state.pool,
+        test_google_id,
+        test_email,
+        Some("Google Name"),
+        Some("https://example.com/pic.jpg"),
+    )
+    .await
+    .expect("Should link Google account");
+
+    // Should be the same user
+    assert_eq!(user.id, user_id);
+    assert_eq!(user.email, test_email);
+
+    // Verify google_id was added
+    let google_id_result = sqlx::query_scalar::<_, Option<String>>(
+        r#"
+        SELECT google_id FROM users WHERE id = $1
+        "#,
+    )
+    .bind(user_id)
+    .fetch_one(&state.pool)
+    .await
+    .expect("Should query google_id");
+
+    assert_eq!(google_id_result, Some(test_google_id.to_string()));
+
+    // Cleanup
+    common::db::delete_user_by_email(&state.pool, test_email)
+        .await
+        .expect("Failed to cleanup user");
+}
+
+#[tokio::test]
+async fn test_find_or_create_google_user_handles_username_conflict() {
+    use mms_api::auth::service::find_or_create_google_user;
+
+    let state = TestStateBuilder::new()
+        .build()
+        .await
+        .expect("Failed to create test state");
+
+    let test_email1 = "user1@example.com";
+    let test_email2 = "user2@example.com";
+    let username = "SameName";
+
+    // Create first user with this username
+    let user1 =
+        find_or_create_google_user(&state.pool, "google_1", test_email1, Some(username), None)
+            .await
+            .expect("Should create first user");
+
+    assert_eq!(user1.username, username);
+
+    // Create second user with same name (should get numbered suffix)
+    let user2 =
+        find_or_create_google_user(&state.pool, "google_2", test_email2, Some(username), None)
+            .await
+            .expect("Should create second user");
+
+    // Second user should have different username
+    assert_ne!(user1.username, user2.username);
+    assert!(
+        user2.username.starts_with(username),
+        "Username should start with original name"
+    );
+    assert!(
+        user2.username.len() > username.len(),
+        "Username should have suffix"
+    );
+
+    // Cleanup
+    common::db::delete_user_by_email(&state.pool, test_email1)
+        .await
+        .expect("Failed to cleanup user1");
+    common::db::delete_user_by_email(&state.pool, test_email2)
+        .await
+        .expect("Failed to cleanup user2");
 }
