@@ -60,7 +60,7 @@ pub fn create_auth_cookie(token: String, environment: &Environment) -> Cookie<'s
         .path("/")
         .max_age(time::Duration::hours(24))
         .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Lax)
+        .same_site(axum_extra::extract::cookie::SameSite::Strict)
         .secure(!is_development) // Secure by default, insecure only in development
         .build()
 }
@@ -76,7 +76,7 @@ pub fn create_oidc_flow_cookie(oidc_json: String, environment: &Environment) -> 
         .path("/")
         .max_age(time::Duration::minutes(10))
         .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Lax)
+        .same_site(axum_extra::extract::cookie::SameSite::Strict)
         .secure(!is_development) // Secure by default, insecure only in development
         .build()
 }

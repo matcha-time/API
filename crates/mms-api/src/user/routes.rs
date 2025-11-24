@@ -14,6 +14,7 @@ use crate::{
         routes::{AuthResponse, UserResponse},
     },
     error::ApiError,
+    middleware::rate_limit,
     user::{email_verification, password_reset},
 };
 
@@ -21,22 +22,34 @@ use mms_db::models::{ActivityDay, UserStats};
 
 /// Create the user routes
 pub fn routes() -> Router<ApiState> {
-    Router::new()
+    // Sensitive routes with very strict rate limiting and timing-safe middleware
+    let sensitive_routes = Router::new()
+        .route("/users/request-password-reset", post(request_password_reset))
+        .route("/users/resend-verification", post(resend_verification_email))
+        .layer(rate_limit::sensitive_rate_limit())
+        .route_layer(axum::middleware::from_fn(rate_limit::timing_safe_middleware));
+
+    // Auth routes with strict rate limiting and timing-safe middleware
+    let auth_routes = Router::new()
         .route("/users/register", post(create_user))
         .route("/users/login", post(login_user))
+        .route("/users/reset-password", post(reset_password))
+        .layer(rate_limit::auth_rate_limit())
+        .route_layer(axum::middleware::from_fn(rate_limit::timing_safe_middleware));
+
+    // General authenticated routes with moderate rate limiting
+    let general_routes = Router::new()
         .route("/users/{user_id}/dashboard", get(get_user_dashboard))
         .route("/users/{user_id}", patch(update_user_profile))
         .route("/users/{user_id}", delete(delete_user))
         .route("/users/verify-email", get(verify_email))
-        .route(
-            "/users/resend-verification",
-            post(resend_verification_email),
-        )
-        .route(
-            "/users/request-password-reset",
-            post(request_password_reset),
-        )
-        .route("/users/reset-password", post(reset_password))
+        .layer(rate_limit::general_rate_limit());
+
+    // Merge all route groups
+    Router::new()
+        .merge(sensitive_routes)
+        .merge(auth_routes)
+        .merge(general_routes)
 }
 
 #[derive(Serialize)]
@@ -121,34 +134,32 @@ async fn create_user(
     .fetch_optional(&state.pool)
     .await?;
 
-    // If user exists and is verified, tell them to login
-    if let Some((_, true)) = existing_user {
-        return Err(ApiError::Validation(
-            "An account with this email already exists. Please log in.".to_string(),
-        ));
-    }
+    // If user exists (verified or not), resend verification email
+    // This prevents email enumeration by always returning the same response
+    if let Some((user_id, email_verified)) = existing_user {
+        // If verified, don't send email but return same message
+        if !email_verified {
+            let verification_token =
+                email_verification::create_verification_token(&state.pool, user_id, 24).await?;
 
-    // If user exists but is not verified, resend verification email
-    if let Some((user_id, false)) = existing_user {
-        let verification_token =
-            email_verification::create_verification_token(&state.pool, user_id, 24).await?;
-
-        if let Some(email_service) = &state.email_service {
-            email_service.send_verification_email(
-                &request.email,
-                &request.username,
-                &verification_token,
-            )?;
-        } else {
-            tracing::info!(
-                user_id = %user_id,
-                token = %verification_token,
-                "Email service not configured - verification token generated"
-            );
+            if let Some(email_service) = &state.email_service {
+                let _ = email_service.send_verification_email(
+                    &request.email,
+                    &request.username,
+                    &verification_token,
+                );
+            } else {
+                tracing::info!(
+                    user_id = %user_id,
+                    token = %verification_token,
+                    "Email service not configured - verification token generated"
+                );
+            }
         }
 
+        // Return generic message regardless of verification status to prevent enumeration
         return Ok(Json(serde_json::json!({
-            "message": "A verification email has been resent. Please check your email to verify your account.",
+            "message": "Registration successful. Please check your email to verify your account.",
             "email": request.email
         })));
     }
@@ -769,7 +780,7 @@ fn create_refresh_token_cookie(
         .path("/")
         .max_age(time::Duration::days(30))
         .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Lax)
+        .same_site(axum_extra::extract::cookie::SameSite::Strict)
         .secure(!is_development)
         .build()
 }

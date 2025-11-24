@@ -128,10 +128,25 @@ impl ApiConfig {
 
     /// Validate the configuration
     fn validate(&self) -> Result<(), ConfigError> {
-        // Validate JWT secret length
+        // Validate JWT secret length and entropy
         if self.jwt_secret.len() < 32 {
             return Err(ConfigError::ValidationError(
                 "JWT_SECRET must be at least 32 characters long for security".to_string(),
+            ));
+        }
+
+        // Check for weak secrets (common patterns)
+        if self.jwt_secret.chars().all(|c| c == self.jwt_secret.chars().next().unwrap()) {
+            return Err(ConfigError::ValidationError(
+                "JWT_SECRET appears to be a repeated character pattern. Use a cryptographically random secret.".to_string(),
+            ));
+        }
+
+        // Check for basic entropy - ensure some variety in characters
+        let unique_chars: std::collections::HashSet<char> = self.jwt_secret.chars().collect();
+        if unique_chars.len() < 16 {
+            return Err(ConfigError::ValidationError(
+                "JWT_SECRET has insufficient entropy (too few unique characters). Use a cryptographically random secret with at least 16 unique characters.".to_string(),
             ));
         }
 

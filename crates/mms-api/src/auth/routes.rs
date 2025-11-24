@@ -11,15 +11,26 @@ use serde::{Deserialize, Serialize};
 use sqlx::types::Uuid;
 
 use super::{jwt, middleware::AuthUser, models::OidcFlowData, refresh_token as rt, service};
-use crate::{ApiState, error::ApiError};
+use crate::{ApiState, error::ApiError, middleware::rate_limit};
 
 pub fn routes() -> Router<ApiState> {
-    Router::new()
+    // OAuth routes with moderate rate limiting
+    let oauth_routes = Router::new()
         .route("/auth/google", get(google_auth))
         .route("/auth/callback", get(auth_callback))
+        .layer(rate_limit::general_rate_limit());
+
+    // Authenticated routes with general rate limiting
+    let auth_routes = Router::new()
         .route("/auth/me", get(auth_me))
         .route("/auth/refresh", get(refresh_token))
         .route("/auth/logout", get(logout))
+        .layer(rate_limit::general_rate_limit());
+
+    // Merge all route groups
+    Router::new()
+        .merge(oauth_routes)
+        .merge(auth_routes)
 }
 
 async fn google_auth(
@@ -290,7 +301,7 @@ fn create_refresh_token_cookie(
         .path("/")
         .max_age(time::Duration::days(30))
         .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Lax)
+        .same_site(axum_extra::extract::cookie::SameSite::Strict)
         .secure(!is_development)
         .build()
 }
