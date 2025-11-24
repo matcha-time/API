@@ -14,7 +14,6 @@ members = [
     # Crates
     "crates/mms-*",
 ]
-default-members = ["bin/serv"]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
 # https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html

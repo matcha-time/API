@@ -42,3 +42,11 @@ http-body-util = "0.1"
 tower.workspace = true
 tokio.workspace = true
 cookie = { version = "0.18", features = ["private"] }
+
+[[test]]
+name = "auth_tests"
+path = "tests/auth_tests.rs"
+
+[[test]]
+name = "user_tests"
+path = "tests/user_tests.rs"

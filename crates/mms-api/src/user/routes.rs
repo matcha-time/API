@@ -199,8 +199,9 @@ async fn create_user(
     .await?;
 
     // Generate verification token (24 hour expiry)
+    // Use the transaction version to respect foreign key constraints
     let verification_token =
-        email_verification::create_verification_token(&state.pool, user_id, 24).await?;
+        email_verification::create_verification_token_tx(&mut tx, user_id, 24).await?;
 
     // Commit the transaction before sending email
     tx.commit().await?;
@@ -575,7 +576,7 @@ async fn update_user_profile(
     let user = sqlx::query_as::<_, (String, String, Option<String>, String)>(
         // language=PostgreSQL
         r#"
-            SELECT username, email, password_hash, auth_provider
+            SELECT username, email, password_hash, auth_provider::text
             FROM users
             WHERE id = $1
         "#,

@@ -5,6 +5,19 @@ use common::{TestClient, TestStateBuilder};
 use mms_api::router;
 use serde_json::json;
 
+// This test runs first alphabetically to clean up the database
+#[tokio::test]
+async fn test_000_setup_clean_database() {
+    let state = TestStateBuilder::new()
+        .build()
+        .await
+        .expect("Failed to create test state");
+
+    common::db::cleanup(&state.pool)
+        .await
+        .expect("Failed to cleanup database");
+}
+
 #[tokio::test]
 async fn test_user_registration_success() {
     let state = TestStateBuilder::new()
@@ -41,9 +54,9 @@ async fn test_user_registration_success() {
     assert!(user_exists.is_some(), "User should exist in database");
 
     // Cleanup
-    common::db::cleanup(&state.pool)
+    common::db::delete_user_by_email(&state.pool, "newuser@example.com")
         .await
-        .expect("Failed to cleanup database");
+        .expect("Failed to cleanup test user");
 }
 
 #[tokio::test]
@@ -75,9 +88,9 @@ async fn test_user_registration_duplicate_email() {
     assert!(json["error"].as_str().unwrap().contains("already exists"));
 
     // Cleanup
-    common::db::cleanup(&state.pool)
+    common::db::delete_user_by_email(&state.pool, "existing@example.com")
         .await
-        .expect("Failed to cleanup database");
+        .expect("Failed to cleanup test user");
 }
 
 #[tokio::test]
@@ -103,10 +116,7 @@ async fn test_user_registration_invalid_email() {
     let json: serde_json::Value = response.json();
     assert!(json["error"].as_str().unwrap().contains("email"));
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
-        .await
-        .expect("Failed to cleanup database");
+    // No cleanup needed - user was never created
 }
 
 #[tokio::test]
@@ -130,12 +140,14 @@ async fn test_user_registration_weak_password() {
     response.assert_status(StatusCode::BAD_REQUEST);
 
     let json: serde_json::Value = response.json();
-    assert!(json["error"].as_str().unwrap().contains("password"));
+    let error_msg = json["error"].as_str().unwrap();
+    assert!(
+        error_msg.to_lowercase().contains("password"),
+        "Expected error to contain 'password', got: {}",
+        error_msg
+    );
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
-        .await
-        .expect("Failed to cleanup database");
+    // No cleanup needed - user was never created
 }
 
 #[tokio::test]
@@ -151,8 +163,8 @@ async fn test_user_login_success() {
 
     common::db::create_test_user(
         &state.pool,
-        "testuser@example.com",
-        "testuser",
+        "login_success@example.com",
+        "login_success_user",
         &password_hash,
     )
     .await
@@ -162,7 +174,7 @@ async fn test_user_login_success() {
     let client = TestClient::new(app);
 
     let body = json!({
-        "email": "testuser@example.com",
+        "email": "login_success@example.com",
         "password": "password123"
     });
 
@@ -178,9 +190,9 @@ async fn test_user_login_success() {
     );
     assert_eq!(
         json["user"]["email"].as_str().unwrap(),
-        "testuser@example.com"
+        "login_success@example.com"
     );
-    assert_eq!(json["user"]["username"].as_str().unwrap(), "testuser");
+    assert_eq!(json["user"]["username"].as_str().unwrap(), "login_success_user");
 
     // Verify auth cookie was set
     let auth_cookie = response.get_cookie("auth_token");
@@ -194,9 +206,9 @@ async fn test_user_login_success() {
     );
 
     // Cleanup
-    common::db::cleanup(&state.pool)
+    common::db::delete_user_by_email(&state.pool, "login_success@example.com")
         .await
-        .expect("Failed to cleanup database");
+        .expect("Failed to cleanup test user");
 }
 
 #[tokio::test]
@@ -207,7 +219,7 @@ async fn test_user_login_invalid_credentials() {
         .expect("Failed to create test state");
 
     // Create a verified user
-    common::db::create_verified_user(&state.pool, "testuser@example.com", "testuser")
+    common::db::create_verified_user(&state.pool, "invalid_creds@example.com", "invalid_creds_user")
         .await
         .expect("Failed to create test user");
 
@@ -215,7 +227,7 @@ async fn test_user_login_invalid_credentials() {
     let client = TestClient::new(app);
 
     let body = json!({
-        "email": "testuser@example.com",
+        "email": "invalid_creds@example.com",
         "password": "wrongpassword"
     });
 
@@ -232,9 +244,9 @@ async fn test_user_login_invalid_credentials() {
     );
 
     // Cleanup
-    common::db::cleanup(&state.pool)
+    common::db::delete_user_by_email(&state.pool, "invalid_creds@example.com")
         .await
-        .expect("Failed to cleanup database");
+        .expect("Failed to cleanup test user");
 }
 
 #[tokio::test]
@@ -264,10 +276,7 @@ async fn test_user_login_nonexistent_user() {
             .contains("Invalid email or password")
     );
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
-        .await
-        .expect("Failed to cleanup database");
+    // No cleanup needed - user was never created
 }
 
 #[tokio::test]
@@ -278,25 +287,18 @@ async fn test_get_user_dashboard() {
         .expect("Failed to create test state");
 
     // Create a verified user
-    let user_id = common::db::create_verified_user(&state.pool, "testuser@example.com", "testuser")
+    let user_id = common::db::create_verified_user(&state.pool, "dashboard@example.com", "dashboard_user")
         .await
         .expect("Failed to create test user");
 
     // Generate auth token
-    let token = common::jwt::create_test_token(user_id, "testuser@example.com", &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, "dashboard@example.com", &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Create request with auth cookie
-    let request = axum::http::Request::builder()
-        .method("GET")
-        .uri(format!("/users/{}/dashboard", user_id))
-        .header("cookie", format!("auth_token={}", token))
-        .body(axum::body::Body::empty())
-        .expect("Failed to build request");
-
-    let response = client.with_auth_cookie(request, &token, &state.cookie_key).await;
+    // Get dashboard with authentication
+    let response = client.get_with_auth(&format!("/users/{}/dashboard", user_id), &token, &state.cookie_key).await;
 
     response.assert_status(StatusCode::OK);
 
@@ -312,9 +314,9 @@ async fn test_get_user_dashboard() {
     assert!(stats["total_cards_learned"].is_number());
 
     // Cleanup
-    common::db::cleanup(&state.pool)
+    common::db::delete_user_by_email(&state.pool, "dashboard@example.com")
         .await
-        .expect("Failed to cleanup database");
+        .expect("Failed to cleanup test user");
 }
 
 #[tokio::test]
@@ -325,16 +327,16 @@ async fn test_get_dashboard_unauthorized() {
         .expect("Failed to create test state");
 
     // Create two users
-    let user1_id = common::db::create_verified_user(&state.pool, "user1@example.com", "user1")
+    let user1_id = common::db::create_verified_user(&state.pool, "user1_dash@example.com", "user1_dash")
         .await
         .expect("Failed to create user1");
 
-    let user2_id = common::db::create_verified_user(&state.pool, "user2@example.com", "user2")
+    let user2_id = common::db::create_verified_user(&state.pool, "user2_dash@example.com", "user2_dash")
         .await
         .expect("Failed to create user2");
 
     // Generate auth token for user1
-    let token = common::jwt::create_test_token(user1_id, "user1@example.com", &state.jwt_secret);
+    let token = common::jwt::create_test_token(user1_id, "user1_dash@example.com", &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -355,9 +357,12 @@ async fn test_get_dashboard_unauthorized() {
     assert!(json["error"].as_str().unwrap().contains("not authorized"));
 
     // Cleanup
-    common::db::cleanup(&state.pool)
+    common::db::delete_user_by_email(&state.pool, "user1_dash@example.com")
         .await
-        .expect("Failed to cleanup database");
+        .expect("Failed to cleanup test user 1");
+    common::db::delete_user_by_email(&state.pool, "user2_dash@example.com")
+        .await
+        .expect("Failed to cleanup test user 2");
 }
 
 #[tokio::test]
@@ -368,12 +373,12 @@ async fn test_update_user_profile() {
         .expect("Failed to create test state");
 
     // Create a verified user
-    let user_id = common::db::create_verified_user(&state.pool, "testuser@example.com", "testuser")
+    let user_id = common::db::create_verified_user(&state.pool, "update_profile@example.com", "update_profile_user")
         .await
         .expect("Failed to create test user");
 
     // Generate auth token
-    let token = common::jwt::create_test_token(user_id, "testuser@example.com", &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, "update_profile@example.com", &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -383,22 +388,12 @@ async fn test_update_user_profile() {
         "username": "updateduser"
     });
 
-    let request = axum::http::Request::builder()
-        .method("PATCH")
-        .uri(format!("/users/{}", user_id))
-        .header("content-type", "application/json")
-        .header("cookie", format!("auth_token={}", token))
-        .body(axum::body::Body::from(
-            serde_json::to_string(&body).unwrap(),
-        ))
-        .expect("Failed to build request");
-
-    let response = client.request(request).await;
+    let response = client.patch_json_with_auth(&format!("/users/{}", user_id), &body, &token, &state.cookie_key).await;
 
     response.assert_status(StatusCode::OK);
 
     let json: serde_json::Value = response.json();
-    assert_eq!(json["username"].as_str().unwrap(), "updateduser");
+    assert_eq!(json["user"]["username"].as_str().unwrap(), "updateduser");
 
     // Verify the update in database
     let updated_username =
@@ -411,9 +406,9 @@ async fn test_update_user_profile() {
     assert_eq!(updated_username, "updateduser");
 
     // Cleanup
-    common::db::cleanup(&state.pool)
+    common::db::delete_user_by_email(&state.pool, "update_profile@example.com")
         .await
-        .expect("Failed to cleanup database");
+        .expect("Failed to cleanup test user");
 }
 
 #[tokio::test]
@@ -424,25 +419,18 @@ async fn test_delete_user() {
         .expect("Failed to create test state");
 
     // Create a verified user
-    let user_id = common::db::create_verified_user(&state.pool, "testuser@example.com", "testuser")
+    let user_id = common::db::create_verified_user(&state.pool, "delete_user@example.com", "delete_user")
         .await
         .expect("Failed to create test user");
 
     // Generate auth token
-    let token = common::jwt::create_test_token(user_id, "testuser@example.com", &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, "delete_user@example.com", &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
     // Delete user
-    let request = axum::http::Request::builder()
-        .method("DELETE")
-        .uri(format!("/users/{}", user_id))
-        .header("cookie", format!("auth_token={}", token))
-        .body(axum::body::Body::empty())
-        .expect("Failed to build request");
-
-    let response = client.request(request).await;
+    let response = client.delete_with_auth(&format!("/users/{}", user_id), &token, &state.cookie_key).await;
 
     response.assert_status(StatusCode::OK);
 
@@ -450,7 +438,7 @@ async fn test_delete_user() {
     assert!(json["message"].as_str().unwrap().contains("deleted"));
 
     // Verify user was deleted from database
-    let user_exists = common::db::get_user_by_email(&state.pool, "testuser@example.com")
+    let user_exists = common::db::get_user_by_email(&state.pool, "delete_user@example.com")
         .await
         .expect("Failed to query user");
 
@@ -459,10 +447,7 @@ async fn test_delete_user() {
         "User should be deleted from database"
     );
 
-    // Cleanup (already deleted, but cleanup other tables)
-    common::db::cleanup(&state.pool)
-        .await
-        .expect("Failed to cleanup database");
+    // No cleanup needed - user was already deleted by the endpoint
 }
 
 #[tokio::test]
@@ -502,7 +487,7 @@ async fn test_user_registration_creates_stats() {
     assert!(stats_exists, "User stats should be created automatically");
 
     // Cleanup
-    common::db::cleanup(&state.pool)
+    common::db::delete_user_by_email(&state.pool, "statsuser@example.com")
         .await
-        .expect("Failed to cleanup database");
+        .expect("Failed to cleanup test user");
 }

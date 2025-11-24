@@ -175,6 +175,29 @@ impl TestClient {
         self.request(request).await
     }
 
+    /// Send a PATCH request with JSON body and authentication cookie
+    pub async fn patch_json_with_auth<T: serde::Serialize>(&self, uri: &str, body: &T, token: &str, cookie_key: &Key) -> TestResponse {
+        use cookie::{CookieJar as RawCookieJar, Key as RawKey};
+
+        let raw_key = RawKey::try_from(cookie_key.master()).expect("Invalid key");
+        let mut raw_jar = RawCookieJar::new();
+        let raw_cookie = cookie::Cookie::new("auth_token", token.to_string());
+        raw_jar.private_mut(&raw_key).add(raw_cookie);
+
+        let encrypted = raw_jar.get("auth_token").expect("Cookie should exist");
+        let json_body = serde_json::to_string(body).expect("Failed to serialize body");
+
+        let request = Request::builder()
+            .method("PATCH")
+            .uri(uri)
+            .header("content-type", "application/json")
+            .header("cookie", format!("{}={}", encrypted.name(), encrypted.value()))
+            .body(Body::from(json_body))
+            .expect("Failed to build authenticated request");
+
+        self.request(request).await
+    }
+
     /// Send a DELETE request
     pub async fn delete(&self, uri: &str) -> TestResponse {
         let request = Request::builder()
@@ -182,6 +205,27 @@ impl TestClient {
             .uri(uri)
             .body(Body::empty())
             .expect("Failed to build request");
+
+        self.request(request).await
+    }
+
+    /// Send a DELETE request with authentication cookie
+    pub async fn delete_with_auth(&self, uri: &str, token: &str, cookie_key: &Key) -> TestResponse {
+        use cookie::{CookieJar as RawCookieJar, Key as RawKey};
+
+        let raw_key = RawKey::try_from(cookie_key.master()).expect("Invalid key");
+        let mut raw_jar = RawCookieJar::new();
+        let raw_cookie = cookie::Cookie::new("auth_token", token.to_string());
+        raw_jar.private_mut(&raw_key).add(raw_cookie);
+
+        let encrypted = raw_jar.get("auth_token").expect("Cookie should exist");
+
+        let request = Request::builder()
+            .method("DELETE")
+            .uri(uri)
+            .header("cookie", format!("{}={}", encrypted.name(), encrypted.value()))
+            .body(Body::empty())
+            .expect("Failed to build authenticated request");
 
         self.request(request).await
     }
@@ -307,17 +351,16 @@ impl TestResponse {
 
     /// Extract cookie value by name
     pub fn get_cookie(&self, name: &str) -> Option<String> {
-        self.headers
-            .get("set-cookie")
-            .and_then(|value| value.to_str().ok())
-            .and_then(|cookie_str| {
+        // Use get_all to handle multiple Set-Cookie headers
+        for value in self.headers.get_all("set-cookie").iter() {
+            if let Ok(cookie_str) = value.to_str() {
                 if cookie_str.starts_with(&format!("{}=", name)) {
                     let value = cookie_str.split(';').next()?.split('=').nth(1)?.to_string();
-                    Some(value)
-                } else {
-                    None
+                    return Some(value);
                 }
-            })
+            }
+        }
+        None
     }
 }
 
@@ -325,6 +368,12 @@ impl TestResponse {
 pub mod db {
     use sqlx::PgPool;
     use uuid::Uuid;
+
+    /// Setup test database - cleanup before running tests
+    /// Call this at the start of each test to ensure a clean state
+    pub async fn setup(pool: &PgPool) -> anyhow::Result<()> {
+        cleanup(pool).await
+    }
 
     /// Clean up test database - delete all data from tables
     pub async fn cleanup(pool: &PgPool) -> anyhow::Result<()> {
@@ -378,13 +427,24 @@ pub mod db {
 
         sqlx::query!(
             r#"
-            INSERT INTO users (id, email, username, password_hash, email_verified, created_at)
-            VALUES ($1, $2, $3, $4, true, NOW())
+            INSERT INTO users (id, email, username, password_hash, auth_provider, email_verified, created_at)
+            VALUES ($1, $2, $3, $4, 'email', true, NOW())
             "#,
             user_id,
             email,
             username,
             password_hash
+        )
+        .execute(pool)
+        .await?;
+
+        // Create user_stats entry
+        sqlx::query!(
+            r#"
+            INSERT INTO user_stats (user_id)
+            VALUES ($1)
+            "#,
+            user_id
         )
         .execute(pool)
         .await?;
@@ -414,6 +474,21 @@ pub mod db {
         .await?;
 
         Ok(result.map(|r| r.id))
+    }
+
+    /// Delete a specific user by email (for test cleanup)
+    /// This will cascade delete related records due to foreign key constraints
+    pub async fn delete_user_by_email(pool: &PgPool, email: &str) -> anyhow::Result<()> {
+        sqlx::query!(
+            r#"
+            DELETE FROM users WHERE email = $1
+            "#,
+            email
+        )
+        .execute(pool)
+        .await?;
+
+        Ok(())
     }
 }
 

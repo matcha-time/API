@@ -1,5 +1,5 @@
 use chrono::{DateTime, Duration, Utc};
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use sqlx::types::Uuid;
 
 use super::token::{generate_token, hash_token};
@@ -43,6 +43,49 @@ pub async fn create_verification_token(
     .bind(&token_hash)
     .bind(expires_at)
     .execute(pool)
+    .await?;
+
+    Ok(token)
+}
+
+/// Create an email verification token within a transaction
+pub async fn create_verification_token_tx(
+    tx: &mut Transaction<'_, Postgres>,
+    user_id: Uuid,
+    expires_in_hours: i64,
+) -> Result<String, ApiError> {
+    // Generate the token
+    let token = generate_token();
+    let token_hash = hash_token(&token);
+
+    // Calculate expiration time
+    let expires_at: DateTime<Utc> = Utc::now() + Duration::hours(expires_in_hours);
+
+    // Invalidate any existing unused tokens for this user
+    sqlx::query(
+        // language=PostgreSQL
+        r#"
+            UPDATE email_verification_tokens
+            SET used_at = NOW()
+            WHERE user_id = $1 AND used_at IS NULL
+        "#,
+    )
+    .bind(user_id)
+    .execute(&mut **tx)
+    .await?;
+
+    // Insert new token
+    sqlx::query(
+        // language=PostgreSQL
+        r#"
+            INSERT INTO email_verification_tokens (user_id, token_hash, expires_at)
+            VALUES ($1, $2, $3)
+        "#,
+    )
+    .bind(user_id)
+    .bind(&token_hash)
+    .bind(expires_at)
+    .execute(&mut **tx)
     .await?;
 
     Ok(token)

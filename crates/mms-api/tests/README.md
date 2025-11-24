@@ -158,9 +158,29 @@ cargo test -- --nocapture
 cargo test -- --show-output
 ```
 
+### Run Tests Sequentially
+
+Integration tests share a test database and may have race conditions when run in parallel. For deterministic results, run integration tests sequentially:
+
+```bash
+# From the crates/mms-api directory:
+cd crates/mms-api
+cargo test auth_tests -- --test-threads=1
+cargo test user_tests -- --test-threads=1
+
+# Or from the workspace root:
+cargo test --package mms-api --test auth_tests -- --test-threads=1
+cargo test --package mms-api --test user_tests -- --test-threads=1
+
+# Run all tests sequentially
+cargo test -- --test-threads=1
+```
+
+**Note**: Sequential execution takes longer but ensures reliable test results.
+
 ## Test Structure
 
-```
+```bash
 crates/mms-api/
 ├── src/
 │   ├── auth/
@@ -397,7 +417,7 @@ jobs:
         run: cargo test --verbose
 ```
 
-### Test Coverage
+### Test Coverage %
 
 To generate test coverage reports:
 
