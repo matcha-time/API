@@ -1,66 +1,33 @@
 use axum::{
     extract::Request,
-    middleware::{self, Next},
+    middleware::Next,
     response::Response,
 };
-use tower_governor::{
-    GovernorLayer,
-    governor::GovernorConfigBuilder,
-};
+pub use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use std::time::Duration;
 
-/// Strict rate limiting for authentication endpoints
-/// 5 requests per second with burst of 10 (prevents brute force attacks)
-pub fn auth_rate_limit<S>()-> GovernorLayer<tower_governor::key_extractor::SmartIpKeyExtractor>
-where
-    S: Clone + Send + Sync + 'static,
-{
-    let governor_conf = GovernorConfigBuilder::default()
-        .per_second(5)
-        .burst_size(10)
-        .use_headers()
-        .finish()
-        .expect("Failed to build auth rate limiter configuration");
+/// Rate limits for different endpoint types
+pub const AUTH_RATE_PER_SECOND: u64 = 5;
+pub const AUTH_BURST_SIZE: u32 = 10;
 
-    GovernorLayer {
-        inner: tower_governor::governor::Governor::new(&governor_conf),
-    }
-}
+pub const SENSITIVE_RATE_PER_SECOND: u64 = 2;
+pub const SENSITIVE_BURST_SIZE: u32 = 3;
 
-/// Very strict rate limiting for password reset and sensitive operations
-/// 2 requests per minute with burst of 3 (prevents email flooding and enumeration)
-pub fn sensitive_rate_limit<S>() -> GovernorLayer<tower_governor::key_extractor::SmartIpKeyExtractor>
-where
-    S: Clone + Send + Sync + 'static,
-{
-    let governor_conf = GovernorConfigBuilder::default()
-        .per_millisecond(33) // Approximately 2 per minute
-        .burst_size(3)
-        .use_headers()
-        .finish()
-        .expect("Failed to build sensitive rate limiter configuration");
+pub const GENERAL_RATE_PER_SECOND: u64 = 10;
+pub const GENERAL_BURST_SIZE: u32 = 20;
 
-    GovernorLayer {
-        inner: tower_governor::governor::Governor::new(&governor_conf),
-    }
-}
-
-/// Moderate rate limiting for general authenticated endpoints
-/// 10 requests per second with burst of 20
-pub fn general_rate_limit<S>() -> GovernorLayer<tower_governor::key_extractor::SmartIpKeyExtractor>
-where
-    S: Clone + Send + Sync + 'static,
-{
-    let governor_conf = GovernorConfigBuilder::default()
-        .per_second(10)
-        .burst_size(20)
-        .use_headers()
-        .finish()
-        .expect("Failed to build general rate limiter configuration");
-
-    GovernorLayer {
-        inner: tower_governor::governor::Governor::new(&governor_conf),
-    }
+/// Helper macro to create a rate limiter with specific settings
+#[macro_export]
+macro_rules! make_rate_limit_layer {
+    ($per_second:expr, $burst:expr) => {{
+        let config = $crate::middleware::rate_limit::GovernorConfigBuilder::default()
+            .per_second($per_second)
+            .burst_size($burst)
+            .use_headers()
+            .finish()
+            .expect("Failed to build rate limiter configuration");
+        $crate::middleware::rate_limit::GovernorLayer::new(config)
+    }};
 }
 
 /// Timing-safe delay middleware to prevent timing attacks

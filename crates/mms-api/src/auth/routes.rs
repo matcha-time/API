@@ -14,18 +14,20 @@ use super::{jwt, middleware::AuthUser, models::OidcFlowData, refresh_token as rt
 use crate::{ApiState, error::ApiError, middleware::rate_limit};
 
 pub fn routes() -> Router<ApiState> {
+    use crate::make_rate_limit_layer;
+
     // OAuth routes with moderate rate limiting
     let oauth_routes = Router::new()
         .route("/auth/google", get(google_auth))
         .route("/auth/callback", get(auth_callback))
-        .layer(rate_limit::general_rate_limit::<ApiState>());
+        .layer(make_rate_limit_layer!(rate_limit::GENERAL_RATE_PER_SECOND, rate_limit::GENERAL_BURST_SIZE));
 
     // Authenticated routes with general rate limiting
     let auth_routes = Router::new()
         .route("/auth/me", get(auth_me))
         .route("/auth/refresh", get(refresh_token))
         .route("/auth/logout", get(logout))
-        .layer(rate_limit::general_rate_limit::<ApiState>());
+        .layer(make_rate_limit_layer!(rate_limit::GENERAL_RATE_PER_SECOND, rate_limit::GENERAL_BURST_SIZE));
 
     // Merge all route groups
     Router::new()

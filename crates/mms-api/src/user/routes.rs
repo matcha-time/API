@@ -22,11 +22,13 @@ use mms_db::models::{ActivityDay, UserStats};
 
 /// Create the user routes
 pub fn routes() -> Router<ApiState> {
+    use crate::make_rate_limit_layer;
+
     // Sensitive routes with very strict rate limiting and timing-safe middleware
     let sensitive_routes = Router::new()
         .route("/users/request-password-reset", post(request_password_reset))
         .route("/users/resend-verification", post(resend_verification_email))
-        .layer(rate_limit::sensitive_rate_limit::<ApiState>())
+        .layer(make_rate_limit_layer!(rate_limit::SENSITIVE_RATE_PER_SECOND, rate_limit::SENSITIVE_BURST_SIZE))
         .route_layer(axum::middleware::from_fn(rate_limit::timing_safe_middleware));
 
     // Auth routes with strict rate limiting and timing-safe middleware
@@ -34,7 +36,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/users/register", post(create_user))
         .route("/users/login", post(login_user))
         .route("/users/reset-password", post(reset_password))
-        .layer(rate_limit::auth_rate_limit::<ApiState>())
+        .layer(make_rate_limit_layer!(rate_limit::AUTH_RATE_PER_SECOND, rate_limit::AUTH_BURST_SIZE))
         .route_layer(axum::middleware::from_fn(rate_limit::timing_safe_middleware));
 
     // General authenticated routes with moderate rate limiting
@@ -43,7 +45,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/users/{user_id}", patch(update_user_profile))
         .route("/users/{user_id}", delete(delete_user))
         .route("/users/verify-email", get(verify_email))
-        .layer(rate_limit::general_rate_limit::<ApiState>());
+        .layer(make_rate_limit_layer!(rate_limit::GENERAL_RATE_PER_SECOND, rate_limit::GENERAL_BURST_SIZE));
 
     // Merge all route groups
     Router::new()
