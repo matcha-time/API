@@ -1,10 +1,6 @@
-use axum::{
-    extract::Request,
-    middleware::Next,
-    response::Response,
-};
-pub use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
+use axum::{extract::Request, middleware::Next, response::Response};
 use std::time::Duration;
+pub use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 
 /// Rate limits for different endpoint types
 pub const AUTH_RATE_PER_SECOND: u64 = 5;

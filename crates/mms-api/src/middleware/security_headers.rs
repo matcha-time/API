@@ -56,7 +56,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{routing::get, Router, http::StatusCode};
+    use axum::{Router, http::StatusCode, routing::get};
     use tower::ServiceExt;
 
     async fn test_handler() -> &'static str {
@@ -86,14 +86,8 @@ mod tests {
         let headers = response.headers();
 
         // Check critical security headers are present
-        assert_eq!(
-            headers.get("x-content-type-options").unwrap(),
-            "nosniff"
-        );
-        assert_eq!(
-            headers.get("x-frame-options").unwrap(),
-            "DENY"
-        );
+        assert_eq!(headers.get("x-content-type-options").unwrap(), "nosniff");
+        assert_eq!(headers.get("x-frame-options").unwrap(), "DENY");
         assert!(
             headers.get("strict-transport-security").is_some(),
             "HSTS should be present in production"
@@ -121,14 +115,8 @@ mod tests {
         let headers = response.headers();
 
         // Basic headers should still be present
-        assert_eq!(
-            headers.get("x-content-type-options").unwrap(),
-            "nosniff"
-        );
-        assert_eq!(
-            headers.get("x-frame-options").unwrap(),
-            "DENY"
-        );
+        assert_eq!(headers.get("x-content-type-options").unwrap(), "nosniff");
+        assert_eq!(headers.get("x-frame-options").unwrap(), "DENY");
 
         // HSTS should NOT be present in development
         assert!(

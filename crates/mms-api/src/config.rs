@@ -136,7 +136,11 @@ impl ApiConfig {
         }
 
         // Check for weak secrets (common patterns)
-        if self.jwt_secret.chars().all(|c| c == self.jwt_secret.chars().next().unwrap()) {
+        if self
+            .jwt_secret
+            .chars()
+            .all(|c| c == self.jwt_secret.chars().next().unwrap())
+        {
             return Err(ConfigError::ValidationError(
                 "JWT_SECRET appears to be a repeated character pattern. Use a cryptographically random secret.".to_string(),
             ));

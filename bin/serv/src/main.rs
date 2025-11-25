@@ -29,14 +29,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(cors);
 
     // Apply security headers (X-Content-Type-Options, X-Frame-Options, HSTS)
-    let app = mms_api::middleware::security_headers::apply_security_headers(app, config.env.clone());
+    let app =
+        mms_api::middleware::security_headers::apply_security_headers(app, config.env.clone());
 
     // Start the server
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
     tracing::info!("Server starting on http://localhost:3000");
     tracing::info!("Environment: {:?}", config.env);
     tracing::info!("Security features enabled:");
-    tracing::info!("  - Endpoint-specific rate limiting (auth: 5/s, sensitive: 2/min, general: 10/s)");
+    tracing::info!(
+        "  - Endpoint-specific rate limiting (auth: 5/s, sensitive: 2/min, general: 10/s)"
+    );
     tracing::info!("  - SameSite::Strict cookies");
     tracing::info!("  - Security headers (X-Content-Type-Options, X-Frame-Options, HSTS)");
     tracing::info!("  - Timing-safe responses for sensitive endpoints");

@@ -20,19 +20,23 @@ pub fn routes() -> Router<ApiState> {
     let oauth_routes = Router::new()
         .route("/auth/google", get(google_auth))
         .route("/auth/callback", get(auth_callback))
-        .layer(make_rate_limit_layer!(rate_limit::GENERAL_RATE_PER_SECOND, rate_limit::GENERAL_BURST_SIZE));
+        .layer(make_rate_limit_layer!(
+            rate_limit::GENERAL_RATE_PER_SECOND,
+            rate_limit::GENERAL_BURST_SIZE
+        ));
 
     // Authenticated routes with general rate limiting
     let auth_routes = Router::new()
         .route("/auth/me", get(auth_me))
         .route("/auth/refresh", get(refresh_token))
         .route("/auth/logout", get(logout))
-        .layer(make_rate_limit_layer!(rate_limit::GENERAL_RATE_PER_SECOND, rate_limit::GENERAL_BURST_SIZE));
+        .layer(make_rate_limit_layer!(
+            rate_limit::GENERAL_RATE_PER_SECOND,
+            rate_limit::GENERAL_BURST_SIZE
+        ));
 
     // Merge all route groups
-    Router::new()
-        .merge(oauth_routes)
-        .merge(auth_routes)
+    Router::new().merge(oauth_routes).merge(auth_routes)
 }
 
 async fn google_auth(
