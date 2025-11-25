@@ -170,8 +170,11 @@ pub async fn revoke_all_user_tokens(pool: &PgPool, user_id: Uuid) -> Result<u64,
 }
 
 /// Clean up expired refresh tokens (should be run periodically)
+/// Note: As of migration 0006, this is automatically handled by database triggers
+/// when new tokens are created. This function can still be called manually if needed.
 pub async fn cleanup_expired_tokens(pool: &PgPool) -> Result<u64, ApiError> {
-    let result = sqlx::query("DELETE FROM refresh_tokens WHERE expires_at < NOW()")
+    // Use the database function for cleanup with proper indexing
+    let result = sqlx::query("SELECT cleanup_expired_refresh_tokens()")
         .execute(pool)
         .await?;
 
