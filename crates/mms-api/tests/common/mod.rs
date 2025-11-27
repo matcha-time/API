@@ -50,8 +50,8 @@ impl TestStateBuilder {
 
     /// Build a test ApiState with a real database connection
     pub async fn build(self) -> anyhow::Result<ApiState> {
-        // Create database pool
-        let pool = mms_db::create_pool(&self.config.database_url).await?;
+        // Create database pool with default max_connections for tests
+        let pool = mms_db::create_pool(&self.config.database_url, 10).await?;
 
         // Run migrations
         mms_db::ensure_db_and_migrate(&self.config.database_url, &pool).await?;

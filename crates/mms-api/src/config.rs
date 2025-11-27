@@ -49,6 +49,23 @@ pub struct ApiConfig {
     // Database
     pub database_url: String,
 
+    /// Maximum number of database connections in the pool (default: 10)
+    #[serde(default = "default_database_max_connections")]
+    pub database_max_connections: u32,
+
+    // Server Configuration
+    /// Port to run the server on (default: 3000)
+    #[serde(default = "default_port")]
+    pub port: u16,
+
+    /// Maximum request body size in bytes (default: 2MB)
+    #[serde(default = "default_max_request_body_size")]
+    pub max_request_body_size: usize,
+
+    /// Request timeout in seconds (default: 30)
+    #[serde(default = "default_request_timeout_seconds")]
+    pub request_timeout_seconds: u64,
+
     // Frontend & CORS
     pub frontend_url: String,
 
@@ -83,6 +100,26 @@ fn default_rate_limit_per_second() -> u64 {
 /// Default value for rate_limit_burst_size
 fn default_rate_limit_burst_size() -> u32 {
     100
+}
+
+/// Default value for database_max_connections
+fn default_database_max_connections() -> u32 {
+    10
+}
+
+/// Default value for port
+fn default_port() -> u16 {
+    3000
+}
+
+/// Default value for max_request_body_size (2MB)
+fn default_max_request_body_size() -> usize {
+    2 * 1024 * 1024 // 2MB in bytes
+}
+
+/// Default value for request_timeout_seconds
+fn default_request_timeout_seconds() -> u64 {
+    30
 }
 
 /// Custom error type for configuration

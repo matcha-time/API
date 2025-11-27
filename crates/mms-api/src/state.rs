@@ -35,7 +35,7 @@ impl ApiState {
         let cookie_key = Key::from(config.cookie_secret.as_bytes());
 
         // Initialize database pool and run migrations
-        let pool = mms_db::create_pool(&config.database_url).await?;
+        let pool = mms_db::create_pool(&config.database_url, config.database_max_connections).await?;
         mms_db::ensure_db_and_migrate(&config.database_url, &pool).await?;
 
         // Discover Google's OIDC configuration

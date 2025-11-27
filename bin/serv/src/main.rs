@@ -33,8 +33,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         mms_api::middleware::security_headers::apply_security_headers(app, config.env.clone());
 
     // Start the server
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-    tracing::info!("Server starting on http://localhost:3000");
+    let bind_address = format!("0.0.0.0:{}", config.port);
+    let listener = tokio::net::TcpListener::bind(&bind_address).await?;
+    tracing::info!("Server starting on http://localhost:{}", config.port);
     tracing::info!("Environment: {:?}", config.env);
     tracing::info!("Security features enabled:");
     tracing::info!(
