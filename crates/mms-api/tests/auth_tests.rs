@@ -180,14 +180,14 @@ async fn test_logout() {
         hex::encode(hasher.finalize())
     };
 
-    sqlx::query!(
+    sqlx::query(
         r#"
         INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
         VALUES ($1, $2, NOW() + INTERVAL '30 days')
         "#,
-        user_id,
-        token_hash
     )
+    .bind(user_id)
+    .bind(token_hash)
     .execute(&state.pool)
     .await
     .expect("Failed to create refresh token");
@@ -203,7 +203,7 @@ async fn test_logout() {
     response.assert_status(StatusCode::OK);
 
     // Verify refresh token was deleted from database
-    let token_count = sqlx::query_scalar::<_, i64>(
+    let token_count: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1
         "#,
@@ -449,7 +449,7 @@ async fn test_find_or_create_google_user_links_existing_email_user() {
     assert_eq!(user.email, test_email);
 
     // Verify google_id was added
-    let google_id_result = sqlx::query_scalar::<_, Option<String>>(
+    let google_id_result: Option<String> = sqlx::query_scalar(
         r#"
         SELECT google_id FROM users WHERE id = $1
         "#,

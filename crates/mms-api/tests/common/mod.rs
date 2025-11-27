@@ -104,7 +104,14 @@ impl TestClient {
     }
 
     /// Send a request and get the response
-    pub async fn request(&self, request: Request<Body>) -> TestResponse {
+    pub async fn request(&self, mut request: Request<Body>) -> TestResponse {
+        // Add ConnectInfo extension for rate limiting to work in tests
+        use axum::extract::ConnectInfo;
+        use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+        let test_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
+        request.extensions_mut().insert(ConnectInfo(test_addr));
+
         let response = self
             .router
             .clone()
@@ -133,6 +140,7 @@ impl TestClient {
         let request = Request::builder()
             .method("GET")
             .uri(uri)
+            .header("x-forwarded-for", "127.0.0.1") // Required for rate limiting in tests
             .body(Body::empty())
             .expect("Failed to build request");
 
@@ -147,6 +155,7 @@ impl TestClient {
             .method("POST")
             .uri(uri)
             .header("content-type", "application/json")
+            .header("x-forwarded-for", "127.0.0.1") // Required for rate limiting in tests
             .body(Body::from(json_body))
             .expect("Failed to build request");
 
@@ -175,6 +184,7 @@ impl TestClient {
             .method("PATCH")
             .uri(uri)
             .header("content-type", "application/json")
+            .header("x-forwarded-for", "127.0.0.1") // Required for rate limiting in tests
             .header(
                 "cookie",
                 format!("{}={}", encrypted.name(), encrypted.value()),
@@ -199,6 +209,7 @@ impl TestClient {
         let request = Request::builder()
             .method("DELETE")
             .uri(uri)
+            .header("x-forwarded-for", "127.0.0.1") // Required for rate limiting in tests
             .header(
                 "cookie",
                 format!("{}={}", encrypted.name(), encrypted.value()),
@@ -223,6 +234,7 @@ impl TestClient {
         let request = Request::builder()
             .method("GET")
             .uri(uri)
+            .header("x-forwarded-for", "127.0.0.1") // Required for rate limiting in tests
             .header(
                 "cookie",
                 format!("{}={}", encrypted.name(), encrypted.value()),
@@ -333,35 +345,35 @@ pub mod db {
     /// Clean up test database - delete all data from tables
     /// Used for initial database setup before running tests
     pub async fn cleanup(pool: &PgPool) -> anyhow::Result<()> {
-        sqlx::query!("DELETE FROM user_card_progress")
+        sqlx::query("DELETE FROM user_card_progress")
             .execute(pool)
             .await?;
-        sqlx::query!("DELETE FROM user_deck_progress")
+        sqlx::query("DELETE FROM user_deck_progress")
             .execute(pool)
             .await?;
-        sqlx::query!("DELETE FROM user_activity")
+        sqlx::query("DELETE FROM user_activity")
             .execute(pool)
             .await?;
-        sqlx::query!("DELETE FROM deck_flashcards")
+        sqlx::query("DELETE FROM deck_flashcards")
             .execute(pool)
             .await?;
-        sqlx::query!("DELETE FROM flashcards").execute(pool).await?;
-        sqlx::query!("DELETE FROM decks").execute(pool).await?;
-        sqlx::query!("DELETE FROM roadmap_nodes")
+        sqlx::query("DELETE FROM flashcards").execute(pool).await?;
+        sqlx::query("DELETE FROM decks").execute(pool).await?;
+        sqlx::query("DELETE FROM roadmap_nodes")
             .execute(pool)
             .await?;
-        sqlx::query!("DELETE FROM roadmaps").execute(pool).await?;
-        sqlx::query!("DELETE FROM refresh_tokens")
+        sqlx::query("DELETE FROM roadmaps").execute(pool).await?;
+        sqlx::query("DELETE FROM refresh_tokens")
             .execute(pool)
             .await?;
-        sqlx::query!("DELETE FROM email_verification_tokens")
+        sqlx::query("DELETE FROM email_verification_tokens")
             .execute(pool)
             .await?;
-        sqlx::query!("DELETE FROM password_reset_tokens")
+        sqlx::query("DELETE FROM password_reset_tokens")
             .execute(pool)
             .await?;
-        sqlx::query!("DELETE FROM user_stats").execute(pool).await?;
-        sqlx::query!("DELETE FROM users").execute(pool).await?;
+        sqlx::query("DELETE FROM user_stats").execute(pool).await?;
+        sqlx::query("DELETE FROM users").execute(pool).await?;
 
         Ok(())
     }
@@ -375,27 +387,27 @@ pub mod db {
     ) -> anyhow::Result<Uuid> {
         let user_id = Uuid::new_v4();
 
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO users (id, email, username, password_hash, auth_provider, email_verified, created_at)
             VALUES ($1, $2, $3, $4, 'email', true, NOW())
             "#,
-            user_id,
-            email,
-            username,
-            password_hash
         )
+        .bind(user_id)
+        .bind(email)
+        .bind(username)
+        .bind(password_hash)
         .execute(pool)
         .await?;
 
         // Create user_stats entry
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO user_stats (user_id)
             VALUES ($1)
             "#,
-            user_id
         )
+        .bind(user_id)
         .execute(pool)
         .await?;
 
@@ -414,27 +426,27 @@ pub mod db {
 
     /// Get user by email
     pub async fn get_user_by_email(pool: &PgPool, email: &str) -> anyhow::Result<Option<Uuid>> {
-        let result = sqlx::query!(
+        let result: Option<(Uuid,)> = sqlx::query_as(
             r#"
             SELECT id FROM users WHERE email = $1
             "#,
-            email
         )
+        .bind(email)
         .fetch_optional(pool)
         .await?;
 
-        Ok(result.map(|r| r.id))
+        Ok(result.map(|r| r.0))
     }
 
     /// Delete a specific user by email (for test cleanup)
     /// This will cascade delete related records due to foreign key constraints
     pub async fn delete_user_by_email(pool: &PgPool, email: &str) -> anyhow::Result<()> {
-        sqlx::query!(
+        sqlx::query(
             r#"
             DELETE FROM users WHERE email = $1
             "#,
-            email
         )
+        .bind(email)
         .execute(pool)
         .await?;
 

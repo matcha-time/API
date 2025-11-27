@@ -80,10 +80,23 @@ async fn test_user_registration_duplicate_email() {
 
     let response = client.post_json("/users/register", &body).await;
 
-    response.assert_status(StatusCode::BAD_REQUEST);
+    // Security: Returns generic success message to prevent email enumeration
+    // This prevents attackers from discovering which emails are registered
+    response.assert_status(StatusCode::OK);
 
     let json: serde_json::Value = response.json();
-    assert!(json["error"].as_str().unwrap().contains("already exists"));
+    assert_eq!(
+        json["message"].as_str().unwrap(),
+        "Registration successful. Please check your email to verify your account."
+    );
+
+    // Verify no new user was created (should still be only 1 user)
+    let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE email = $1")
+        .bind("existing@example.com")
+        .fetch_one(&state.pool)
+        .await
+        .expect("Failed to count users");
+    assert_eq!(user_count, 1, "No new user should be created");
 
     // Cleanup
     common::db::delete_user_by_email(&state.pool, "existing@example.com")
