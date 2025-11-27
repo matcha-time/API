@@ -108,7 +108,9 @@ common::db::delete_user_by_email(pool, email)
 
 ## Test Status
 
-Current status: **77 passing / 10 failing / 6 ignored (load tests)**
+Current status: **80 passing / 7 failing / 6 ignored (load tests)**
+
+Progress: From 56 passing → 80 passing (24 tests fixed!)
 
 ### Issues Fixed ✅
 
@@ -121,13 +123,17 @@ Current status: **77 passing / 10 failing / 6 ignored (load tests)**
 - ✅ Fixed token_hash queries (removed decode() on text fields)
 - ✅ Removed references to non-existent `revoked_at` column
 - ✅ Added practice routes to main router
+- ✅ Fixed integer type mismatches (i64 → i32 for counts)
+- ✅ Made roadmap titles unique to avoid duplicate key errors
+- ✅ Fixed JWT token comparison (can be identical in same second)
 
-### Remaining Issues (10 tests)
+### Remaining Issues (7 tests)
 
-- Email verification: 1 test
-- Password reset: 1 test
-- Roadmap/practice: 5 tests
-- Security: 3 tests
+- Email verification: 1 test (test isolation issue)
+- Password reset: 1 test (test isolation issue)
+- Roadmap/practice: 5 tests (test isolation issues)
+
+Note: Many of these pass individually but fail when run in the full suite due to test data pollution or timing issues.
 
 ## Test Configuration
 
