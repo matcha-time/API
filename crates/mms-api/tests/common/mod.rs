@@ -290,6 +290,39 @@ impl TestClient {
 
         self.request(request).await
     }
+
+    /// Send a POST request with JSON body and authentication cookie
+    pub async fn post_json_with_auth<T: serde::Serialize>(
+        &self,
+        uri: &str,
+        body: &T,
+        token: &str,
+        cookie_key: &Key,
+    ) -> TestResponse {
+        use cookie::{CookieJar as RawCookieJar, Key as RawKey};
+
+        let raw_key = RawKey::try_from(cookie_key.master()).expect("Invalid key");
+        let mut raw_jar = RawCookieJar::new();
+        let raw_cookie = cookie::Cookie::new("auth_token", token.to_string());
+        raw_jar.private_mut(&raw_key).add(raw_cookie);
+
+        let encrypted = raw_jar.get("auth_token").expect("Cookie should exist");
+        let json_body = serde_json::to_string(body).expect("Failed to serialize body");
+
+        let request = Request::builder()
+            .method("POST")
+            .uri(uri)
+            .header("content-type", "application/json")
+            .header("x-forwarded-for", "127.0.0.1") // Required for rate limiting in tests
+            .header(
+                "cookie",
+                format!("{}={}", encrypted.name(), encrypted.value()),
+            )
+            .body(Body::from(json_body))
+            .expect("Failed to build authenticated request");
+
+        self.request(request).await
+    }
 }
 
 /// Test response wrapper
@@ -358,10 +391,10 @@ pub mod db {
             .execute(pool)
             .await?;
         sqlx::query("DELETE FROM flashcards").execute(pool).await?;
-        sqlx::query("DELETE FROM decks").execute(pool).await?;
         sqlx::query("DELETE FROM roadmap_nodes")
             .execute(pool)
             .await?;
+        sqlx::query("DELETE FROM decks").execute(pool).await?;
         sqlx::query("DELETE FROM roadmaps").execute(pool).await?;
         sqlx::query("DELETE FROM refresh_tokens")
             .execute(pool)
@@ -463,5 +496,33 @@ pub mod jwt {
     pub fn create_test_token(user_id: Uuid, email: &str, jwt_secret: &str) -> String {
         generate_jwt_token(user_id, email.to_string(), jwt_secret)
             .expect("Failed to generate test JWT token")
+    }
+}
+
+/// Email verification test helpers
+pub mod verification {
+    use sqlx::PgPool;
+    use uuid::Uuid;
+
+    /// Create an email verification token for testing
+    /// Returns the plain token that can be used in verification URLs
+    pub async fn create_test_verification_token(
+        pool: &PgPool,
+        user_id: Uuid,
+    ) -> anyhow::Result<String> {
+        // Use the actual implementation from the API
+        mms_api::user::email_verification::create_verification_token(pool, user_id, 24).await
+            .map_err(|e| anyhow::anyhow!("Failed to create verification token: {}", e))
+    }
+
+    /// Create a password reset token for testing
+    /// Returns the plain token that can be used in reset URLs
+    pub async fn create_test_password_reset_token(
+        pool: &PgPool,
+        user_id: Uuid,
+    ) -> anyhow::Result<String> {
+        // Use the actual implementation from the API
+        mms_api::user::password_reset::create_reset_token(pool, user_id, 1).await
+            .map_err(|e| anyhow::anyhow!("Failed to create password reset token: {}", e))
     }
 }

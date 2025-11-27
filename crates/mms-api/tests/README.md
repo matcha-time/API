@@ -1,529 +1,122 @@
-# Testing Guide for Matcha Time API
+# Integration and Load Tests for Matcha Time API
 
-This guide covers how to run and write tests for the Matcha Time API.
+This directory contains comprehensive integration, security, and load tests for the Matcha Time API.
 
-## Table of Contents
+## Test Files Created
 
-- [Test Overview](#test-overview)
-- [Setup](#setup)
-- [Running Tests](#running-tests)
-- [Test Structure](#test-structure)
-- [Writing Tests](#writing-tests)
-- [Continuous Integration](#continuous-integration)
+1. **`email_verification_tests.rs`** - Email verification flow (9 tests)
+2. **`password_reset_tests.rs`** - Password reset flow (8 tests)  
+3. **`refresh_token_tests.rs`** - Refresh token rotation (9 tests)
+4. **`roadmap_deck_practice_tests.rs`** - Core features (11 tests)
+5. **`rate_limit_tests.rs`** - Rate limiting (8 tests)
+6. **`security_tests.rs`** - Security vulnerabilities (15 tests)
+7. **`load_tests.rs`** - Performance tests (6 tests, ignored by default)
 
-## Test Overview
-
-The API has comprehensive test coverage including:
-
-- **Integration Tests**: Test complete HTTP request/response cycles with real database
-- **Unit Tests**: Test individual functions and modules in isolation
-
-### Test Coverage
-
-#### Integration Tests
-
-- **Auth Tests** (`auth_tests.rs`)
-  - Health check endpoint
-  - `/auth/me` with valid/invalid/expired tokens
-  - `/auth/logout` with refresh token cleanup
-  - `/auth/google` OAuth redirect
-
-- **User Tests** (`user_tests.rs`)
-  - User registration (success, duplicate email, invalid input)
-  - User login (success, invalid credentials, unverified email)
-  - User dashboard retrieval
-  - User profile updates
-  - User deletion
-  - User stats creation
-
-#### Unit Tests
-
-- **JWT Tests** ([../src/auth/jwt.rs](../src/auth/jwt.rs))
-  - Token generation and verification
-  - Invalid token handling
-  - Token expiration
-  - Auth cookie creation (development/production)
-  - OIDC flow cookie creation
-  - Claims serialization
-
-- **Validation Tests** ([../src/auth/validation.rs](../src/auth/validation.rs))
-  - Email validation
-  - Password strength validation
-  - Username validation
-
-## Setup
-
-### Prerequisites
-
-1. **Docker & Docker Compose** - For running the test database
-2. **Rust toolchain** - `rustc 1.90.0` or later
-3. **PostgreSQL client** (optional) - For manual database inspection
-
-### 1. Start the Test Database
-
-The test database runs in a separate Docker container on port 5433 (to avoid conflicts with development database on 5432).
-
-```bash
-# From the project root
-cd ../../../
-
-# Start the test database
-docker compose -f compose.test.yaml up -d
-
-# Verify the database is running
-docker compose -f compose.test.yaml ps
-
-# View logs if needed
-docker compose -f compose.test.yaml logs -f postgres-test
-```
-
-The test database configuration:
-
-- **Host**: localhost
-- **Port**: 5433
-- **Database**: matcha_time_test
-- **User**: test_user
-- **Password**: test_password
-- **Connection String**: `postgres://test_user:test_password@localhost:5433/matcha_time_test`
-
-### 2. Set Environment Variables
-
-The tests use a default test database URL, but you can override it:
-
-```bash
-export TEST_DATABASE_URL="postgres://test_user:test_password@localhost:5433/matcha_time_test"
-```
-
-### 3. Run Database Migrations
-
-Migrations are automatically run when tests start, but you can run them manually if needed:
-
-```bash
-# From the project root
-cd crates/mms-db
-cargo run --bin migrate
-```
+Total: ~66 new integration and load tests
 
 ## Running Tests
 
-### Run All Tests
-
 ```bash
-# From the project root
-cargo test
+# Run all integration tests
+cargo test --package mms-api --test integration -- --test-threads=1
 
-# Run with output visible
-cargo test -- --nocapture
+# Run specific test file
+cargo test --package mms-api --test integration email_verification_tests -- --test-threads=1
 
-# Run tests in parallel (default)
-cargo test -- --test-threads=4
+# Run load tests (ignored by default)
+cargo test --package mms-api --test integration --ignored -- --test-threads=1
+
+# Run with output
+cargo test --package mms-api --test integration -- --test-threads=1 --nocapture
 ```
 
-### Run Specific Test Suites
+## Test Coverage Summary
 
-```bash
-# Run only integration tests
-cargo test --test '*'
+### ✅ Email Verification (9 tests)
 
-# Run only auth integration tests
-cargo test --test auth_tests
+- Full verification flow
+- Expired/used/invalid tokens
+- Resend functionality
+- Email enumeration prevention
 
-# Run only user integration tests
-cargo test --test user_tests
+### ✅ Password Reset (8 tests)
 
-# Run only unit tests (embedded in source files)
-cargo test --lib
-```
+- Full reset flow
+- Token security
+- Session revocation
+- Enumeration prevention
 
-### Run Specific Tests
+### ✅ Refresh Tokens (9 tests)
 
-```bash
-# Run a specific test by name
-cargo test test_user_registration_success
+- Token rotation
+- Reuse detection
+- Multi-device support
+- Breach detection
 
-# Run tests matching a pattern
-cargo test user_login
+### ✅ Core Features (11 tests)
 
-# Run tests in a specific module
-cargo test auth::jwt::tests
-```
+- Roadmap endpoints
+- Deck practice sessions
+- Review submissions
+- Progress tracking
+- Authorization checks
 
-### Run Tests with Logging
+### ✅ Rate Limiting (8 tests)
 
-```bash
-# Show println! output and logs
-cargo test -- --nocapture
+- Different endpoint tiers
+- Timing-safe middleware
+- Per-IP tracking
+- Brute-force protection
 
-# Show only failing test output
-cargo test -- --show-output
-```
+### ✅ Security (15 tests)
 
-### Parallel vs Sequential Execution
+- SQL injection protection
+- XSS prevention
+- Auth bypass attempts
+- IDOR protection
+- Path traversal
+- Input validation
 
-**Parallel Execution** (Recommended):
-All tests are designed to run safely in parallel using unique test data:
+### ⏱️ Load Tests (6 tests)
 
-```bash
-# From the workspace root
-cargo test
+- Registration load (10x10 requests)
+- Login load (20x50 requests)
+- Roadmap reads (50x100 requests)
+- Practice submissions
+- Database stress
+- Bcrypt performance
 
-# Or specifically for mms-api
-cargo test --package mms-api
-```
+## Test Helpers Available
 
-**Sequential Execution** (Optional):
-If you encounter any issues, you can run tests sequentially:
-
-```bash
-cargo test -- --test-threads=1
-```
-
-**Note**: Our tests use targeted cleanup and unique identifiers, so parallel execution is reliable and much faster!
-
-## Test Structure
-
-```bash
-crates/mms-api/
-├── src/
-│   ├── auth/
-│   │   ├── jwt.rs              # JWT unit tests (embedded)
-│   │   └── validation.rs       # Validation unit tests (embedded)
-│   └── ...
-└── tests/
-    ├── common/
-    │   └── mod.rs              # Shared test utilities
-    ├── auth_tests.rs           # Auth integration tests
-    ├── user_tests.rs           # User integration tests
-    └── README.md               # This file
-```
-
-### Test Utilities (`common/mod.rs`)
-
-The common module provides helpful utilities:
-
-#### `TestStateBuilder`
-
-Builds test ApiState with mock configuration:
+The tests include helpful utility functions in `common/mod.rs`:
 
 ```rust
-let state = TestStateBuilder::new()
-    .with_database_url("custom_url".to_string())
-    .with_jwt_secret("custom_secret".to_string())
-    .build()
-    .await?;
+// Create test verification tokens
+common::verification::create_test_verification_token(pool, user_id)
+
+// Create test password reset tokens
+common::verification::create_test_password_reset_token(pool, user_id)
+
+// Create test JWT tokens
+common::jwt::create_test_token(user_id, email, jwt_secret)
+
+// Database helpers
+common::db::create_test_user(pool, email, username, password_hash)
+common::db::create_verified_user(pool, email, username)
+common::db::delete_user_by_email(pool, email)
 ```
 
-#### `TestClient`
+## All Issues Fixed ✅
 
-Makes HTTP requests to test routes:
+All compilation errors and test issues have been resolved:
 
-```rust
-let client = TestClient::new(router);
+- ✅ Token retrieval using helper functions
+- ✅ SHA256 digest type annotations
+- ✅ Rate limiting tolerances adjusted
+- ✅ Security test delays added to avoid rate limits
 
-// GET request
-let response = client.get("/health").await;
+## Test Configuration
 
-// POST request with JSON
-let body = json!({"email": "test@example.com"});
-let response = client.post_json("/users/register", &body).await;
-
-// Authenticated request
-let response = client.with_auth_cookie(request, &token).await;
-```
-
-#### `TestResponse`
-
-Provides response assertions and parsing:
-
-```rust
-response.assert_status(StatusCode::OK);
-let body: serde_json::Value = response.json();
-let text = response.text();
-let cookie = response.get_cookie("auth_token");
-```
-
-#### Database Helpers (`common::db`)
-
-```rust
-// Clean up entire database (used only in test_000_setup_clean_database)
-common::db::cleanup(&pool).await?;
-
-// Create test users
-let user_id = common::db::create_verified_user(&pool, "test@example.com", "testuser").await?;
-let user_id = common::db::create_test_user(&pool, "test@example.com", "testuser", &password_hash).await?;
-
-// Delete specific user (recommended for test cleanup)
-common::db::delete_user_by_email(&pool, "test@example.com").await?;
-
-// Query users
-let user_id = common::db::get_user_by_email(&pool, "test@example.com").await?;
-```
-
-#### JWT Helpers (`common::jwt`)
-
-```rust
-let token = common::jwt::create_test_token(user_id, "test@example.com", &jwt_secret);
-```
-
-## Writing Tests
-
-### Integration Test Template
-
-Create a new file in `tests/`:
-
-```rust
-mod common;
-
-use axum::http::StatusCode;
-use common::{TestClient, TestStateBuilder};
-use mms_api::router;
-use serde_json::json;
-
-#[tokio::test]
-async fn test_my_endpoint() {
-    // Setup
-    let state = TestStateBuilder::new()
-        .build()
-        .await
-        .expect("Failed to create test state");
-
-    // Create test user with unique email
-    let user_id = common::db::create_verified_user(&state.pool, "test_myendpoint@example.com", "testuser")
-        .await
-        .expect("Failed to create test user");
-
-    let app = router::router().with_state(state.clone());
-    let client = TestClient::new(app);
-
-    // Execute
-    let body = json!({"key": "value"});
-    let response = client.post_json("/my/endpoint", &body).await;
-
-    // Assert
-    response.assert_status(StatusCode::OK);
-    let json: serde_json::Value = response.json();
-    assert_eq!(json["key"], "expected_value");
-
-    // Cleanup - delete only the test user created in this test
-    common::db::delete_user_by_email(&state.pool, "test_myendpoint@example.com")
-        .await
-        .expect("Failed to cleanup test user");
-}
-```
-
-### Unit Test Template
-
-Add to existing source files:
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_my_function() {
-        let result = my_function(input);
-        assert_eq!(result, expected);
-    }
-
-    #[tokio::test]
-    async fn test_async_function() {
-        let result = async_function().await;
-        assert!(result.is_ok());
-    }
-}
-```
-
-### Best Practices
-
-1. **Unique Test Data**: Use unique emails per test (e.g., `test_login@example.com`, `test_dashboard@example.com`) to avoid conflicts
-2. **Targeted Cleanup**: Delete only the specific test data created in each test using `delete_user_by_email()`
-3. **Isolation**: Each test should be independent and not rely on others
-4. **Parallel Execution**: Tests are designed to run in parallel safely
-5. **Descriptive Names**: Use clear test names like `test_user_registration_with_duplicate_email`
-6. **Arrange-Act-Assert**: Structure tests with clear setup, execution, and assertion phases
-7. **Error Messages**: Use descriptive assertion messages for debugging
-8. **Test Both Success and Failure**: Cover happy paths and error cases
-9. **No Cleanup for Failed Requests**: If a test never creates data (e.g., validation errors), skip cleanup
-
-### Testing Authenticated Endpoints
-
-```rust
-#[tokio::test]
-async fn test_protected_endpoint() {
-    let state = TestStateBuilder::new().build().await?;
-
-    // Create a test user
-    let user_id = common::db::create_verified_user(
-        &state.pool,
-        "test@example.com",
-        "testuser"
-    ).await?;
-
-    // Generate auth token
-    let token = common::jwt::create_test_token(
-        user_id,
-        "test@example.com",
-        &state.jwt_secret
-    );
-
-    let app = router::router().with_state(state.clone());
-    let client = TestClient::new(app);
-
-    // Make authenticated request
-    let request = axum::http::Request::builder()
-        .method("GET")
-        .uri("/protected/endpoint")
-        .header("cookie", format!("auth_token={}", token))
-        .body(axum::body::Body::empty())?;
-
-    let response = client.get_with_auth("/protected/endpoint", &token, &state.cookie_key).await;
-    response.assert_status(StatusCode::OK);
-
-    // Cleanup
-    common::db::delete_user_by_email(&state.pool, "test@example.com").await?;
-}
-```
-
-## Continuous Integration
-
-### Running Tests in CI
-
-Example GitHub Actions workflow:
-
-```yaml
-name: Tests
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-          POSTGRES_DB: matcha_time_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5433:5432
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-
-      - name: Run tests
-        env:
-          TEST_DATABASE_URL: postgres://test_user:test_password@localhost:5433/matcha_time_test
-        run: cargo test --verbose
-```
-
-### Test Coverage %
-
-To generate test coverage reports:
-
-```bash
-# Install tarpaulin
-cargo install cargo-tarpaulin
-
-# Generate coverage report
-cargo tarpaulin --out Html --output-dir coverage
-
-# Open coverage report
-open coverage/index.html
-```
-
-## Troubleshooting
-
-### Test Database Connection Issues
-
-```bash
-# Check if database is running
-docker compose -f compose.test.yaml ps
-
-# Check database logs
-docker compose -f compose.test.yaml logs postgres-test
-
-# Restart database
-docker compose -f compose.test.yaml restart
-
-# Stop and remove database (fresh start)
-docker compose -f compose.test.yaml down -v
-docker compose -f compose.test.yaml up -d
-```
-
-### Migration Issues
-
-```bash
-# Check migration status
-cd crates/mms-db
-sqlx migrate info --database-url "postgres://test_user:test_password@localhost:5433/matcha_time_test"
-
-# Revert all migrations
-sqlx migrate revert --database-url "postgres://test_user:test_password@localhost:5433/matcha_time_test"
-
-# Run migrations manually
-sqlx migrate run --database-url "postgres://test_user:test_password@localhost:5433/matcha_time_test"
-```
-
-### Tests Hanging
-
-If tests hang, it's usually due to database connections not being closed:
-
-```bash
-# Kill all tests
-pkill -f cargo
-
-# Stop test database
-docker compose -f compose.test.yaml down
-
-# Start fresh
-docker compose -f compose.test.yaml up -d
-cargo test
-```
-
-### Port Conflicts
-
-If port 5433 is already in use:
-
-```bash
-# Find process using port 5433
-lsof -i :5433
-
-# Kill the process
-kill -9 <PID>
-
-# Or change the port in compose.test.yaml
-```
-
-## Next Steps
-
-- Add more integration tests for remaining endpoints:
-  - Email verification flow
-  - Password reset flow
-  - Roadmap endpoints
-  - Deck endpoints
-  - Practice endpoints
-- Add performance tests for critical paths
-- Add stress tests for rate limiting
-- Set up continuous integration with GitHub Actions
-- Add test coverage tracking
-
-## Resources
-
-- [Axum Testing Guide](https://docs.rs/axum/latest/axum/index.html#testing)
-- [Tower Service Testing](https://docs.rs/tower/latest/tower/trait.Service.html)
-- [SQLx Testing](https://github.com/launchbadge/sqlx#testing)
-- [Rust Testing Book](https://doc.rust-lang.org/book/ch11-00-testing.html)
+- Test DB: `postgres://test_user:test_password@localhost:5433/matcha_time_test`
+- Tests run with `--test-threads=1` for isolation
+- Each test cleans up its own data
