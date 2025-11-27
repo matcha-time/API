@@ -124,7 +124,7 @@ async fn test_email_verification_expired_token() {
     sqlx::query(
         r#"
         INSERT INTO email_verification_tokens (user_id, token_hash, expires_at, created_at)
-        VALUES ($1, decode($2, 'hex'), NOW() - INTERVAL '1 day', NOW() - INTERVAL '2 days')
+        VALUES ($1, $2, NOW() - INTERVAL '1 day', NOW() - INTERVAL '2 days')
         "#,
     )
     .bind(user_id)

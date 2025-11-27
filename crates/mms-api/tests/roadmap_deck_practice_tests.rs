@@ -7,15 +7,17 @@ use uuid::Uuid;
 
 /// Helper to create test roadmap and deck data
 async fn create_test_roadmap_and_decks(pool: &PgPool) -> anyhow::Result<(Uuid, Uuid, Uuid)> {
-    // Create a roadmap
+    // Create a roadmap with unique ID in title to avoid conflicts
     let roadmap_id = Uuid::new_v4();
+    let unique_title = format!("Test Spanish Roadmap {}", roadmap_id);
     sqlx::query(
         r#"
         INSERT INTO roadmaps (id, title, description, language_from, language_to, created_at)
-        VALUES ($1, 'Test Spanish Roadmap', 'Learn Spanish from English', 'en', 'es', NOW())
+        VALUES ($1, $2, 'Learn Spanish from English', 'en', 'es', NOW())
         "#,
     )
     .bind(roadmap_id)
+    .bind(&unique_title)
     .execute(pool)
     .await?;
 
@@ -120,9 +122,9 @@ async fn test_get_all_roadmaps() {
         .find(|r| r["id"].as_str().unwrap() == roadmap_id.to_string())
         .expect("Test roadmap should be in response");
 
-    assert_eq!(
-        test_roadmap["title"].as_str().unwrap(),
-        "Test Spanish Roadmap"
+    assert!(
+        test_roadmap["title"].as_str().unwrap().starts_with("Test Spanish Roadmap"),
+        "Roadmap title should start with 'Test Spanish Roadmap'"
     );
     assert_eq!(test_roadmap["language_from"].as_str().unwrap(), "en");
     assert_eq!(test_roadmap["language_to"].as_str().unwrap(), "es");
@@ -438,7 +440,7 @@ async fn test_submit_review_correct_answer() {
     response.assert_status(StatusCode::OK);
 
     // Verify progress was recorded
-    let times_correct: i64 = sqlx::query_scalar(
+    let times_correct: i32 = sqlx::query_scalar(
         r#"
         SELECT times_correct
         FROM user_card_progress
@@ -466,7 +468,7 @@ async fn test_submit_review_correct_answer() {
     assert!(deck_progress_exists, "Deck progress should be created");
 
     // Verify activity was recorded
-    let activity_count: i64 = sqlx::query_scalar(
+    let activity_count: i32 = sqlx::query_scalar(
         "SELECT reviews_count FROM user_activity WHERE user_id = $1 AND activity_date = CURRENT_DATE",
     )
     .bind(user_id)
@@ -532,7 +534,7 @@ async fn test_submit_review_wrong_answer() {
     response.assert_status(StatusCode::OK);
 
     // Verify progress was recorded
-    let times_wrong: i64 = sqlx::query_scalar(
+    let times_wrong: i32 = sqlx::query_scalar(
         r#"
         SELECT times_wrong
         FROM user_card_progress
@@ -578,7 +580,7 @@ async fn test_submit_review_updates_stats() {
     .expect("Failed to get flashcard");
 
     // Get initial stats
-    let initial_reviews: i64 = sqlx::query_scalar(
+    let initial_reviews: i32 = sqlx::query_scalar(
         "SELECT total_reviews FROM user_stats WHERE user_id = $1",
     )
     .bind(user_id)
@@ -608,7 +610,7 @@ async fn test_submit_review_updates_stats() {
         .await;
 
     // Get updated stats
-    let updated_reviews: i64 = sqlx::query_scalar(
+    let updated_reviews: i32 = sqlx::query_scalar(
         "SELECT total_reviews FROM user_stats WHERE user_id = $1",
     )
     .bind(user_id)

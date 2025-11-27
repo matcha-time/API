@@ -106,14 +106,28 @@ common::db::create_verified_user(pool, email, username)
 common::db::delete_user_by_email(pool, email)
 ```
 
-## All Issues Fixed ✅
+## Test Status
 
-All compilation errors and test issues have been resolved:
+Current status: **77 passing / 10 failing / 6 ignored (load tests)**
+
+### Issues Fixed ✅
 
 - ✅ Token retrieval using helper functions
 - ✅ SHA256 digest type annotations
 - ✅ Rate limiting tolerances adjusted
 - ✅ Security test delays added to avoid rate limits
+- ✅ Database cleanup order fixed (foreign key constraints)
+- ✅ Removed invalid `created_at` column from deck_flashcards inserts
+- ✅ Fixed token_hash queries (removed decode() on text fields)
+- ✅ Removed references to non-existent `revoked_at` column
+- ✅ Added practice routes to main router
+
+### Remaining Issues (10 tests)
+
+- Email verification: 1 test
+- Password reset: 1 test
+- Roadmap/practice: 5 tests
+- Security: 3 tests
 
 ## Test Configuration
 

@@ -194,7 +194,7 @@ async fn test_password_reset_expired_token() {
     sqlx::query(
         r#"
         INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, created_at)
-        VALUES ($1, decode($2, 'hex'), NOW() - INTERVAL '2 hours', NOW() - INTERVAL '3 hours')
+        VALUES ($1, $2, NOW() - INTERVAL '2 hours', NOW() - INTERVAL '3 hours')
         "#,
     )
     .bind(user_id)
@@ -439,7 +439,7 @@ async fn test_password_reset_revokes_old_sessions() {
 
     // Verify old refresh tokens are invalidated
     let refresh_token_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1 AND revoked_at IS NULL",
+        "SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1",
     )
     .bind(user_id)
     .fetch_one(&state.pool)
