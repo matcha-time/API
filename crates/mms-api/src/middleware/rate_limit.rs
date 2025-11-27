@@ -4,7 +4,8 @@ pub use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 
 /// Rate limits for different endpoint types
 pub const AUTH_RATE_PER_SECOND: u64 = 5;
-pub const AUTH_BURST_SIZE: u32 = 10;
+// Reduced from 10 to 5 to prevent rapid brute force attempts
+pub const AUTH_BURST_SIZE: u32 = 5;
 
 pub const SENSITIVE_RATE_PER_SECOND: u64 = 2;
 pub const SENSITIVE_BURST_SIZE: u32 = 3;

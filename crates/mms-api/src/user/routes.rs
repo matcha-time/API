@@ -621,7 +621,7 @@ async fn update_user_profile(
     let (current_username, current_email, password_hash, auth_provider) = user;
 
     // Validate password change request
-    if let Some(ref new_password) = request.new_password {
+    if let Some(new_password) = &request.new_password {
         // Ensure this is an email auth user
         if auth_provider != "email" {
             return Err(ApiError::Validation(
@@ -648,47 +648,21 @@ async fn update_user_profile(
     }
 
     // Validate optional fields
-    if let Some(ref username) = request.username {
+    if let Some(username) = &request.username {
         auth::validation::validate_username(username)?;
     }
 
-    if let Some(ref email) = request.email {
+    if let Some(email) = &request.email {
         auth::validation::validate_email(email)?;
     }
 
-    // Build dynamic update query
-    let mut updates = Vec::new();
-    let mut param_count = 1;
+    // Check if there are any updates to make
+    let has_updates = request.username.is_some()
+        || request.email.is_some()
+        || request.new_password.is_some()
+        || request.profile_picture_url.is_some();
 
-    let new_username = request.username.as_ref().unwrap_or(&current_username);
-    let new_email = request.email.as_ref().unwrap_or(&current_email);
-    let mut new_password_hash: Option<String> = None;
-
-    if request.username.is_some() {
-        updates.push(format!("username = ${}", param_count));
-        param_count += 1;
-    }
-
-    if request.email.is_some() {
-        updates.push(format!("email = ${}", param_count));
-        param_count += 1;
-        // When email changes, mark as unverified
-        updates.push("email_verified = FALSE".to_string());
-    }
-
-    if let Some(ref new_pwd) = request.new_password {
-        new_password_hash = Some(bcrypt::hash(new_pwd, bcrypt::DEFAULT_COST)?);
-        updates.push(format!("password_hash = ${}", param_count));
-        param_count += 1;
-    }
-
-    if request.profile_picture_url.is_some() {
-        updates.push(format!("profile_picture_url = ${}", param_count));
-        param_count += 1;
-    }
-
-    // If nothing to update, return current data
-    if updates.is_empty() {
+    if !has_updates {
         let user_response = UserResponse {
             id: user_id,
             username: current_username,
@@ -705,32 +679,42 @@ async fn update_user_profile(
         ));
     }
 
-    // Build and execute query
-    let query_str = format!(
-        "UPDATE users SET {} WHERE id = ${} RETURNING id, username, email, profile_picture_url",
-        updates.join(", "),
-        param_count
-    );
+    // Build safe dynamic update query using QueryBuilder
+    let mut query_builder = sqlx::QueryBuilder::new("UPDATE users SET ");
+    let mut separated = query_builder.separated(", ");
 
-    let mut query = sqlx::query_as::<_, (Uuid, String, String, Option<String>)>(&query_str);
+    if let Some(new_username) = &request.username {
+        separated.push("username = ");
+        separated.push_bind_unseparated(new_username);
+    }
 
-    // Bind parameters in order
-    if request.username.is_some() {
-        query = query.bind(new_username);
+    if let Some(new_email) = &request.email {
+        separated.push("email = ");
+        separated.push_bind_unseparated(new_email);
+        // When email changes, mark as unverified
+        separated.push_unseparated("email_verified = FALSE");
     }
-    if request.email.is_some() {
-        query = query.bind(new_email);
-    }
-    if let Some(ref hash) = new_password_hash {
-        query = query.bind(hash);
-    }
-    if let Some(ref pic_url) = request.profile_picture_url {
-        query = query.bind(pic_url);
-    }
-    query = query.bind(user_id);
 
-    let (id, username, email, profile_picture_url) =
-        query.fetch_one(&state.pool).await.map_err(|e| {
+    if let Some(new_pwd) = &request.new_password {
+        let new_password_hash = bcrypt::hash(new_pwd, bcrypt::DEFAULT_COST)?;
+        separated.push("password_hash = ");
+        separated.push_bind_unseparated(new_password_hash);
+    }
+
+    if let Some(profile_pic) = &request.profile_picture_url {
+        separated.push("profile_picture_url = ");
+        separated.push_bind_unseparated(profile_pic);
+    }
+
+    query_builder.push(" WHERE id = ");
+    query_builder.push_bind(user_id);
+    query_builder.push(" RETURNING id, username, email, profile_picture_url");
+
+    let (id, username, email, profile_picture_url) = query_builder
+        .build_query_as::<(Uuid, String, String, Option<String>)>()
+        .fetch_one(&state.pool)
+        .await
+        .map_err(|e| {
             if e.to_string().contains("duplicate key") {
                 if e.to_string().contains("username") {
                     ApiError::Validation("Username is already taken".to_string())
