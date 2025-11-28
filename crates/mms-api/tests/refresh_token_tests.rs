@@ -13,19 +13,21 @@ async fn test_refresh_token_rotation_success() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Create and login user
+    // Create and login user with unique email for concurrency safety
+    let email = common::test_data::unique_email("refreshtest");
+    let username = common::test_data::unique_username("refreshuser");
     let password_hash = bcrypt::hash("password123", bcrypt::DEFAULT_COST).unwrap();
     common::db::create_test_user(
         &state.pool,
-        "refreshtest@example.com",
-        "refreshuser",
+        &email,
+        &username,
         &password_hash,
     )
     .await
     .expect("Failed to create user");
 
     let login_body = json!({
-        "email": "refreshtest@example.com",
+        "email": &email,
         "password": "password123"
     });
     let login_response = client.post_json("/users/login", &login_body).await;
@@ -45,7 +47,7 @@ async fn test_refresh_token_rotation_success() {
         LIMIT 1
         "#,
     )
-    .bind("refreshtest@example.com")
+    .bind(&email)
     .fetch_one(&state.pool)
     .await
     .expect("Failed to get old token hash");
@@ -102,7 +104,7 @@ async fn test_refresh_token_rotation_success() {
         WHERE user_id = (SELECT id FROM users WHERE email = $1)
         "#,
     )
-    .bind("refreshtest@example.com")
+    .bind(&email)
     .fetch_one(&state.pool)
     .await
     .expect("Failed to count new tokens");
@@ -113,7 +115,7 @@ async fn test_refresh_token_rotation_success() {
     );
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "refreshtest@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }

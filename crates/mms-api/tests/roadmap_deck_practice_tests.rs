@@ -58,20 +58,23 @@ async fn create_test_roadmap_and_decks(pool: &PgPool) -> anyhow::Result<(Uuid, U
     .execute(pool)
     .await?;
 
-    // Create flashcards for deck 1
+    // Create flashcards for deck 1 with unique IDs in content to avoid duplicates
     let flashcard1_id = Uuid::new_v4();
     let flashcard2_id = Uuid::new_v4();
+    let unique_suffix = format!("_{}", Uuid::new_v4().to_string()[..8].to_string());
 
     sqlx::query(
         r#"
         INSERT INTO flashcards (id, term, translation, language_from, language_to, created_at)
         VALUES
-            ($1, 'hello', 'hola', 'en', 'es', NOW()),
-            ($2, 'goodbye', 'adiós', 'en', 'es', NOW())
+            ($1, $3, 'hola', 'en', 'es', NOW()),
+            ($2, $4, 'adiós', 'en', 'es', NOW())
         "#,
     )
     .bind(flashcard1_id)
     .bind(flashcard2_id)
+    .bind(format!("hello{}", unique_suffix))
+    .bind(format!("goodbye{}", unique_suffix))
     .execute(pool)
     .await?;
 
@@ -129,8 +132,8 @@ async fn test_get_all_roadmaps() {
     assert_eq!(test_roadmap["language_from"].as_str().unwrap(), "en");
     assert_eq!(test_roadmap["language_to"].as_str().unwrap(), "es");
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
+    // Cleanup - delete only this test's roadmap (cascades to decks, flashcards, etc.)
+    common::db::delete_roadmap_by_id(&state.pool, roadmap_id)
         .await
         .expect("Failed to cleanup");
 }
@@ -163,13 +166,13 @@ async fn test_get_roadmaps_by_language_pair() {
         .all(|r| r["language_from"].as_str().unwrap() == "en"
             && r["language_to"].as_str().unwrap() == "es"));
 
-    // Try non-existent language pair
-    let response = client.get("/roadmaps/fr/de").await;
+    // Try non-existent language pair (fr/es - valid codes but no data)
+    let response = client.get("/roadmaps/fr/es").await;
     response.assert_status(StatusCode::OK);
 
     let json: serde_json::Value = response.json();
     let roadmaps = json.as_array().unwrap();
-    assert!(roadmaps.is_empty(), "Should have no French-German roadmaps");
+    assert!(roadmaps.is_empty(), "Should have no French-Spanish roadmaps");
 
     // Cleanup
     common::db::cleanup(&state.pool)

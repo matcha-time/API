@@ -485,6 +485,21 @@ pub mod db {
 
         Ok(())
     }
+
+    /// Delete a specific roadmap by ID (for test cleanup)
+    /// This will cascade delete related records due to foreign key constraints
+    pub async fn delete_roadmap_by_id(pool: &PgPool, roadmap_id: uuid::Uuid) -> anyhow::Result<()> {
+        sqlx::query(
+            r#"
+            DELETE FROM roadmaps WHERE id = $1
+            "#,
+        )
+        .bind(roadmap_id)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
 }
 
 /// JWT test helpers
@@ -496,6 +511,22 @@ pub mod jwt {
     pub fn create_test_token(user_id: Uuid, email: &str, jwt_secret: &str) -> String {
         generate_jwt_token(user_id, email.to_string(), jwt_secret)
             .expect("Failed to generate test JWT token")
+    }
+}
+
+/// Test data helpers
+pub mod test_data {
+    /// Generate a unique email for test isolation
+    /// Each test should use this to ensure no conflicts in concurrent execution
+    pub fn unique_email(base: &str) -> String {
+        let uuid = uuid::Uuid::new_v4();
+        format!("{}+{}@example.com", base, &uuid.to_string()[..8])
+    }
+
+    /// Generate a unique username for test isolation
+    pub fn unique_username(base: &str) -> String {
+        let uuid = uuid::Uuid::new_v4();
+        format!("{}_{}", base, &uuid.to_string()[..8])
     }
 }
 

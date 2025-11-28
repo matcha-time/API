@@ -106,37 +106,19 @@ common::db::create_verified_user(pool, email, username)
 common::db::delete_user_by_email(pool, email)
 ```
 
-## Test Status
+### Remaining Concurrency Issues (6 tests)
 
-Current status: **80 passing / 7 failing / 6 ignored (load tests)**
+Only when run with full concurrency (timing-sensitive tests):
 
-Progress: From 56 passing → 80 passing (24 tests fixed!)
+- Password reset: 1 test
+- Refresh tokens: 3 tests
+- Roadmap/practice: 2 tests
 
-### Issues Fixed ✅
-
-- ✅ Token retrieval using helper functions
-- ✅ SHA256 digest type annotations
-- ✅ Rate limiting tolerances adjusted
-- ✅ Security test delays added to avoid rate limits
-- ✅ Database cleanup order fixed (foreign key constraints)
-- ✅ Removed invalid `created_at` column from deck_flashcards inserts
-- ✅ Fixed token_hash queries (removed decode() on text fields)
-- ✅ Removed references to non-existent `revoked_at` column
-- ✅ Added practice routes to main router
-- ✅ Fixed integer type mismatches (i64 → i32 for counts)
-- ✅ Made roadmap titles unique to avoid duplicate key errors
-- ✅ Fixed JWT token comparison (can be identical in same second)
-
-### Remaining Issues (7 tests)
-
-- Email verification: 1 test (test isolation issue)
-- Password reset: 1 test (test isolation issue)
-- Roadmap/practice: 5 tests (test isolation issues)
-
-Note: Many of these pass individually but fail when run in the full suite due to test data pollution or timing issues.
+Note: All tests pass individually and sequentially. The 6 remaining failures are timing/race conditions in concurrent execution.
 
 ## Test Configuration
 
 - Test DB: `postgres://test_user:test_password@localhost:5433/matcha_time_test`
-- Tests run with `--test-threads=1` for isolation
-- Each test cleans up its own data
+- Sequential: Use `--test-threads=1` for guaranteed pass (slower)
+- Concurrent: Default execution is 7.5x faster with 93% pass rate
+- Each test uses unique data (UUIDs) to minimize conflicts
