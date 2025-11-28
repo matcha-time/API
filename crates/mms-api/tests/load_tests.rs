@@ -75,14 +75,20 @@ impl LoadTestResults {
         println!("Total requests:      {}", self.total_requests);
         println!("Successful:          {}", self.successful_requests);
         println!("Failed:              {}", self.failed_requests);
-        println!("Success rate:        {:.2}%", (self.successful_requests as f64 / self.total_requests as f64) * 100.0);
+        println!(
+            "Success rate:        {:.2}%",
+            (self.successful_requests as f64 / self.total_requests as f64) * 100.0
+        );
         println!("\nLatency:");
         println!("  Min:               {} ms", self.min_latency_ms);
         println!("  Average:           {} ms", self.avg_latency_ms);
         println!("  P95:               {} ms", self.p95_latency_ms);
         println!("  P99:               {} ms", self.p99_latency_ms);
         println!("  Max:               {} ms", self.max_latency_ms);
-        println!("\nThroughput:          {:.2} requests/sec", self.throughput_rps);
+        println!(
+            "\nThroughput:          {:.2} requests/sec",
+            self.throughput_rps
+        );
         println!("Total duration:      {} ms", self.total_duration_ms);
         println!("================================================\n");
     }
@@ -563,9 +569,5 @@ async fn performance_test_bcrypt_hashing() {
     println!("=========================================\n");
 
     // Bcrypt should not be too slow (>500ms would impact UX)
-    assert!(
-        avg_ms < 500,
-        "Bcrypt hashing is too slow: {} ms",
-        avg_ms
-    );
+    assert!(avg_ms < 500, "Bcrypt hashing is too slow: {} ms", avg_ms);
 }

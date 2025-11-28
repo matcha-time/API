@@ -126,7 +126,10 @@ async fn test_get_all_roadmaps() {
         .expect("Test roadmap should be in response");
 
     assert!(
-        test_roadmap["title"].as_str().unwrap().starts_with("Test Spanish Roadmap"),
+        test_roadmap["title"]
+            .as_str()
+            .unwrap()
+            .starts_with("Test Spanish Roadmap"),
         "Roadmap title should start with 'Test Spanish Roadmap'"
     );
     assert_eq!(test_roadmap["language_from"].as_str().unwrap(), "en");
@@ -161,10 +164,12 @@ async fn test_get_roadmaps_by_language_pair() {
     let roadmaps = json.as_array().unwrap();
 
     assert!(!roadmaps.is_empty(), "Should have Spanish roadmap");
-    assert!(roadmaps
-        .iter()
-        .all(|r| r["language_from"].as_str().unwrap() == "en"
-            && r["language_to"].as_str().unwrap() == "es"));
+    assert!(
+        roadmaps
+            .iter()
+            .all(|r| r["language_from"].as_str().unwrap() == "en"
+                && r["language_to"].as_str().unwrap() == "es")
+    );
 
     // Try non-existent language pair (fr/es - valid codes but no data)
     let response = client.get("/roadmaps/fr/es").await;
@@ -172,7 +177,10 @@ async fn test_get_roadmaps_by_language_pair() {
 
     let json: serde_json::Value = response.json();
     let roadmaps = json.as_array().unwrap();
-    assert!(roadmaps.is_empty(), "Should have no French-Spanish roadmaps");
+    assert!(
+        roadmaps.is_empty(),
+        "Should have no French-Spanish roadmaps"
+    );
 
     // Cleanup
     common::db::cleanup(&state.pool)
@@ -188,9 +196,10 @@ async fn test_get_roadmap_with_progress_authenticated() {
         .expect("Failed to create test state");
 
     // Create user
-    let user_id = common::db::create_verified_user(&state.pool, "roadmap@example.com", "roadmapuser")
-        .await
-        .expect("Failed to create user");
+    let user_id =
+        common::db::create_verified_user(&state.pool, "roadmap@example.com", "roadmapuser")
+            .await
+            .expect("Failed to create user");
 
     // Create test data
     let (roadmap_id, deck1_id, _) = create_test_roadmap_and_decks(&state.pool)
@@ -306,9 +315,10 @@ async fn test_get_practice_session_for_deck() {
         .expect("Failed to create test state");
 
     // Create user
-    let user_id = common::db::create_verified_user(&state.pool, "practice@example.com", "practiceuser")
-        .await
-        .expect("Failed to create user");
+    let user_id =
+        common::db::create_verified_user(&state.pool, "practice@example.com", "practiceuser")
+            .await
+            .expect("Failed to create user");
 
     // Create test data
     let (_, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
@@ -359,13 +369,15 @@ async fn test_get_practice_session_unauthorized() {
         .expect("Failed to create test state");
 
     // Create two users
-    let user1_id = common::db::create_verified_user(&state.pool, "user1practice@example.com", "user1")
-        .await
-        .expect("Failed to create user1");
+    let user1_id =
+        common::db::create_verified_user(&state.pool, "user1practice@example.com", "user1")
+            .await
+            .expect("Failed to create user1");
 
-    let user2_id = common::db::create_verified_user(&state.pool, "user2practice@example.com", "user2")
-        .await
-        .expect("Failed to create user2");
+    let user2_id =
+        common::db::create_verified_user(&state.pool, "user2practice@example.com", "user2")
+            .await
+            .expect("Failed to create user2");
 
     // Create deck
     let (_, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
@@ -373,7 +385,8 @@ async fn test_get_practice_session_unauthorized() {
         .expect("Failed to create test data");
 
     // User1 tries to get user2's practice session
-    let token = common::jwt::create_test_token(user1_id, "user1practice@example.com", &state.jwt_secret);
+    let token =
+        common::jwt::create_test_token(user1_id, "user1practice@example.com", &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -583,13 +596,12 @@ async fn test_submit_review_updates_stats() {
     .expect("Failed to get flashcard");
 
     // Get initial stats
-    let initial_reviews: i32 = sqlx::query_scalar(
-        "SELECT total_reviews FROM user_stats WHERE user_id = $1",
-    )
-    .bind(user_id)
-    .fetch_one(&state.pool)
-    .await
-    .expect("Failed to get initial stats");
+    let initial_reviews: i32 =
+        sqlx::query_scalar("SELECT total_reviews FROM user_stats WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("Failed to get initial stats");
 
     let token = common::jwt::create_test_token(user_id, "stats@example.com", &state.jwt_secret);
 
@@ -613,13 +625,12 @@ async fn test_submit_review_updates_stats() {
         .await;
 
     // Get updated stats
-    let updated_reviews: i32 = sqlx::query_scalar(
-        "SELECT total_reviews FROM user_stats WHERE user_id = $1",
-    )
-    .bind(user_id)
-    .fetch_one(&state.pool)
-    .await
-    .expect("Failed to get updated stats");
+    let updated_reviews: i32 =
+        sqlx::query_scalar("SELECT total_reviews FROM user_stats WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("Failed to get updated stats");
 
     assert_eq!(
         updated_reviews,
@@ -641,13 +652,15 @@ async fn test_submit_review_unauthorized() {
         .expect("Failed to create test state");
 
     // Create two users
-    let user1_id = common::db::create_verified_user(&state.pool, "user1review@example.com", "user1")
-        .await
-        .expect("Failed to create user1");
+    let user1_id =
+        common::db::create_verified_user(&state.pool, "user1review@example.com", "user1")
+            .await
+            .expect("Failed to create user1");
 
-    let user2_id = common::db::create_verified_user(&state.pool, "user2review@example.com", "user2")
-        .await
-        .expect("Failed to create user2");
+    let user2_id =
+        common::db::create_verified_user(&state.pool, "user2review@example.com", "user2")
+            .await
+            .expect("Failed to create user2");
 
     // Create deck
     let (_, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
@@ -662,7 +675,8 @@ async fn test_submit_review_unauthorized() {
     .expect("Failed to get flashcard");
 
     // User1 tries to submit review for user2
-    let token = common::jwt::create_test_token(user1_id, "user1review@example.com", &state.jwt_secret);
+    let token =
+        common::jwt::create_test_token(user1_id, "user1review@example.com", &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);

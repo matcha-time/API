@@ -99,7 +99,8 @@ async fn test_rate_limit_auth_endpoints() {
 
     // Cleanup - delete any created users
     for i in 0..10 {
-        let _ = common::db::delete_user_by_email(&state.pool, &format!("test{}@example.com", i)).await;
+        let _ =
+            common::db::delete_user_by_email(&state.pool, &format!("test{}@example.com", i)).await;
     }
 }
 

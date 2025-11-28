@@ -46,10 +46,12 @@ async fn test_password_reset_full_flow_success() {
     request_response.assert_status(StatusCode::OK);
 
     let request_json: serde_json::Value = request_response.json();
-    assert!(request_json["message"]
-        .as_str()
-        .unwrap()
-        .contains("password reset"));
+    assert!(
+        request_json["message"]
+            .as_str()
+            .unwrap()
+            .contains("password reset")
+    );
 
     // Step 4: Get user_id and create reset token
     let user_id = common::db::get_user_by_email(&state.pool, "resettest@example.com")
@@ -71,10 +73,12 @@ async fn test_password_reset_full_flow_success() {
     reset_response.assert_status(StatusCode::OK);
 
     let reset_json: serde_json::Value = reset_response.json();
-    assert!(reset_json["message"]
-        .as_str()
-        .unwrap()
-        .contains("successfully"));
+    assert!(
+        reset_json["message"]
+            .as_str()
+            .unwrap()
+            .contains("successfully")
+    );
 
     // Step 6: Verify token is marked as used
     // Hash the token to compare with database
@@ -131,16 +135,20 @@ async fn test_password_reset_request_nonexistent_user() {
     let body = json!({
         "email": "nonexistent@example.com"
     });
-    let response = client.post_json("/users/request-password-reset", &body).await;
+    let response = client
+        .post_json("/users/request-password-reset", &body)
+        .await;
 
     // Should return success to prevent enumeration
     response.assert_status(StatusCode::OK);
 
     let json: serde_json::Value = response.json();
-    assert!(json["message"]
-        .as_str()
-        .unwrap()
-        .contains("If an account exists"));
+    assert!(
+        json["message"]
+            .as_str()
+            .unwrap()
+            .contains("If an account exists")
+    );
 
     // Verify no token was created
     let token_count: i64 = sqlx::query_scalar(
@@ -151,7 +159,10 @@ async fn test_password_reset_request_nonexistent_user() {
     .await
     .expect("Failed to count tokens");
 
-    assert_eq!(token_count, 0, "No token should be created for non-existent user");
+    assert_eq!(
+        token_count, 0,
+        "No token should be created for non-existent user"
+    );
 }
 
 #[tokio::test]
@@ -168,12 +179,20 @@ async fn test_password_reset_invalid_email_format() {
     let body = json!({
         "email": "not-an-email"
     });
-    let response = client.post_json("/users/request-password-reset", &body).await;
+    let response = client
+        .post_json("/users/request-password-reset", &body)
+        .await;
 
     response.assert_status(StatusCode::BAD_REQUEST);
 
     let json: serde_json::Value = response.json();
-    assert!(json["error"].as_str().unwrap().to_lowercase().contains("email"));
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .to_lowercase()
+            .contains("email")
+    );
 }
 
 #[tokio::test]
@@ -187,13 +206,10 @@ async fn test_password_reset_expired_token() {
     let client = TestClient::new(app);
 
     // Create user
-    let user_id = common::db::create_verified_user(
-        &state.pool,
-        "expiredreset@example.com",
-        "expireduser",
-    )
-    .await
-    .expect("Failed to create user");
+    let user_id =
+        common::db::create_verified_user(&state.pool, "expiredreset@example.com", "expireduser")
+            .await
+            .expect("Failed to create user");
 
     // Manually insert expired reset token
     let expired_token = "expired_reset_token_hash_12345";
@@ -220,10 +236,12 @@ async fn test_password_reset_expired_token() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 
     let json: serde_json::Value = response.json();
-    assert!(json["error"]
-        .as_str()
-        .unwrap()
-        .contains("invalid or expired"));
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .contains("invalid or expired")
+    );
 
     // Cleanup
     common::db::delete_user_by_email(&state.pool, "expiredreset@example.com")
@@ -291,10 +309,12 @@ async fn test_password_reset_already_used_token() {
     second_response.assert_status(StatusCode::UNAUTHORIZED);
 
     let json: serde_json::Value = second_response.json();
-    assert!(json["error"]
-        .as_str()
-        .unwrap()
-        .contains("invalid or expired"));
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .contains("invalid or expired")
+    );
 
     // Cleanup
     common::db::delete_user_by_email(&state.pool, "usedresettoken@example.com")
@@ -344,11 +364,13 @@ async fn test_password_reset_weak_new_password() {
     response.assert_status(StatusCode::BAD_REQUEST);
 
     let json: serde_json::Value = response.json();
-    assert!(json["error"]
-        .as_str()
-        .unwrap()
-        .to_lowercase()
-        .contains("password"));
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .to_lowercase()
+            .contains("password")
+    );
 
     // Cleanup
     common::db::delete_user_by_email(&state.pool, "weakpass@example.com")
@@ -376,10 +398,12 @@ async fn test_password_reset_invalid_token_format() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 
     let json: serde_json::Value = response.json();
-    assert!(json["error"]
-        .as_str()
-        .unwrap()
-        .contains("invalid or expired"));
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .contains("invalid or expired")
+    );
 }
 
 #[tokio::test]
@@ -444,17 +468,19 @@ async fn test_password_reset_revokes_old_sessions() {
     client.post_json("/users/reset-password", &reset_body).await;
 
     // Verify old refresh tokens are invalidated
-    let refresh_token_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1",
-    )
-    .bind(user_id)
-    .fetch_one(&state.pool)
-    .await
-    .expect("Failed to count refresh tokens");
+    let refresh_token_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("Failed to count refresh tokens");
 
     // Note: This depends on implementation. If password reset revokes tokens, count should be 0
     // If not implemented yet, this test documents the expected behavior
-    println!("Active refresh tokens after password reset: {}", refresh_token_count);
+    println!(
+        "Active refresh tokens after password reset: {}",
+        refresh_token_count
+    );
 
     // Cleanup
     common::db::delete_user_by_email(&state.pool, "revokesession@example.com")
@@ -509,7 +535,10 @@ async fn test_password_reset_multiple_requests_invalidates_old_tokens() {
         .expect("Failed to create second reset token");
 
     // Tokens should be different
-    assert_ne!(first_token, second_token, "Each request should generate a new token");
+    assert_ne!(
+        first_token, second_token,
+        "Each request should generate a new token"
+    );
 
     // Try to use first (older) token - behavior depends on implementation
     let reset_body = json!({
@@ -527,7 +556,9 @@ async fn test_password_reset_multiple_requests_invalidates_old_tokens() {
         "token": second_token,
         "new_password": "NewP@ssw0rd456"
     });
-    let response2 = client.post_json("/users/reset-password", &reset_body2).await;
+    let response2 = client
+        .post_json("/users/reset-password", &reset_body2)
+        .await;
     response2.assert_status(StatusCode::OK);
 
     // Cleanup

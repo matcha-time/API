@@ -1,10 +1,10 @@
 mod auth_tests;
 mod common;
-mod user_tests;
 mod email_verification_tests;
+mod load_tests;
 mod password_reset_tests;
+mod rate_limit_tests;
 mod refresh_token_tests;
 mod roadmap_deck_practice_tests;
-mod rate_limit_tests;
 mod security_tests;
-mod load_tests;
+mod user_tests;

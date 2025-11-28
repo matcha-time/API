@@ -542,7 +542,8 @@ pub mod verification {
         user_id: Uuid,
     ) -> anyhow::Result<String> {
         // Use the actual implementation from the API
-        mms_api::user::email_verification::create_verification_token(pool, user_id, 24).await
+        mms_api::user::email_verification::create_verification_token(pool, user_id, 24)
+            .await
             .map_err(|e| anyhow::anyhow!("Failed to create verification token: {}", e))
     }
 
@@ -553,7 +554,8 @@ pub mod verification {
         user_id: Uuid,
     ) -> anyhow::Result<String> {
         // Use the actual implementation from the API
-        mms_api::user::password_reset::create_reset_token(pool, user_id, 1).await
+        mms_api::user::password_reset::create_reset_token(pool, user_id, 1)
+            .await
             .map_err(|e| anyhow::anyhow!("Failed to create password reset token: {}", e))
     }
 }

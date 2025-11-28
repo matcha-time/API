@@ -17,14 +17,9 @@ async fn test_refresh_token_rotation_success() {
     let email = common::test_data::unique_email("refreshtest");
     let username = common::test_data::unique_username("refreshuser");
     let password_hash = bcrypt::hash("password123", bcrypt::DEFAULT_COST).unwrap();
-    common::db::create_test_user(
-        &state.pool,
-        &email,
-        &username,
-        &password_hash,
-    )
-    .await
-    .expect("Failed to create user");
+    common::db::create_test_user(&state.pool, &email, &username, &password_hash)
+        .await
+        .expect("Failed to create user");
 
     let login_body = json!({
         "email": &email,
@@ -152,13 +147,23 @@ async fn test_refresh_token_reuse_detection() {
 
     // Use refresh token first time - should succeed
     let first_refresh = client
-        .get_with_auth_and_refresh("/auth/refresh", access_token, refresh_token, &state.cookie_key)
+        .get_with_auth_and_refresh(
+            "/auth/refresh",
+            access_token,
+            refresh_token,
+            &state.cookie_key,
+        )
         .await;
     first_refresh.assert_status(StatusCode::OK);
 
     // Try to reuse same refresh token - should fail
     let second_refresh = client
-        .get_with_auth_and_refresh("/auth/refresh", access_token, refresh_token, &state.cookie_key)
+        .get_with_auth_and_refresh(
+            "/auth/refresh",
+            access_token,
+            refresh_token,
+            &state.cookie_key,
+        )
         .await;
 
     second_refresh.assert_status(StatusCode::UNAUTHORIZED);
@@ -188,11 +193,13 @@ async fn test_refresh_token_missing_cookie() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 
     let json: serde_json::Value = response.json();
-    assert!(json["error"]
-        .as_str()
-        .unwrap()
-        .to_lowercase()
-        .contains("refresh token"));
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .to_lowercase()
+            .contains("refresh token")
+    );
 }
 
 #[tokio::test]
@@ -206,9 +213,10 @@ async fn test_refresh_token_invalid_token() {
     let client = TestClient::new(app);
 
     // Create user for valid access token
-    let user_id = common::db::create_verified_user(&state.pool, "invalid@example.com", "invaliduser")
-        .await
-        .expect("Failed to create user");
+    let user_id =
+        common::db::create_verified_user(&state.pool, "invalid@example.com", "invaliduser")
+            .await
+            .expect("Failed to create user");
 
     let access_token =
         common::jwt::create_test_token(user_id, "invalid@example.com", &state.jwt_secret);
@@ -262,43 +270,53 @@ async fn test_logout_revokes_refresh_token() {
     let refresh_token = login_json["refresh_token"].as_str().unwrap();
 
     // Verify refresh token is active before logout
-    let tokens_before: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1 ",
-    )
-    .bind(user_id)
-    .fetch_one(&state.pool)
-    .await
-    .expect("Failed to count tokens");
+    let tokens_before: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1 ")
+            .bind(user_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("Failed to count tokens");
 
     assert!(tokens_before > 0, "Should have active refresh token");
 
     // Logout
     let logout_response = client
-        .get_with_auth_and_refresh("/auth/logout", access_token, refresh_token, &state.cookie_key)
+        .get_with_auth_and_refresh(
+            "/auth/logout",
+            access_token,
+            refresh_token,
+            &state.cookie_key,
+        )
         .await;
 
     logout_response.assert_status(StatusCode::OK);
 
     let logout_json: serde_json::Value = logout_response.json();
-    assert!(logout_json["message"]
-        .as_str()
-        .unwrap()
-        .contains("Logged out"));
+    assert!(
+        logout_json["message"]
+            .as_str()
+            .unwrap()
+            .contains("Logged out")
+    );
 
     // Verify refresh token is revoked after logout
-    let tokens_after: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1 ",
-    )
-    .bind(user_id)
-    .fetch_one(&state.pool)
-    .await
-    .expect("Failed to count tokens");
+    let tokens_after: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1 ")
+            .bind(user_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("Failed to count tokens");
 
     assert_eq!(tokens_after, 0, "All refresh tokens should be revoked");
 
     // Try to use refresh token after logout - should fail
     let refresh_after_logout = client
-        .get_with_auth_and_refresh("/auth/refresh", access_token, refresh_token, &state.cookie_key)
+        .get_with_auth_and_refresh(
+            "/auth/refresh",
+            access_token,
+            refresh_token,
+            &state.cookie_key,
+        )
         .await;
 
     refresh_after_logout.assert_status(StatusCode::UNAUTHORIZED);
@@ -347,16 +365,18 @@ async fn test_multiple_concurrent_refresh_tokens() {
     let refresh_token2 = login2_json["refresh_token"].as_str().unwrap().to_string();
 
     // Verify both refresh tokens are different
-    assert_ne!(refresh_token1, refresh_token2, "Different devices should have different refresh tokens");
+    assert_ne!(
+        refresh_token1, refresh_token2,
+        "Different devices should have different refresh tokens"
+    );
 
     // Verify both tokens work
-    let total_tokens: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1 ",
-    )
-    .bind(user_id)
-    .fetch_one(&state.pool)
-    .await
-    .expect("Failed to count tokens");
+    let total_tokens: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1 ")
+            .bind(user_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("Failed to count tokens");
 
     assert!(
         total_tokens >= 2,
@@ -448,13 +468,12 @@ async fn test_refresh_token_family_invalidation_on_breach() {
 
     // Verify token family might be invalidated (depends on implementation)
     // This test documents expected behavior for token family invalidation
-    let active_tokens: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1 ",
-    )
-    .bind(user_id)
-    .fetch_one(&state.pool)
-    .await
-    .expect("Failed to count active tokens");
+    let active_tokens: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM refresh_tokens WHERE user_id = $1 ")
+            .bind(user_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("Failed to count active tokens");
 
     println!("Active tokens after breach detection: {}", active_tokens);
 
@@ -478,9 +497,10 @@ async fn test_refresh_token_expiration() {
     let client = TestClient::new(app);
 
     // Create user
-    let user_id = common::db::create_verified_user(&state.pool, "expired@example.com", "expireduser")
-        .await
-        .expect("Failed to create user");
+    let user_id =
+        common::db::create_verified_user(&state.pool, "expired@example.com", "expireduser")
+            .await
+            .expect("Failed to create user");
 
     // Manually create an expired refresh token
     let expired_token = "expired_token_12345678901234567890";
@@ -499,11 +519,17 @@ async fn test_refresh_token_expiration() {
     .await
     .expect("Failed to insert expired token");
 
-    let access_token = common::jwt::create_test_token(user_id, "expired@example.com", &state.jwt_secret);
+    let access_token =
+        common::jwt::create_test_token(user_id, "expired@example.com", &state.jwt_secret);
 
     // Try to use expired refresh token
     let response = client
-        .get_with_auth_and_refresh("/auth/refresh", &access_token, expired_token, &state.cookie_key)
+        .get_with_auth_and_refresh(
+            "/auth/refresh",
+            &access_token,
+            expired_token,
+            &state.cookie_key,
+        )
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
@@ -530,8 +556,5 @@ async fn test_logout_without_refresh_token() {
     response.assert_status(StatusCode::OK);
 
     let json: serde_json::Value = response.json();
-    assert!(json["message"]
-        .as_str()
-        .unwrap()
-        .contains("Logged out"));
+    assert!(json["message"].as_str().unwrap().contains("Logged out"));
 }

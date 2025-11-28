@@ -81,7 +81,9 @@ async fn test_sql_injection_password_reset() {
             "email": payload
         });
 
-        let response = client.post_json("/users/request-password-reset", &body).await;
+        let response = client
+            .post_json("/users/request-password-reset", &body)
+            .await;
 
         // Should return either 400 or 200 (generic success), never 500
         assert!(
@@ -184,13 +186,12 @@ async fn test_xss_in_username() {
 
         if response.status == StatusCode::OK {
             // If registration succeeds, verify the payload is stored safely
-            let stored_username: Option<String> = sqlx::query_scalar(
-                "SELECT username FROM users WHERE email = $1",
-            )
-            .bind(format!("xss{}@example.com", i))
-            .fetch_optional(&state.pool)
-            .await
-            .expect("Failed to fetch username");
+            let stored_username: Option<String> =
+                sqlx::query_scalar("SELECT username FROM users WHERE email = $1")
+                    .bind(format!("xss{}@example.com", i))
+                    .fetch_optional(&state.pool)
+                    .await
+                    .expect("Failed to fetch username");
 
             if let Some(username) = stored_username {
                 // Username should be stored as-is (backend doesn't sanitize, frontend should escape)
@@ -217,11 +218,13 @@ async fn test_xss_in_profile_update() {
     let client = TestClient::new(app);
 
     // Create user
-    let user_id = common::db::create_verified_user(&state.pool, "xssprofile@example.com", "xssuser")
-        .await
-        .expect("Failed to create user");
+    let user_id =
+        common::db::create_verified_user(&state.pool, "xssprofile@example.com", "xssuser")
+            .await
+            .expect("Failed to create user");
 
-    let token = common::jwt::create_test_token(user_id, "xssprofile@example.com", &state.jwt_secret);
+    let token =
+        common::jwt::create_test_token(user_id, "xssprofile@example.com", &state.jwt_secret);
 
     // Try to update with XSS payload
     let body = json!({
@@ -270,9 +273,7 @@ async fn test_auth_bypass_missing_token() {
         .expect("Failed to create user");
 
     // Try to access protected endpoint without auth token
-    let response = client
-        .get(&format!("/users/{}/dashboard", user_id))
-        .await;
+    let response = client.get(&format!("/users/{}/dashboard", user_id)).await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
@@ -293,9 +294,10 @@ async fn test_auth_bypass_invalid_token() {
     let client = TestClient::new(app);
 
     // Create user
-    let user_id = common::db::create_verified_user(&state.pool, "badtoken@example.com", "badtokenuser")
-        .await
-        .expect("Failed to create user");
+    let user_id =
+        common::db::create_verified_user(&state.pool, "badtoken@example.com", "badtokenuser")
+            .await
+            .expect("Failed to create user");
 
     // Try with completely invalid token
     let response = client
@@ -334,7 +336,8 @@ async fn test_auth_bypass_wrong_user_token() {
         .expect("Failed to create user2");
 
     // Get token for user1
-    let user1_token = common::jwt::create_test_token(user1_id, "user1@example.com", &state.jwt_secret);
+    let user1_token =
+        common::jwt::create_test_token(user1_id, "user1@example.com", &state.jwt_secret);
 
     // Try to access user2's dashboard with user1's token
     let response = client
@@ -367,13 +370,15 @@ async fn test_auth_bypass_expired_token() {
     let client = TestClient::new(app);
 
     // Create user
-    let user_id = common::db::create_verified_user(&state.pool, "expired@example.com", "expireduser")
-        .await
-        .expect("Failed to create user");
+    let user_id =
+        common::db::create_verified_user(&state.pool, "expired@example.com", "expireduser")
+            .await
+            .expect("Failed to create user");
 
     // Create token with past expiration (would require custom JWT creation)
     // For now, just test with malformed token
-    let expired_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiZXhwIjowfQ.invalid";
+    let expired_token =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiZXhwIjowfQ.invalid";
 
     let response = client
         .get_with_auth(
@@ -402,9 +407,10 @@ async fn test_auth_bypass_wrong_secret() {
     let client = TestClient::new(app);
 
     // Create user
-    let user_id = common::db::create_verified_user(&state.pool, "wrongsecret@example.com", "wronguser")
-        .await
-        .expect("Failed to create user");
+    let user_id =
+        common::db::create_verified_user(&state.pool, "wrongsecret@example.com", "wronguser")
+            .await
+            .expect("Failed to create user");
 
     // Create token with wrong secret
     let wrong_token = common::jwt::create_test_token(
@@ -488,7 +494,8 @@ async fn test_idor_profile_access() {
         .await
         .expect("Failed to create user2");
 
-    let user1_token = common::jwt::create_test_token(user1_id, "idor1@example.com", &state.jwt_secret);
+    let user1_token =
+        common::jwt::create_test_token(user1_id, "idor1@example.com", &state.jwt_secret);
 
     // User1 tries to update user2's profile
     let body = json!({
@@ -535,15 +542,18 @@ async fn test_idor_practice_submission() {
     let client = TestClient::new(app);
 
     // Create two users
-    let user1_id = common::db::create_verified_user(&state.pool, "practice1@example.com", "practice1")
-        .await
-        .expect("Failed to create user1");
+    let user1_id =
+        common::db::create_verified_user(&state.pool, "practice1@example.com", "practice1")
+            .await
+            .expect("Failed to create user1");
 
-    let user2_id = common::db::create_verified_user(&state.pool, "practice2@example.com", "practice2")
-        .await
-        .expect("Failed to create user2");
+    let user2_id =
+        common::db::create_verified_user(&state.pool, "practice2@example.com", "practice2")
+            .await
+            .expect("Failed to create user2");
 
-    let user1_token = common::jwt::create_test_token(user1_id, "practice1@example.com", &state.jwt_secret);
+    let user1_token =
+        common::jwt::create_test_token(user1_id, "practice1@example.com", &state.jwt_secret);
 
     // User1 tries to submit review for user2
     let fake_flashcard_id = uuid::Uuid::new_v4();

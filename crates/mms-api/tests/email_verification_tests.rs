@@ -35,15 +35,17 @@ async fn test_email_verification_full_flow_success() {
         .expect("Failed to create verification token");
 
     // Step 3: Check if user is verified in database (should be false after registration)
-    let email_verified_before: bool = sqlx::query_scalar(
-        "SELECT email_verified FROM users WHERE email = $1",
-    )
-    .bind("emailtest@example.com")
-    .fetch_one(&state.pool)
-    .await
-    .expect("Failed to check email_verified status");
+    let email_verified_before: bool =
+        sqlx::query_scalar("SELECT email_verified FROM users WHERE email = $1")
+            .bind("emailtest@example.com")
+            .fetch_one(&state.pool)
+            .await
+            .expect("Failed to check email_verified status");
 
-    println!("Email verified status after registration: {}", email_verified_before);
+    println!(
+        "Email verified status after registration: {}",
+        email_verified_before
+    );
 
     // Try to login before email verification
     let login_body = json!({
@@ -70,19 +72,20 @@ async fn test_email_verification_full_flow_success() {
     verify_response.assert_status(StatusCode::OK);
 
     let verify_json: serde_json::Value = verify_response.json();
-    assert!(verify_json["message"]
-        .as_str()
-        .unwrap()
-        .contains("verified successfully"));
+    assert!(
+        verify_json["message"]
+            .as_str()
+            .unwrap()
+            .contains("verified successfully")
+    );
 
     // Step 5: Verify user's email_verified status in database
-    let email_verified: bool = sqlx::query_scalar(
-        "SELECT email_verified FROM users WHERE email = $1",
-    )
-    .bind("emailtest@example.com")
-    .fetch_one(&state.pool)
-    .await
-    .expect("Failed to check email_verified status");
+    let email_verified: bool =
+        sqlx::query_scalar("SELECT email_verified FROM users WHERE email = $1")
+            .bind("emailtest@example.com")
+            .fetch_one(&state.pool)
+            .await
+            .expect("Failed to check email_verified status");
 
     assert!(email_verified, "User's email should be marked as verified");
 
@@ -111,13 +114,10 @@ async fn test_email_verification_expired_token() {
     let client = TestClient::new(app);
 
     // Create a user manually
-    let user_id = common::db::create_verified_user(
-        &state.pool,
-        "expiredtoken@example.com",
-        "expireduser",
-    )
-    .await
-    .expect("Failed to create user");
+    let user_id =
+        common::db::create_verified_user(&state.pool, "expiredtoken@example.com", "expireduser")
+            .await
+            .expect("Failed to create user");
 
     // Manually insert an expired verification token
     let expired_token = "expired_token_hash_12345678";
@@ -143,10 +143,12 @@ async fn test_email_verification_expired_token() {
 
     let json: serde_json::Value = response.json();
     // Generic message to prevent enumeration
-    assert!(json["message"]
-        .as_str()
-        .unwrap()
-        .contains("processed successfully"));
+    assert!(
+        json["message"]
+            .as_str()
+            .unwrap()
+            .contains("processed successfully")
+    );
 
     // Cleanup
     common::db::delete_user_by_email(&state.pool, "expiredtoken@example.com")
@@ -197,10 +199,12 @@ async fn test_email_verification_already_used_token() {
     second_response.assert_status(StatusCode::OK);
 
     let json: serde_json::Value = second_response.json();
-    assert!(json["message"]
-        .as_str()
-        .unwrap()
-        .contains("processed successfully"));
+    assert!(
+        json["message"]
+            .as_str()
+            .unwrap()
+            .contains("processed successfully")
+    );
 
     // Cleanup
     common::db::delete_user_by_email(&state.pool, "usedtoken@example.com")
@@ -227,10 +231,12 @@ async fn test_email_verification_invalid_token_format() {
     response.assert_status(StatusCode::OK);
 
     let json: serde_json::Value = response.json();
-    assert!(json["message"]
-        .as_str()
-        .unwrap()
-        .contains("processed successfully"));
+    assert!(
+        json["message"]
+            .as_str()
+            .unwrap()
+            .contains("processed successfully")
+    );
 }
 
 #[tokio::test]
@@ -378,5 +384,11 @@ async fn test_resend_verification_invalid_email_format() {
     response.assert_status(StatusCode::BAD_REQUEST);
 
     let json: serde_json::Value = response.json();
-    assert!(json["error"].as_str().unwrap().to_lowercase().contains("email"));
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .to_lowercase()
+            .contains("email")
+    );
 }

@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+
+# Development files
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+target/
+Cargo.lock.bak
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+coverage/
+*.profraw
+
+# Documentation
+README.md
+docs/
+
+# CI/CD
+.github/
+
+# Docker
+Dockerfile
+.dockerignore
+compose*.yaml
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
