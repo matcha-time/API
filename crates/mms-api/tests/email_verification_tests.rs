@@ -258,12 +258,13 @@ async fn test_resend_verification_email_success() {
         .await
         .expect("Failed to mark user as unverified");
 
-    // Get count of verification tokens before resend
-    let tokens_before: i64 = sqlx::query_scalar(
+    // Get count of unused verification tokens before resend
+    let _tokens_before: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
         FROM email_verification_tokens
         WHERE user_id = (SELECT id FROM users WHERE email = $1)
+        AND used_at IS NULL
         "#,
     )
     .bind("resenduser@example.com")
@@ -280,12 +281,13 @@ async fn test_resend_verification_email_success() {
         .await;
     response.assert_status(StatusCode::OK);
 
-    // Verify new token was created
+    // Verify new token was created (old ones marked as used, new one added)
     let tokens_after: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
         FROM email_verification_tokens
         WHERE user_id = (SELECT id FROM users WHERE email = $1)
+        AND used_at IS NULL
         "#,
     )
     .bind("resenduser@example.com")
@@ -293,9 +295,9 @@ async fn test_resend_verification_email_success() {
     .await
     .expect("Failed to count tokens");
 
-    assert!(
-        tokens_after > tokens_before,
-        "New verification token should be created"
+    assert_eq!(
+        tokens_after, 1,
+        "Should have exactly 1 unused verification token after resend"
     );
 
     // Cleanup

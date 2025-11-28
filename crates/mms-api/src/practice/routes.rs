@@ -82,8 +82,24 @@ async fn submit_review(
         r#"
         INSERT INTO user_activity (user_id, activity_date, reviews_count)
         VALUES ($1, CURRENT_DATE, 1)
-        ON CONFLICT (user_id, activity_date) 
+        ON CONFLICT (user_id, activity_date)
         DO UPDATE SET reviews_count = user_activity.reviews_count + 1
+        "#,
+    )
+    .bind(user_id)
+    .execute(&mut *tx)
+    .await
+    .map_err(ApiError::Database)?;
+
+    // Update user stats
+    sqlx::query(
+        // language=PostgreSQL
+        r#"
+        UPDATE user_stats
+        SET total_reviews = total_reviews + 1,
+            last_review_date = CURRENT_DATE,
+            updated_at = NOW()
+        WHERE user_id = $1
         "#,
     )
     .bind(user_id)

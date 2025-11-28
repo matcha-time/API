@@ -2,6 +2,7 @@ use crate::common::{self, TestClient, TestStateBuilder};
 use axum::http::StatusCode;
 use mms_api::router;
 use serde_json::json;
+use sha2::{Digest, Sha256};
 
 #[tokio::test]
 async fn test_password_reset_full_flow_success() {
@@ -76,14 +77,19 @@ async fn test_password_reset_full_flow_success() {
         .contains("successfully"));
 
     // Step 6: Verify token is marked as used
+    // Hash the token to compare with database
+    let mut hasher = Sha256::new();
+    hasher.update(reset_token.as_bytes());
+    let token_hash = format!("{:x}", hasher.finalize());
+
     let token_used: bool = sqlx::query_scalar(
         r#"
         SELECT used_at IS NOT NULL
         FROM password_reset_tokens
-        WHERE token_hash = decode($1, 'hex')
+        WHERE token_hash = $1
         "#,
     )
-    .bind(&reset_token)
+    .bind(&token_hash)
     .fetch_one(&state.pool)
     .await
     .expect("Failed to check token status");

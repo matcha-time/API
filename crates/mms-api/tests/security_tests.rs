@@ -129,10 +129,11 @@ async fn test_sql_injection_query_parameters() {
     let client = TestClient::new(app);
 
     // Test SQL injection in query parameters
-    let sql_payload = "' OR '1'='1";
+    // URL encode the payload - ' becomes %27, = becomes %3D
+    let encoded_payload = "%27%20OR%20%271%27%3D%271";
 
     let response = client
-        .get(&format!("/users/verify-email?token={}", sql_payload))
+        .get(&format!("/users/verify-email?token={}", encoded_payload))
         .await;
 
     // Should handle gracefully, not cause server error
