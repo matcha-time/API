@@ -676,6 +676,10 @@ async fn update_user_profile(
         auth::validation::validate_email(email)?;
     }
 
+    if let Some(profile_pic) = &request.profile_picture_url {
+        auth::validation::validate_profile_picture_url(profile_pic)?;
+    }
+
     // Check if there are any updates to make
     let has_updates = request.username.is_some()
         || request.email.is_some()

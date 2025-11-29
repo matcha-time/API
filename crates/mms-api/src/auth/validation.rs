@@ -65,12 +65,62 @@ pub fn validate_username(username: &str) -> Result<(), ApiError> {
     }
 
     // Check for valid characters (alphanumeric, underscore, hyphen)
+    // This prevents XSS by rejecting any HTML/script characters
     if !username
         .chars()
         .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
     {
         return Err(ApiError::Validation(
             "Username can only contain letters, numbers, underscores, and hyphens".to_string(),
+        ));
+    }
+
+    // Additional check: reject common XSS patterns
+    let username_lower = username.to_lowercase();
+    if username_lower.contains("script")
+        || username_lower.contains("<")
+        || username_lower.contains(">")
+        || username_lower.contains("&")
+    {
+        return Err(ApiError::Validation(
+            "Username contains invalid characters".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+/// Validate profile picture URL
+/// Only allows HTTPS URLs from trusted domains or data URIs
+pub fn validate_profile_picture_url(url: &str) -> Result<(), ApiError> {
+    if url.is_empty() {
+        return Ok(()); // Empty is fine, means no profile picture
+    }
+
+    // Check length
+    if url.len() > 2048 {
+        return Err(ApiError::Validation(
+            "Profile picture URL is too long".to_string(),
+        ));
+    }
+
+    // Must be HTTPS or data URI (for base64 images)
+    if !url.starts_with("https://") && !url.starts_with("data:image/") {
+        return Err(ApiError::Validation(
+            "Profile picture URL must use HTTPS or be a data URI".to_string(),
+        ));
+    }
+
+    // Reject URLs with dangerous patterns
+    let url_lower = url.to_lowercase();
+    if url_lower.contains("javascript:")
+        || url_lower.contains("data:text/html")
+        || url_lower.contains("<script")
+        || url_lower.contains("onerror=")
+        || url_lower.contains("onload=")
+    {
+        return Err(ApiError::Validation(
+            "Profile picture URL contains invalid patterns".to_string(),
         ));
     }
 
@@ -106,5 +156,30 @@ mod tests {
         assert!(validate_username("ab").is_err());
         assert!(validate_username("").is_err());
         assert!(validate_username("user name").is_err());
+
+        // XSS prevention tests
+        assert!(validate_username("<script>alert('xss')</script>").is_err());
+        assert!(validate_username("user<script>").is_err());
+        assert!(validate_username("user&test").is_err());
+        assert!(validate_username("userscript").is_err()); // Contains "script"
+    }
+
+    #[test]
+    fn test_validate_profile_picture_url() {
+        // Valid URLs
+        assert!(validate_profile_picture_url("").is_ok()); // Empty is fine
+        assert!(validate_profile_picture_url("https://example.com/image.jpg").is_ok());
+        assert!(validate_profile_picture_url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==").is_ok());
+
+        // Invalid URLs
+        assert!(validate_profile_picture_url("http://example.com/image.jpg").is_err()); // HTTP not allowed
+        assert!(validate_profile_picture_url("javascript:alert('xss')").is_err());
+        assert!(validate_profile_picture_url("data:text/html,<script>alert('xss')</script>").is_err());
+        assert!(validate_profile_picture_url("https://example.com/image.jpg?onerror=alert('xss')").is_err());
+        assert!(validate_profile_picture_url("https://example.com/image.jpg?onload=alert('xss')").is_err());
+
+        // Too long
+        let long_url = format!("https://example.com/{}", "a".repeat(2050));
+        assert!(validate_profile_picture_url(&long_url).is_err());
     }
 }
