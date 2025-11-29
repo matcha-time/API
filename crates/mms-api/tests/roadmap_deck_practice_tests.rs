@@ -110,7 +110,7 @@ async fn test_get_all_roadmaps() {
     let client = TestClient::new(app);
 
     // Get all roadmaps
-    let response = client.get("/roadmaps").await;
+    let response = client.get("/v1/roadmaps").await;
     response.assert_status(StatusCode::OK);
 
     let json: serde_json::Value = response.json();
@@ -157,7 +157,7 @@ async fn test_get_roadmaps_by_language_pair() {
     let client = TestClient::new(app);
 
     // Filter by language pair
-    let response = client.get("/roadmaps/en/es").await;
+    let response = client.get("/v1/roadmaps/en/es").await;
     response.assert_status(StatusCode::OK);
 
     let json: serde_json::Value = response.json();
@@ -172,7 +172,7 @@ async fn test_get_roadmaps_by_language_pair() {
     );
 
     // Try non-existent language pair (fr/es - valid codes but no data)
-    let response = client.get("/roadmaps/fr/es").await;
+    let response = client.get("/v1/roadmaps/fr/es").await;
     response.assert_status(StatusCode::OK);
 
     let json: serde_json::Value = response.json();
@@ -227,7 +227,7 @@ async fn test_get_roadmap_with_progress_authenticated() {
     // Get roadmap with progress
     let response = client
         .get_with_auth(
-            &format!("/roadmaps/{}/progress/{}", roadmap_id, user_id),
+            &format!("/v1/roadmaps/{}/progress/{}", roadmap_id, user_id),
             &token,
             &state.cookie_key,
         )
@@ -293,7 +293,7 @@ async fn test_get_roadmap_progress_unauthorized() {
 
     let response = client
         .get_with_auth(
-            &format!("/roadmaps/{}/progress/{}", roadmap_id, user2_id),
+            &format!("/v1/roadmaps/{}/progress/{}", roadmap_id, user2_id),
             &token,
             &state.cookie_key,
         )
@@ -333,7 +333,7 @@ async fn test_get_practice_session_for_deck() {
     // Get practice session (new cards)
     let response = client
         .get_with_auth(
-            &format!("/decks/{}/practice/{}", deck_id, user_id),
+            &format!("/v1/decks/{}/practice/{}", deck_id, user_id),
             &token,
             &state.cookie_key,
         )
@@ -393,7 +393,7 @@ async fn test_get_practice_session_unauthorized() {
 
     let response = client
         .get_with_auth(
-            &format!("/decks/{}/practice/{}", deck_id, user2_id),
+            &format!("/v1/decks/{}/practice/{}", deck_id, user2_id),
             &token,
             &state.cookie_key,
         )
@@ -446,7 +446,7 @@ async fn test_submit_review_correct_answer() {
 
     let response = client
         .post_json_with_auth(
-            &format!("/practice/{}/{}/review", user_id, flashcard_id),
+            &format!("/v1/practice/{}/{}/review", user_id, flashcard_id),
             &review_body,
             &token,
             &state.cookie_key,
@@ -540,7 +540,7 @@ async fn test_submit_review_wrong_answer() {
 
     let response = client
         .post_json_with_auth(
-            &format!("/practice/{}/{}/review", user_id, flashcard_id),
+            &format!("/v1/practice/{}/{}/review", user_id, flashcard_id),
             &review_body,
             &token,
             &state.cookie_key,
@@ -617,7 +617,7 @@ async fn test_submit_review_updates_stats() {
 
     client
         .post_json_with_auth(
-            &format!("/practice/{}/{}/review", user_id, flashcard_id),
+            &format!("/v1/practice/{}/{}/review", user_id, flashcard_id),
             &review_body,
             &token,
             &state.cookie_key,
@@ -689,7 +689,7 @@ async fn test_submit_review_unauthorized() {
 
     let response = client
         .post_json_with_auth(
-            &format!("/practice/{}/{}/review", user2_id, flashcard_id),
+            &format!("/v1/practice/{}/{}/review", user2_id, flashcard_id),
             &review_body,
             &token,
             &state.cookie_key,

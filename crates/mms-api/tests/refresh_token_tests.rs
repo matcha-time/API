@@ -25,7 +25,7 @@ async fn test_refresh_token_rotation_success() {
         "email": &email,
         "password": "password123"
     });
-    let login_response = client.post_json("/users/login", &login_body).await;
+    let login_response = client.post_json("/v1/users/login", &login_body).await;
     login_response.assert_status(StatusCode::OK);
 
     let login_json: serde_json::Value = login_response.json();
@@ -50,7 +50,7 @@ async fn test_refresh_token_rotation_success() {
     // Use refresh token to get new tokens
     let refresh_response = client
         .get_with_auth_and_refresh(
-            "/auth/refresh",
+            "/v1/auth/refresh",
             old_access_token,
             old_refresh_token,
             &state.cookie_key,
@@ -140,7 +140,7 @@ async fn test_refresh_token_reuse_detection() {
         "email": "reuse@example.com",
         "password": "password123"
     });
-    let login_response = client.post_json("/users/login", &login_body).await;
+    let login_response = client.post_json("/v1/users/login", &login_body).await;
     let login_json: serde_json::Value = login_response.json();
     let access_token = login_json["token"].as_str().unwrap();
     let refresh_token = login_json["refresh_token"].as_str().unwrap();
@@ -148,7 +148,7 @@ async fn test_refresh_token_reuse_detection() {
     // Use refresh token first time - should succeed
     let first_refresh = client
         .get_with_auth_and_refresh(
-            "/auth/refresh",
+            "/v1/auth/refresh",
             access_token,
             refresh_token,
             &state.cookie_key,
@@ -159,7 +159,7 @@ async fn test_refresh_token_reuse_detection() {
     // Try to reuse same refresh token - should fail
     let second_refresh = client
         .get_with_auth_and_refresh(
-            "/auth/refresh",
+            "/v1/auth/refresh",
             access_token,
             refresh_token,
             &state.cookie_key,
@@ -188,7 +188,7 @@ async fn test_refresh_token_missing_cookie() {
     let client = TestClient::new(app);
 
     // Try to refresh without any cookies
-    let response = client.get("/auth/refresh").await;
+    let response = client.get("/v1/auth/refresh").await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
@@ -224,7 +224,7 @@ async fn test_refresh_token_invalid_token() {
     // Try to refresh with invalid refresh token
     let response = client
         .get_with_auth_and_refresh(
-            "/auth/refresh",
+            "/v1/auth/refresh",
             &access_token,
             "invalid_refresh_token",
             &state.cookie_key,
@@ -264,7 +264,7 @@ async fn test_logout_revokes_refresh_token() {
         "email": "logout@example.com",
         "password": "password123"
     });
-    let login_response = client.post_json("/users/login", &login_body).await;
+    let login_response = client.post_json("/v1/users/login", &login_body).await;
     let login_json: serde_json::Value = login_response.json();
     let access_token = login_json["token"].as_str().unwrap();
     let refresh_token = login_json["refresh_token"].as_str().unwrap();
@@ -282,7 +282,7 @@ async fn test_logout_revokes_refresh_token() {
     // Logout
     let logout_response = client
         .get_with_auth_and_refresh(
-            "/auth/logout",
+            "/v1/auth/logout",
             access_token,
             refresh_token,
             &state.cookie_key,
@@ -312,7 +312,7 @@ async fn test_logout_revokes_refresh_token() {
     // Try to use refresh token after logout - should fail
     let refresh_after_logout = client
         .get_with_auth_and_refresh(
-            "/auth/refresh",
+            "/v1/auth/refresh",
             access_token,
             refresh_token,
             &state.cookie_key,
@@ -353,13 +353,13 @@ async fn test_multiple_concurrent_refresh_tokens() {
         "email": "multidevice@example.com",
         "password": "password123"
     });
-    let login1 = client.post_json("/users/login", &login_body).await;
+    let login1 = client.post_json("/v1/users/login", &login_body).await;
     let login1_json: serde_json::Value = login1.json();
     let access_token1 = login1_json["token"].as_str().unwrap().to_string();
     let refresh_token1 = login1_json["refresh_token"].as_str().unwrap().to_string();
 
     // Login from "device 2"
-    let login2 = client.post_json("/users/login", &login_body).await;
+    let login2 = client.post_json("/v1/users/login", &login_body).await;
     let login2_json: serde_json::Value = login2.json();
     let access_token2 = login2_json["token"].as_str().unwrap().to_string();
     let refresh_token2 = login2_json["refresh_token"].as_str().unwrap().to_string();
@@ -386,7 +386,7 @@ async fn test_multiple_concurrent_refresh_tokens() {
     // Refresh from device 1
     let refresh1 = client
         .get_with_auth_and_refresh(
-            "/auth/refresh",
+            "/v1/auth/refresh",
             &access_token1,
             &refresh_token1,
             &state.cookie_key,
@@ -397,7 +397,7 @@ async fn test_multiple_concurrent_refresh_tokens() {
     // Refresh from device 2 should still work
     let refresh2 = client
         .get_with_auth_and_refresh(
-            "/auth/refresh",
+            "/v1/auth/refresh",
             &access_token2,
             &refresh_token2,
             &state.cookie_key,
@@ -436,14 +436,14 @@ async fn test_refresh_token_family_invalidation_on_breach() {
         "email": "breach@example.com",
         "password": "password123"
     });
-    let login_response = client.post_json("/users/login", &login_body).await;
+    let login_response = client.post_json("/v1/users/login", &login_body).await;
     let login_json: serde_json::Value = login_response.json();
     let token1 = login_json["refresh_token"].as_str().unwrap();
 
     // Rotate token
     let refresh1 = client
         .get_with_auth_and_refresh(
-            "/auth/refresh",
+            "/v1/auth/refresh",
             login_json["token"].as_str().unwrap(),
             token1,
             &state.cookie_key,
@@ -456,7 +456,7 @@ async fn test_refresh_token_family_invalidation_on_breach() {
     // Try to reuse old token1 (simulating token theft)
     let breach_attempt = client
         .get_with_auth_and_refresh(
-            "/auth/refresh",
+            "/v1/auth/refresh",
             &refresh1_json["token"].as_str().unwrap(),
             token1,
             &state.cookie_key,
@@ -525,7 +525,7 @@ async fn test_refresh_token_expiration() {
     // Try to use expired refresh token
     let response = client
         .get_with_auth_and_refresh(
-            "/auth/refresh",
+            "/v1/auth/refresh",
             &access_token,
             expired_token,
             &state.cookie_key,
@@ -551,7 +551,7 @@ async fn test_logout_without_refresh_token() {
     let client = TestClient::new(app);
 
     // Try to logout without any cookies - should still succeed gracefully
-    let response = client.get("/auth/logout").await;
+    let response = client.get("/v1/auth/logout").await;
 
     response.assert_status(StatusCode::OK);
 

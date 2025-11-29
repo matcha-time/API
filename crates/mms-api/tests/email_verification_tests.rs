@@ -20,7 +20,7 @@ async fn test_email_verification_full_flow_success() {
         "password": "SecureP@ssw0rd123"
     });
 
-    let response = client.post_json("/users/register", &body).await;
+    let response = client.post_json("/v1/users/register", &body).await;
     response.assert_status(StatusCode::OK);
 
     // Step 2: Get user_id and create a verification token
@@ -52,7 +52,7 @@ async fn test_email_verification_full_flow_success() {
         "email": "emailtest@example.com",
         "password": "SecureP@ssw0rd123"
     });
-    let login_response = client.post_json("/users/login", &login_body).await;
+    let login_response = client.post_json("/v1/users/login", &login_body).await;
 
     // If user is not verified, login should fail
     if !email_verified_before {
@@ -67,7 +67,7 @@ async fn test_email_verification_full_flow_success() {
 
     // Step 4: Verify email with token
     let verify_response = client
-        .get(&format!("/users/verify-email?token={}", token))
+        .get(&format!("/v1/users/verify-email?token={}", token))
         .await;
     verify_response.assert_status(StatusCode::OK);
 
@@ -90,7 +90,7 @@ async fn test_email_verification_full_flow_success() {
     assert!(email_verified, "User's email should be marked as verified");
 
     // Step 6: Verify user can now login successfully
-    let final_login = client.post_json("/users/login", &login_body).await;
+    let final_login = client.post_json("/v1/users/login", &login_body).await;
     final_login.assert_status(StatusCode::OK);
 
     let login_json: serde_json::Value = final_login.json();
@@ -135,7 +135,7 @@ async fn test_email_verification_expired_token() {
 
     // Try to verify with expired token
     let response = client
-        .get(&format!("/users/verify-email?token={}", expired_token))
+        .get(&format!("/v1/users/verify-email?token={}", expired_token))
         .await;
 
     // Should still return success to prevent enumeration
@@ -172,7 +172,7 @@ async fn test_email_verification_already_used_token() {
         "email": "usedtoken@example.com",
         "password": "SecureP@ssw0rd123"
     });
-    client.post_json("/users/register", &body).await;
+    client.post_json("/v1/users/register", &body).await;
 
     // Get user_id and create verification token
     let user_id = common::db::get_user_by_email(&state.pool, "usedtoken@example.com")
@@ -186,13 +186,13 @@ async fn test_email_verification_already_used_token() {
 
     // Use token first time
     let first_response = client
-        .get(&format!("/users/verify-email?token={}", token))
+        .get(&format!("/v1/users/verify-email?token={}", token))
         .await;
     first_response.assert_status(StatusCode::OK);
 
     // Try to use same token again
     let second_response = client
-        .get(&format!("/users/verify-email?token={}", token))
+        .get(&format!("/v1/users/verify-email?token={}", token))
         .await;
 
     // Should return generic success to prevent enumeration
@@ -224,7 +224,7 @@ async fn test_email_verification_invalid_token_format() {
 
     // Try with completely invalid token
     let response = client
-        .get("/users/verify-email?token=invalid_token_12345")
+        .get("/v1/users/verify-email?token=invalid_token_12345")
         .await;
 
     // Should return generic success to prevent enumeration
@@ -255,7 +255,7 @@ async fn test_resend_verification_email_success() {
         "email": "resenduser@example.com",
         "password": "SecureP@ssw0rd123"
     });
-    client.post_json("/users/register", &body).await;
+    client.post_json("/v1/users/register", &body).await;
 
     // Mark user as unverified (in case registration auto-verifies in tests)
     sqlx::query("UPDATE users SET email_verified = false WHERE email = $1")
@@ -283,7 +283,7 @@ async fn test_resend_verification_email_success() {
         "email": "resenduser@example.com"
     });
     let response = client
-        .post_json("/users/resend-verification", &resend_body)
+        .post_json("/v1/users/resend-verification", &resend_body)
         .await;
     response.assert_status(StatusCode::OK);
 
@@ -331,7 +331,7 @@ async fn test_resend_verification_already_verified_user() {
     let body = json!({
         "email": "verified@example.com"
     });
-    let response = client.post_json("/users/resend-verification", &body).await;
+    let response = client.post_json("/v1/users/resend-verification", &body).await;
 
     // Should return success to prevent enumeration
     response.assert_status(StatusCode::OK);
@@ -356,7 +356,7 @@ async fn test_resend_verification_nonexistent_user() {
     let body = json!({
         "email": "nonexistent@example.com"
     });
-    let response = client.post_json("/users/resend-verification", &body).await;
+    let response = client.post_json("/v1/users/resend-verification", &body).await;
 
     // Should return success to prevent enumeration
     response.assert_status(StatusCode::OK);
@@ -379,7 +379,7 @@ async fn test_resend_verification_invalid_email_format() {
     let body = json!({
         "email": "not-an-email"
     });
-    let response = client.post_json("/users/resend-verification", &body).await;
+    let response = client.post_json("/v1/users/resend-verification", &body).await;
 
     response.assert_status(StatusCode::BAD_REQUEST);
 

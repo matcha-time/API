@@ -35,7 +35,7 @@ async fn test_sql_injection_login_email() {
             "password": "password123"
         });
 
-        let response = client.post_json("/users/login", &body).await;
+        let response = client.post_json("/v1/users/login", &body).await;
 
         // Should either return 400 (validation error), 401 (invalid credentials), or 429 (rate limited)
         // Should NEVER return 200 (success) or 500 (server error from SQL injection)
@@ -82,7 +82,7 @@ async fn test_sql_injection_password_reset() {
         });
 
         let response = client
-            .post_json("/users/request-password-reset", &body)
+            .post_json("/v1/users/request-password-reset", &body)
             .await;
 
         // Should return either 400 or 200 (generic success), never 500
@@ -110,7 +110,7 @@ async fn test_sql_injection_user_registration() {
         "password": "SecureP@ssw0rd123"
     });
 
-    let response = client.post_json("/users/register", &body).await;
+    let response = client.post_json("/v1/users/register", &body).await;
 
     // Should reject due to validation or handle safely
     assert!(
@@ -135,7 +135,7 @@ async fn test_sql_injection_query_parameters() {
     let encoded_payload = "%27%20OR%20%271%27%3D%271";
 
     let response = client
-        .get(&format!("/users/verify-email?token={}", encoded_payload))
+        .get(&format!("/v1/users/verify-email?token={}", encoded_payload))
         .await;
 
     // Should handle gracefully, not cause server error
@@ -175,7 +175,7 @@ async fn test_xss_in_username() {
             "password": "SecureP@ssw0rd123"
         });
 
-        let response = client.post_json("/users/register", &body).await;
+        let response = client.post_json("/v1/users/register", &body).await;
 
         // Should either reject or sanitize
         assert!(
@@ -233,7 +233,7 @@ async fn test_xss_in_profile_update() {
 
     let response = client
         .patch_json_with_auth(
-            &format!("/users/{}", user_id),
+            &format!("/v1/users/{}", user_id),
             &body,
             &token,
             &state.cookie_key,
@@ -273,7 +273,7 @@ async fn test_auth_bypass_missing_token() {
         .expect("Failed to create user");
 
     // Try to access protected endpoint without auth token
-    let response = client.get(&format!("/users/{}/dashboard", user_id)).await;
+    let response = client.get(&format!("/v1/users/{}/dashboard", user_id)).await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
@@ -302,7 +302,7 @@ async fn test_auth_bypass_invalid_token() {
     // Try with completely invalid token
     let response = client
         .get_with_auth(
-            &format!("/users/{}/dashboard", user_id),
+            &format!("/v1/users/{}/dashboard", user_id),
             "invalid.jwt.token",
             &state.cookie_key,
         )
@@ -342,7 +342,7 @@ async fn test_auth_bypass_wrong_user_token() {
     // Try to access user2's dashboard with user1's token
     let response = client
         .get_with_auth(
-            &format!("/users/{}/dashboard", user2_id),
+            &format!("/v1/users/{}/dashboard", user2_id),
             &user1_token,
             &state.cookie_key,
         )
@@ -382,7 +382,7 @@ async fn test_auth_bypass_expired_token() {
 
     let response = client
         .get_with_auth(
-            &format!("/users/{}/dashboard", user_id),
+            &format!("/v1/users/{}/dashboard", user_id),
             expired_token,
             &state.cookie_key,
         )
@@ -421,7 +421,7 @@ async fn test_auth_bypass_wrong_secret() {
 
     let response = client
         .get_with_auth(
-            &format!("/users/{}/dashboard", user_id),
+            &format!("/v1/users/{}/dashboard", user_id),
             &wrong_token,
             &state.cookie_key,
         )
@@ -457,7 +457,7 @@ async fn test_path_traversal_in_routes() {
 
     for payload in path_traversal_payloads {
         // Try path traversal in various routes
-        let response = client.get(&format!("/roadmaps/{}", payload)).await;
+        let response = client.get(&format!("/v1/roadmaps/{}", payload)).await;
 
         // Should return 404 or 400, never expose files
         assert!(
@@ -504,7 +504,7 @@ async fn test_idor_profile_access() {
 
     let response = client
         .patch_json_with_auth(
-            &format!("/users/{}", user2_id),
+            &format!("/v1/users/{}", user2_id),
             &body,
             &user1_token,
             &state.cookie_key,
@@ -567,7 +567,7 @@ async fn test_idor_practice_submission() {
 
     let response = client
         .post_json_with_auth(
-            &format!("/practice/{}/{}/review", user2_id, fake_flashcard_id),
+            &format!("/v1/practice/{}/{}/review", user2_id, fake_flashcard_id),
             &body,
             &user1_token,
             &state.cookie_key,
@@ -608,7 +608,7 @@ async fn test_oversized_input_rejection() {
         "password": "SecureP@ssw0rd123"
     });
 
-    let response = client.post_json("/users/register", &body).await;
+    let response = client.post_json("/v1/users/register", &body).await;
 
     // Should reject oversized input
     assert!(
@@ -636,7 +636,7 @@ async fn test_null_byte_injection() {
         "password": "SecureP@ssw0rd123"
     });
 
-    let response = client.post_json("/users/register", &body).await;
+    let response = client.post_json("/v1/users/register", &body).await;
 
     // Should handle null bytes safely
     assert!(

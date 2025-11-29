@@ -32,7 +32,7 @@ async fn test_user_registration_success() {
         "password": "SecureP@ssw0rd123"
     });
 
-    let response = client.post_json("/users/register", &body).await;
+    let response = client.post_json("/v1/users/register", &body).await;
 
     response.assert_status(StatusCode::OK);
 
@@ -78,7 +78,7 @@ async fn test_user_registration_duplicate_email() {
         "password": "SecureP@ssw0rd123"
     });
 
-    let response = client.post_json("/users/register", &body).await;
+    let response = client.post_json("/v1/users/register", &body).await;
 
     // Security: Returns generic success message to prevent email enumeration
     // This prevents attackers from discovering which emails are registered
@@ -120,7 +120,7 @@ async fn test_user_registration_invalid_email() {
         "password": "SecureP@ssw0rd123"
     });
 
-    let response = client.post_json("/users/register", &body).await;
+    let response = client.post_json("/v1/users/register", &body).await;
 
     response.assert_status(StatusCode::BAD_REQUEST);
 
@@ -146,7 +146,7 @@ async fn test_user_registration_weak_password() {
         "password": "weak"
     });
 
-    let response = client.post_json("/users/register", &body).await;
+    let response = client.post_json("/v1/users/register", &body).await;
 
     response.assert_status(StatusCode::BAD_REQUEST);
 
@@ -189,7 +189,7 @@ async fn test_user_login_success() {
         "password": "password123"
     });
 
-    let response = client.post_json("/users/login", &body).await;
+    let response = client.post_json("/v1/users/login", &body).await;
 
     response.assert_status(StatusCode::OK);
 
@@ -249,7 +249,7 @@ async fn test_user_login_invalid_credentials() {
         "password": "wrongpassword"
     });
 
-    let response = client.post_json("/users/login", &body).await;
+    let response = client.post_json("/v1/users/login", &body).await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
@@ -282,7 +282,7 @@ async fn test_user_login_nonexistent_user() {
         "password": "password123"
     });
 
-    let response = client.post_json("/users/login", &body).await;
+    let response = client.post_json("/v1/users/login", &body).await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
@@ -319,7 +319,7 @@ async fn test_get_user_dashboard() {
     // Get dashboard with authentication
     let response = client
         .get_with_auth(
-            &format!("/users/{}/dashboard", user_id),
+            &format!("/v1/users/{}/dashboard", user_id),
             &token,
             &state.cookie_key,
         )
@@ -372,7 +372,7 @@ async fn test_get_dashboard_unauthorized() {
     // Try to access user2's dashboard with user1's token
     let response = client
         .get_with_auth(
-            &format!("/users/{}/dashboard", user2_id),
+            &format!("/v1/users/{}/dashboard", user2_id),
             &token,
             &state.cookie_key,
         )
@@ -422,7 +422,7 @@ async fn test_update_user_profile() {
 
     let response = client
         .patch_json_with_auth(
-            &format!("/users/{}", user_id),
+            &format!("/v1/users/{}", user_id),
             &body,
             &token,
             &state.cookie_key,
@@ -472,7 +472,7 @@ async fn test_delete_user() {
 
     // Delete user
     let response = client
-        .delete_with_auth(&format!("/users/{}", user_id), &token, &state.cookie_key)
+        .delete_with_auth(&format!("/v1/users/{}", user_id), &token, &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);
@@ -509,7 +509,7 @@ async fn test_user_registration_creates_stats() {
         "password": "SecureP@ssw0rd123"
     });
 
-    let response = client.post_json("/users/register", &body).await;
+    let response = client.post_json("/v1/users/register", &body).await;
 
     response.assert_status(StatusCode::OK);
 

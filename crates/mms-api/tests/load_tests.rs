@@ -129,7 +129,7 @@ async fn load_test_user_registration() {
                 });
 
                 let req_start = Instant::now();
-                let response = client.post_json("/users/register", &body).await;
+                let response = client.post_json("/v1/users/register", &body).await;
                 let latency = req_start.elapsed();
 
                 if response.status == StatusCode::OK {
@@ -224,7 +224,7 @@ async fn load_test_user_login() {
 
             for _ in 0..config.requests_per_client {
                 let req_start = Instant::now();
-                let response = client.post_json("/users/login", &body).await;
+                let response = client.post_json("/v1/users/login", &body).await;
                 let latency = req_start.elapsed();
 
                 if response.status == StatusCode::OK {
@@ -308,7 +308,7 @@ async fn load_test_get_roadmaps() {
 
             for _ in 0..config.requests_per_client {
                 let req_start = Instant::now();
-                let response = client.get("/roadmaps").await;
+                let response = client.get("/v1/roadmaps").await;
                 let latency = req_start.elapsed();
 
                 if response.status == StatusCode::OK {
@@ -451,7 +451,7 @@ async fn load_test_practice_review_submission() {
                 let req_start = Instant::now();
                 let response = client
                     .post_json_with_auth(
-                        &format!("/practice/{}/{}/review", user_id, flashcard_id),
+                        &format!("/v1/practice/{}/{}/review", user_id, flashcard_id),
                         &body,
                         &token,
                         &cookie_key,

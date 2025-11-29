@@ -29,7 +29,7 @@ async fn test_auth_me_without_token() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    let response = client.get("/auth/me").await;
+    let response = client.get("/v1/auth/me").await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
@@ -61,7 +61,7 @@ async fn test_auth_me_with_valid_token() {
 
     // Use the simplified method
     let response = client
-        .get_with_auth("/auth/me", &token, &state.cookie_key)
+        .get_with_auth("/v1/auth/me", &token, &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);
@@ -88,7 +88,7 @@ async fn test_auth_me_with_invalid_token() {
 
     // Use invalid token
     let response = client
-        .get_with_auth("/auth/me", "invalid_token", &state.cookie_key)
+        .get_with_auth("/v1/auth/me", "invalid_token", &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
@@ -140,7 +140,7 @@ async fn test_auth_me_with_expired_token() {
 
     // Use expired token
     let response = client
-        .get_with_auth("/auth/me", &expired_token, &state.cookie_key)
+        .get_with_auth("/v1/auth/me", &expired_token, &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
@@ -197,7 +197,7 @@ async fn test_logout() {
 
     // Use the get_with_auth_and_refresh method for logout (needs both cookies)
     let response = client
-        .get_with_auth_and_refresh("/auth/logout", &token, &refresh_token, &state.cookie_key)
+        .get_with_auth_and_refresh("/v1/auth/logout", &token, &refresh_token, &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);
@@ -231,7 +231,7 @@ async fn test_google_auth_redirect() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    let response = client.get("/auth/google").await;
+    let response = client.get("/v1/auth/google").await;
 
     // Should redirect to Google OAuth
     assert!(
@@ -274,7 +274,7 @@ async fn test_google_callback_csrf_validation() {
     let client = TestClient::new(app);
 
     // Step 1: Initiate OAuth flow to get OIDC cookie
-    let init_response = client.get("/auth/google").await;
+    let init_response = client.get("/v1/auth/google").await;
 
     // Verify we got an OIDC cookie
     assert!(
@@ -283,7 +283,7 @@ async fn test_google_callback_csrf_validation() {
     );
 
     // Step 2: Try callback without the cookie - should fail
-    let response_no_cookie = client.get("/auth/callback?code=test&state=test").await;
+    let response_no_cookie = client.get("/v1/auth/callback?code=test&state=test").await;
 
     assert!(
         response_no_cookie.status == StatusCode::BAD_REQUEST
@@ -308,7 +308,7 @@ async fn test_google_callback_without_oidc_cookie() {
 
     // Try to call callback without initiating OAuth flow (no OIDC cookie)
     let response = client
-        .get("/auth/callback?code=mock_code&state=mock_state")
+        .get("/v1/auth/callback?code=mock_code&state=mock_state")
         .await;
 
     // Should return error due to missing OIDC cookie

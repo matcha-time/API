@@ -12,6 +12,7 @@ pub mod router;
 pub mod state;
 pub mod tracing;
 pub mod user;
+pub mod v1;
 pub mod validation;
 
 pub use config::ApiConfig;

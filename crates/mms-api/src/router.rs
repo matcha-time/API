@@ -1,17 +1,13 @@
 use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
 use serde::Serialize;
 
-use crate::{auth, deck, practice, roadmap, state::ApiState, user};
+use crate::{state::ApiState, v1};
 
 pub fn router() -> Router<ApiState> {
     Router::new()
         .route("/health", get(health))
         .route("/health/ready", get(readiness))
-        .merge(user::routes())
-        .merge(deck::routes())
-        .merge(auth::routes())
-        .merge(roadmap::routes())
-        .merge(practice::routes())
+        .nest("/v1", v1::routes())
         .fallback(handler_404)
 }
 

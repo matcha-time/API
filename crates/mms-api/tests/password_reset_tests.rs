@@ -33,7 +33,7 @@ async fn test_password_reset_full_flow_success() {
         "email": "resettest@example.com",
         "password": original_password
     });
-    let login_response = client.post_json("/users/login", &login_body).await;
+    let login_response = client.post_json("/v1/users/login", &login_body).await;
     login_response.assert_status(StatusCode::OK);
 
     // Step 3: Request password reset
@@ -41,7 +41,7 @@ async fn test_password_reset_full_flow_success() {
         "email": "resettest@example.com"
     });
     let request_response = client
-        .post_json("/users/request-password-reset", &reset_request)
+        .post_json("/v1/users/request-password-reset", &reset_request)
         .await;
     request_response.assert_status(StatusCode::OK);
 
@@ -69,7 +69,7 @@ async fn test_password_reset_full_flow_success() {
         "token": reset_token,
         "new_password": new_password
     });
-    let reset_response = client.post_json("/users/reset-password", &reset_body).await;
+    let reset_response = client.post_json("/v1/users/reset-password", &reset_body).await;
     reset_response.assert_status(StatusCode::OK);
 
     let reset_json: serde_json::Value = reset_response.json();
@@ -101,7 +101,7 @@ async fn test_password_reset_full_flow_success() {
     assert!(token_used, "Token should be marked as used");
 
     // Step 7: Verify old password no longer works
-    let old_login = client.post_json("/users/login", &login_body).await;
+    let old_login = client.post_json("/v1/users/login", &login_body).await;
     old_login.assert_status(StatusCode::UNAUTHORIZED);
 
     // Step 8: Verify new password works
@@ -109,7 +109,7 @@ async fn test_password_reset_full_flow_success() {
         "email": "resettest@example.com",
         "password": new_password
     });
-    let new_login = client.post_json("/users/login", &new_login_body).await;
+    let new_login = client.post_json("/v1/users/login", &new_login_body).await;
     new_login.assert_status(StatusCode::OK);
 
     let new_login_json: serde_json::Value = new_login.json();
@@ -136,7 +136,7 @@ async fn test_password_reset_request_nonexistent_user() {
         "email": "nonexistent@example.com"
     });
     let response = client
-        .post_json("/users/request-password-reset", &body)
+        .post_json("/v1/users/request-password-reset", &body)
         .await;
 
     // Should return success to prevent enumeration
@@ -180,7 +180,7 @@ async fn test_password_reset_invalid_email_format() {
         "email": "not-an-email"
     });
     let response = client
-        .post_json("/users/request-password-reset", &body)
+        .post_json("/v1/users/request-password-reset", &body)
         .await;
 
     response.assert_status(StatusCode::BAD_REQUEST);
@@ -230,7 +230,7 @@ async fn test_password_reset_expired_token() {
         "token": expired_token,
         "new_password": "NewP@ssw0rd123"
     });
-    let response = client.post_json("/users/reset-password", &body).await;
+    let response = client.post_json("/v1/users/reset-password", &body).await;
 
     // Should fail with generic error
     response.assert_status(StatusCode::UNAUTHORIZED);
@@ -275,7 +275,7 @@ async fn test_password_reset_already_used_token() {
         "email": "usedresettoken@example.com"
     });
     client
-        .post_json("/users/request-password-reset", &request_body)
+        .post_json("/v1/users/request-password-reset", &request_body)
         .await;
 
     // Get user_id and create reset token
@@ -293,7 +293,7 @@ async fn test_password_reset_already_used_token() {
         "token": token,
         "new_password": "NewP@ssw0rd123"
     });
-    let first_response = client.post_json("/users/reset-password", &reset_body).await;
+    let first_response = client.post_json("/v1/users/reset-password", &reset_body).await;
     first_response.assert_status(StatusCode::OK);
 
     // Try to use same token again
@@ -302,7 +302,7 @@ async fn test_password_reset_already_used_token() {
         "new_password": "AnotherP@ss456"
     });
     let second_response = client
-        .post_json("/users/reset-password", &second_reset_body)
+        .post_json("/v1/users/reset-password", &second_reset_body)
         .await;
 
     // Should fail
@@ -341,7 +341,7 @@ async fn test_password_reset_weak_new_password() {
         "email": "weakpass@example.com"
     });
     client
-        .post_json("/users/request-password-reset", &request_body)
+        .post_json("/v1/users/request-password-reset", &request_body)
         .await;
 
     // Get user_id and create reset token
@@ -359,7 +359,7 @@ async fn test_password_reset_weak_new_password() {
         "token": token,
         "new_password": "weak"
     });
-    let response = client.post_json("/users/reset-password", &body).await;
+    let response = client.post_json("/v1/users/reset-password", &body).await;
 
     response.assert_status(StatusCode::BAD_REQUEST);
 
@@ -393,7 +393,7 @@ async fn test_password_reset_invalid_token_format() {
         "token": "invalid_token_12345",
         "new_password": "ValidP@ssw0rd123"
     });
-    let response = client.post_json("/users/reset-password", &body).await;
+    let response = client.post_json("/v1/users/reset-password", &body).await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
@@ -433,7 +433,7 @@ async fn test_password_reset_revokes_old_sessions() {
         "email": "revokesession@example.com",
         "password": original_password
     });
-    let login_response = client.post_json("/users/login", &login_body).await;
+    let login_response = client.post_json("/v1/users/login", &login_body).await;
     login_response.assert_status(StatusCode::OK);
 
     let login_json: serde_json::Value = login_response.json();
@@ -442,7 +442,7 @@ async fn test_password_reset_revokes_old_sessions() {
     // Verify old token works
     let dashboard_response = client
         .get_with_auth(
-            &format!("/users/{}/dashboard", user_id),
+            &format!("/v1/users/{}/dashboard", user_id),
             old_token,
             &state.cookie_key,
         )
@@ -454,7 +454,7 @@ async fn test_password_reset_revokes_old_sessions() {
         "email": "revokesession@example.com"
     });
     client
-        .post_json("/users/request-password-reset", &reset_request)
+        .post_json("/v1/users/request-password-reset", &reset_request)
         .await;
 
     let reset_token = common::verification::create_test_password_reset_token(&state.pool, user_id)
@@ -465,7 +465,7 @@ async fn test_password_reset_revokes_old_sessions() {
         "token": reset_token,
         "new_password": "NewP@ssw0rd456"
     });
-    client.post_json("/users/reset-password", &reset_body).await;
+    client.post_json("/v1/users/reset-password", &reset_body).await;
 
     // Verify old refresh tokens are invalidated
     let refresh_token_count: i64 =
@@ -508,7 +508,7 @@ async fn test_password_reset_multiple_requests_invalidates_old_tokens() {
         "email": "multireset@example.com"
     });
     client
-        .post_json("/users/request-password-reset", &request_body)
+        .post_json("/v1/users/request-password-reset", &request_body)
         .await;
 
     // Get user_id and create first reset token
@@ -526,7 +526,7 @@ async fn test_password_reset_multiple_requests_invalidates_old_tokens() {
 
     // Request reset second time
     client
-        .post_json("/users/request-password-reset", &request_body)
+        .post_json("/v1/users/request-password-reset", &request_body)
         .await;
 
     // Create second reset token
@@ -545,7 +545,7 @@ async fn test_password_reset_multiple_requests_invalidates_old_tokens() {
         "token": first_token,
         "new_password": "NewP@ssw0rd123"
     });
-    let response = client.post_json("/users/reset-password", &reset_body).await;
+    let response = client.post_json("/v1/users/reset-password", &reset_body).await;
 
     // If implementation invalidates old tokens, this should fail
     // If not, this test documents the current behavior
@@ -557,7 +557,7 @@ async fn test_password_reset_multiple_requests_invalidates_old_tokens() {
         "new_password": "NewP@ssw0rd456"
     });
     let response2 = client
-        .post_json("/users/reset-password", &reset_body2)
+        .post_json("/v1/users/reset-password", &reset_body2)
         .await;
     response2.assert_status(StatusCode::OK);
 

@@ -27,7 +27,7 @@ async fn test_rate_limit_sensitive_endpoints() {
     let mut responses = Vec::new();
     for _ in 0..5 {
         let response = client
-            .post_json("/users/request-password-reset", &body)
+            .post_json("/v1/users/request-password-reset", &body)
             .await;
         responses.push(response.status);
     }
@@ -81,7 +81,7 @@ async fn test_rate_limit_auth_endpoints() {
             "email": format!("test{}@example.com", i),
             "password": "SecureP@ssw0rd123"
         });
-        let response = client.post_json("/users/register", &body).await;
+        let response = client.post_json("/v1/users/register", &body).await;
         responses.push(response.status);
     }
 
@@ -120,7 +120,7 @@ async fn test_rate_limit_general_endpoints() {
     // Send 30 requests rapidly (more than burst of 20)
     let mut responses = Vec::new();
     for _ in 0..30 {
-        let response = client.get("/roadmaps").await;
+        let response = client.get("/v1/roadmaps").await;
         responses.push(response.status);
     }
 
@@ -162,14 +162,14 @@ async fn test_rate_limit_recovery_after_delay() {
 
     // Exhaust rate limit first
     for _ in 0..25 {
-        client.get("/roadmaps").await;
+        client.get("/v1/roadmaps").await;
     }
 
     // Wait for rate limit to recover (1 second should allow some tokens to replenish)
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
     // Try again - should succeed
-    let response = client.get("/roadmaps").await;
+    let response = client.get("/v1/roadmaps").await;
     assert!(
         response.status == StatusCode::OK,
         "Request should succeed after rate limit recovery, got: {}",
@@ -207,7 +207,7 @@ async fn test_rate_limit_timing_safe_middleware() {
 
     let start = std::time::Instant::now();
     client
-        .post_json("/users/request-password-reset", &body)
+        .post_json("/v1/users/request-password-reset", &body)
         .await;
     let duration = start.elapsed();
 
@@ -225,7 +225,7 @@ async fn test_rate_limit_timing_safe_middleware() {
 
     let start = std::time::Instant::now();
     client
-        .post_json("/users/request-password-reset", &body)
+        .post_json("/v1/users/request-password-reset", &body)
         .await;
     let duration_nonexistent = start.elapsed();
 
@@ -259,11 +259,11 @@ async fn test_rate_limit_per_ip() {
 
     // Exhaust limit with one endpoint
     for _ in 0..25 {
-        client.get("/roadmaps").await;
+        client.get("/v1/roadmaps").await;
     }
 
     // Immediately try another general endpoint - should also be rate limited
-    let response = client.get("/roadmaps/en/es").await;
+    let response = client.get("/v1/roadmaps/en/es").await;
 
     // This might be rate limited or succeed depending on timing
     // Main point is they share the bucket
@@ -295,7 +295,7 @@ async fn test_rate_limit_different_endpoint_tiers() {
     let mut sensitive_responses = Vec::new();
     for _ in 0..6 {
         let response = client
-            .post_json("/users/resend-verification", &sensitive_body)
+            .post_json("/v1/users/resend-verification", &sensitive_body)
             .await;
         sensitive_responses.push(response.status);
     }
@@ -323,7 +323,7 @@ async fn test_rate_limit_headers_present() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    let response = client.get("/roadmaps").await;
+    let response = client.get("/v1/roadmaps").await;
 
     // Check if rate limit headers are present (depends on implementation)
     // Common headers: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
@@ -362,7 +362,7 @@ async fn test_rate_limit_login_endpoint() {
 
     let mut responses = Vec::new();
     for _ in 0..10 {
-        let response = client.post_json("/users/login", &body).await;
+        let response = client.post_json("/v1/users/login", &body).await;
         responses.push(response.status);
     }
 
