@@ -22,6 +22,9 @@ pub type OpenIdClient = CoreClient<
 pub struct ApiState {
     pub oidc_client: OpenIdClient,
     pub jwt_secret: String,
+    pub jwt_expiry_hours: i64,
+    pub refresh_token_expiry_days: i64,
+    pub oidc_flow_expiry_minutes: i64,
     pub frontend_url: String,
     pub cookie_key: Key,
     pub pool: PgPool,
@@ -90,6 +93,9 @@ impl ApiState {
         Ok(Self {
             oidc_client,
             jwt_secret: config.jwt_secret,
+            jwt_expiry_hours: config.jwt_expiry_hours,
+            refresh_token_expiry_days: config.refresh_token_expiry_days,
+            oidc_flow_expiry_minutes: config.oidc_flow_expiry_minutes,
             frontend_url: config.frontend_url.clone(),
             cookie_key,
             pool,

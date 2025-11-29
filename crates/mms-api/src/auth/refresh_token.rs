@@ -6,9 +6,6 @@ use sqlx::{PgPool, types::Uuid};
 
 use crate::error::ApiError;
 
-/// Duration in days for refresh token expiry
-const REFRESH_TOKEN_EXPIRY_DAYS: i64 = 30;
-
 /// Generate a cryptographically secure random refresh token
 /// Returns the token string (to send to client) and its SHA-256 hash (to store in DB)
 pub fn generate_refresh_token() -> (String, String) {
@@ -34,8 +31,9 @@ pub async fn store_refresh_token(
     token_hash: &str,
     device_info: Option<&str>,
     ip_address: Option<&str>,
+    expiry_days: i64,
 ) -> Result<Uuid, ApiError> {
-    let expires_at = Utc::now() + chrono::Duration::days(REFRESH_TOKEN_EXPIRY_DAYS);
+    let expires_at = Utc::now() + chrono::Duration::days(expiry_days);
 
     let token_id = sqlx::query_scalar::<_, Uuid>(
         // language=PostgreSQL
@@ -62,6 +60,7 @@ pub async fn store_refresh_token(
 pub async fn verify_and_rotate_refresh_token(
     pool: &PgPool,
     token: &str,
+    expiry_days: i64,
 ) -> Result<(Uuid, String, String), ApiError> {
     // Hash the incoming token
     let mut hasher = Sha256::new();
@@ -117,7 +116,7 @@ pub async fn verify_and_rotate_refresh_token(
 
     // Generate a new refresh token
     let (new_token, new_token_hash) = generate_refresh_token();
-    let new_expires_at = Utc::now() + chrono::Duration::days(REFRESH_TOKEN_EXPIRY_DAYS);
+    let new_expires_at = Utc::now() + chrono::Duration::days(expiry_days);
 
     // Store the new refresh token
     sqlx::query(

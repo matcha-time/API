@@ -69,7 +69,11 @@ async fn google_auth(
     let oidc_json = serde_json::to_string(&oidc_data)
         .map_err(|e| ApiError::Cookie(format!("Failed to serialize OIDC data: {}", e)))?;
 
-    let cookie = jwt::create_oidc_flow_cookie(oidc_json, &state.environment);
+    let cookie = jwt::create_oidc_flow_cookie(
+        oidc_json,
+        &state.environment,
+        state.oidc_flow_expiry_minutes,
+    );
     let jar = jar.add(cookie);
 
     Ok((jar, Redirect::to(auth_url.as_str())))
@@ -168,15 +172,36 @@ async fn auth_callback(
     .await?;
 
     // Generate JWT access token
-    let token = jwt::generate_jwt_token(user.id, user.email.clone(), &state.jwt_secret)?;
+    let token = jwt::generate_jwt_token(
+        user.id,
+        user.email.clone(),
+        &state.jwt_secret,
+        state.jwt_expiry_hours,
+    )?;
 
     // Generate refresh token
     let (refresh_token, refresh_token_hash) = rt::generate_refresh_token();
-    rt::store_refresh_token(&state.pool, user.id, &refresh_token_hash, None, None).await?;
+    rt::store_refresh_token(
+        &state.pool,
+        user.id,
+        &refresh_token_hash,
+        None,
+        None,
+        state.refresh_token_expiry_days,
+    )
+    .await?;
 
     // Set cookies with JWT and refresh token
-    let auth_cookie = jwt::create_auth_cookie(token.clone(), &state.environment);
-    let refresh_cookie = create_refresh_token_cookie(refresh_token, &state.environment);
+    let auth_cookie = jwt::create_auth_cookie(
+        token.clone(),
+        &state.environment,
+        state.jwt_expiry_hours,
+    );
+    let refresh_cookie = create_refresh_token_cookie(
+        refresh_token,
+        &state.environment,
+        state.refresh_token_expiry_days,
+    );
     let jar = jar.add(auth_cookie).add(refresh_cookie);
 
     // Create HTML response with frontend URL from config
@@ -241,8 +266,12 @@ async fn refresh_token(
     let old_refresh_token = refresh_cookie.value();
 
     // Verify and rotate the refresh token
-    let (user_id, new_refresh_token, _) =
-        rt::verify_and_rotate_refresh_token(&state.pool, old_refresh_token).await?;
+    let (user_id, new_refresh_token, _) = rt::verify_and_rotate_refresh_token(
+        &state.pool,
+        old_refresh_token,
+        state.refresh_token_expiry_days,
+    )
+    .await?;
 
     // Fetch user email for JWT
     let email = sqlx::query_scalar::<_, String>(
@@ -257,11 +286,24 @@ async fn refresh_token(
     .map_err(|_| ApiError::Auth("User not found".to_string()))?;
 
     // Generate new JWT access token
-    let new_access_token = jwt::generate_jwt_token(user_id, email, &state.jwt_secret)?;
+    let new_access_token = jwt::generate_jwt_token(
+        user_id,
+        email,
+        &state.jwt_secret,
+        state.jwt_expiry_hours,
+    )?;
 
     // Update cookies
-    let auth_cookie = jwt::create_auth_cookie(new_access_token.clone(), &state.environment);
-    let refresh_cookie = create_refresh_token_cookie(new_refresh_token, &state.environment);
+    let auth_cookie = jwt::create_auth_cookie(
+        new_access_token.clone(),
+        &state.environment,
+        state.jwt_expiry_hours,
+    );
+    let refresh_cookie = create_refresh_token_cookie(
+        new_refresh_token,
+        &state.environment,
+        state.refresh_token_expiry_days,
+    );
     let jar = jar.add(auth_cookie).add(refresh_cookie);
 
     Ok((
@@ -300,12 +342,13 @@ async fn logout(
 fn create_refresh_token_cookie(
     token: String,
     environment: &crate::config::Environment,
+    expiry_days: i64,
 ) -> Cookie<'static> {
     let is_development = environment.is_development();
 
     Cookie::build(("refresh_token", token))
         .path("/")
-        .max_age(time::Duration::days(30))
+        .max_age(time::Duration::days(expiry_days))
         .http_only(true)
         .same_site(axum_extra::extract::cookie::SameSite::Strict)
         .secure(!is_development)

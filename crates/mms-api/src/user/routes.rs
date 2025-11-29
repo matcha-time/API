@@ -302,16 +302,36 @@ async fn login_user(
     }
 
     // Generate JWT access token
-    let token = jwt::generate_jwt_token(id, email.clone(), &state.jwt_secret)?;
+    let token = jwt::generate_jwt_token(
+        id,
+        email.clone(),
+        &state.jwt_secret,
+        state.jwt_expiry_hours,
+    )?;
 
     // Generate refresh token
     let (refresh_token, refresh_token_hash) = auth::refresh_token::generate_refresh_token();
-    auth::refresh_token::store_refresh_token(&state.pool, id, &refresh_token_hash, None, None)
-        .await?;
+    auth::refresh_token::store_refresh_token(
+        &state.pool,
+        id,
+        &refresh_token_hash,
+        None,
+        None,
+        state.refresh_token_expiry_days,
+    )
+    .await?;
 
     // Set cookies with JWT and refresh token
-    let auth_cookie = jwt::create_auth_cookie(token.clone(), &state.environment);
-    let refresh_cookie = create_refresh_token_cookie(refresh_token.clone(), &state.environment);
+    let auth_cookie = jwt::create_auth_cookie(
+        token.clone(),
+        &state.environment,
+        state.jwt_expiry_hours,
+    );
+    let refresh_cookie = create_refresh_token_cookie(
+        refresh_token.clone(),
+        &state.environment,
+        state.refresh_token_expiry_days,
+    );
     let jar = jar.add(auth_cookie).add(refresh_cookie);
 
     Ok((
@@ -755,8 +775,8 @@ async fn update_user_profile(
 
     // Generate new JWT if email changed
     let jar = if request.email.is_some() && request.email.as_ref() != Some(&current_email) {
-        let token = jwt::generate_jwt_token(id, email, &state.jwt_secret)?;
-        let auth_cookie = jwt::create_auth_cookie(token, &state.environment);
+        let token = jwt::generate_jwt_token(id, email, &state.jwt_secret, state.jwt_expiry_hours)?;
+        let auth_cookie = jwt::create_auth_cookie(token, &state.environment, state.jwt_expiry_hours);
         jar.add(auth_cookie)
     } else {
         jar
@@ -778,12 +798,13 @@ async fn update_user_profile(
 fn create_refresh_token_cookie(
     token: String,
     environment: &crate::config::Environment,
+    expiry_days: i64,
 ) -> Cookie<'static> {
     let is_development = environment.is_development();
 
     Cookie::build(("refresh_token", token))
         .path("/")
-        .max_age(time::Duration::days(30))
+        .max_age(time::Duration::days(expiry_days))
         .http_only(true)
         .same_site(axum_extra::extract::cookie::SameSite::Strict)
         .secure(!is_development)

@@ -20,6 +20,9 @@ pub struct TestConfig {
     pub jwt_secret: String,
     pub cookie_secret: String,
     pub frontend_url: String,
+    pub jwt_expiry_hours: i64,
+    pub refresh_token_expiry_days: i64,
+    pub oidc_flow_expiry_minutes: i64,
 }
 
 impl Default for TestConfig {
@@ -32,6 +35,9 @@ impl Default for TestConfig {
             cookie_secret: "test_cookie_secret_minimum_64_characters_long_for_secure_encryption"
                 .to_string(),
             frontend_url: "http://localhost:8080".to_string(),
+            jwt_expiry_hours: 24,
+            refresh_token_expiry_days: 30,
+            oidc_flow_expiry_minutes: 10,
         }
     }
 }
@@ -78,6 +84,9 @@ impl TestStateBuilder {
         Ok(ApiState {
             oidc_client,
             jwt_secret: self.config.jwt_secret,
+            jwt_expiry_hours: self.config.jwt_expiry_hours,
+            refresh_token_expiry_days: self.config.refresh_token_expiry_days,
+            oidc_flow_expiry_minutes: self.config.oidc_flow_expiry_minutes,
             frontend_url: self.config.frontend_url,
             cookie_key,
             pool,
@@ -509,7 +518,7 @@ pub mod jwt {
 
     /// Generate a test JWT token
     pub fn create_test_token(user_id: Uuid, email: &str, jwt_secret: &str) -> String {
-        generate_jwt_token(user_id, email.to_string(), jwt_secret)
+        generate_jwt_token(user_id, email.to_string(), jwt_secret, 24)
             .expect("Failed to generate test JWT token")
     }
 }

@@ -39,6 +39,18 @@ pub struct ApiConfig {
     pub jwt_secret: String,
     pub cookie_secret: String,
 
+    /// JWT token expiry in hours (default: 24)
+    #[serde(default = "default_jwt_expiry_hours")]
+    pub jwt_expiry_hours: i64,
+
+    /// Refresh token expiry in days (default: 30)
+    #[serde(default = "default_refresh_token_expiry_days")]
+    pub refresh_token_expiry_days: i64,
+
+    /// OIDC flow cookie expiry in minutes (default: 10)
+    #[serde(default = "default_oidc_flow_expiry_minutes")]
+    pub oidc_flow_expiry_minutes: i64,
+
     // Email / SMTP (optional)
     pub smtp_host: Option<String>,
     pub smtp_username: Option<String>,
@@ -120,6 +132,21 @@ fn default_max_request_body_size() -> usize {
 /// Default value for request_timeout_seconds
 fn default_request_timeout_seconds() -> u64 {
     30
+}
+
+/// Default value for JWT expiry (24 hours)
+fn default_jwt_expiry_hours() -> i64 {
+    24
+}
+
+/// Default value for refresh token expiry (30 days)
+fn default_refresh_token_expiry_days() -> i64 {
+    30
+}
+
+/// Default value for OIDC flow cookie expiry (10 minutes)
+fn default_oidc_flow_expiry_minutes() -> i64 {
+    10
 }
 
 /// Custom error type for configuration
