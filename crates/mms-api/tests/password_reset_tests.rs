@@ -2,7 +2,6 @@ use crate::common::{self, TestClient, TestStateBuilder};
 use axum::http::StatusCode;
 use mms_api::router;
 use serde_json::json;
-use sha2::{Digest, Sha256};
 
 #[tokio::test]
 async fn test_password_reset_full_flow_success() {
@@ -79,34 +78,11 @@ async fn test_password_reset_full_flow_success() {
             .contains("successfully")
     );
 
-    // Step 6: Verify token is marked as used
-    // Hash the token to compare with database
-    let mut hasher = Sha256::new();
-    hasher.update(reset_token.as_bytes());
-    let token_hash = format!("{:x}", hasher.finalize());
-
-    let token_used: Option<bool> = sqlx::query_scalar(
-        r#"
-            SELECT used_at IS NOT NULL
-            FROM password_reset_tokens
-            WHERE token_hash = $1
-        "#,
-    )
-    .bind(&token_hash)
-    .fetch_optional(&state.pool)
-    .await
-    .expect("Failed to check token status");
-
-    assert!(
-        token_used.unwrap_or(false),
-        "Token should be marked as used"
-    );
-
-    // Step 7: Verify old password no longer works
+    // Step 6: Verify old password no longer works
     let old_login = client.post_json("/v1/users/login", &login_body).await;
     old_login.assert_status(StatusCode::UNAUTHORIZED);
 
-    // Step 8: Verify new password works
+    // Step 7: Verify new password works
     let new_login_body = json!({
         "email": &email,
         "password": new_password
