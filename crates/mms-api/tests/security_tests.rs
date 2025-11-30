@@ -218,13 +218,13 @@ async fn test_xss_in_profile_update() {
     let client = TestClient::new(app);
 
     // Create user
-    let user_id =
-        common::db::create_verified_user(&state.pool, "xssprofile@example.com", "xssuser")
-            .await
-            .expect("Failed to create user");
+    let email = common::test_data::unique_email("xssprofile");
+    let username = common::test_data::unique_username("xssuser");
+    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
+        .await
+        .expect("Failed to create user");
 
-    let token =
-        common::jwt::create_test_token(user_id, "xssprofile@example.com", &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
 
     // Try to update with XSS payload
     let body = json!({
@@ -248,7 +248,7 @@ async fn test_xss_in_profile_update() {
     );
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "xssprofile@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -268,7 +268,9 @@ async fn test_auth_bypass_missing_token() {
     let client = TestClient::new(app);
 
     // Create user
-    let user_id = common::db::create_verified_user(&state.pool, "noauth@example.com", "noauthuser")
+    let email = common::test_data::unique_email("noauth");
+    let username = common::test_data::unique_username("noauthuser");
+    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
         .await
         .expect("Failed to create user");
 
@@ -278,7 +280,7 @@ async fn test_auth_bypass_missing_token() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "noauth@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -294,10 +296,11 @@ async fn test_auth_bypass_invalid_token() {
     let client = TestClient::new(app);
 
     // Create user
-    let user_id =
-        common::db::create_verified_user(&state.pool, "badtoken@example.com", "badtokenuser")
-            .await
-            .expect("Failed to create user");
+    let email = common::test_data::unique_email("badtoken");
+    let username = common::test_data::unique_username("badtokenuser");
+    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
+        .await
+        .expect("Failed to create user");
 
     // Try with completely invalid token
     let response = client
@@ -311,7 +314,7 @@ async fn test_auth_bypass_invalid_token() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "badtoken@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -327,17 +330,20 @@ async fn test_auth_bypass_wrong_user_token() {
     let client = TestClient::new(app);
 
     // Create two users
-    let user1_id = common::db::create_verified_user(&state.pool, "user1@example.com", "user1")
+    let email1 = common::test_data::unique_email("user1");
+    let username1 = common::test_data::unique_username("user1");
+    let user1_id = common::db::create_verified_user(&state.pool, &email1, &username1)
         .await
         .expect("Failed to create user1");
 
-    let user2_id = common::db::create_verified_user(&state.pool, "user2@example.com", "user2")
+    let email2 = common::test_data::unique_email("user2");
+    let username2 = common::test_data::unique_username("user2");
+    let user2_id = common::db::create_verified_user(&state.pool, &email2, &username2)
         .await
         .expect("Failed to create user2");
 
     // Get token for user1
-    let user1_token =
-        common::jwt::create_test_token(user1_id, "user1@example.com", &state.jwt_secret);
+    let user1_token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
 
     // Try to access user2's dashboard with user1's token
     let response = client
@@ -351,10 +357,10 @@ async fn test_auth_bypass_wrong_user_token() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "user1@example.com")
+    common::db::delete_user_by_email(&state.pool, &email1)
         .await
         .expect("Failed to cleanup");
-    common::db::delete_user_by_email(&state.pool, "user2@example.com")
+    common::db::delete_user_by_email(&state.pool, &email2)
         .await
         .expect("Failed to cleanup");
 }
@@ -370,10 +376,11 @@ async fn test_auth_bypass_expired_token() {
     let client = TestClient::new(app);
 
     // Create user
-    let user_id =
-        common::db::create_verified_user(&state.pool, "expired@example.com", "expireduser")
-            .await
-            .expect("Failed to create user");
+    let email = common::test_data::unique_email("expired");
+    let username = common::test_data::unique_username("expireduser");
+    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
+        .await
+        .expect("Failed to create user");
 
     // Create token with past expiration (would require custom JWT creation)
     // For now, just test with malformed token
@@ -391,7 +398,7 @@ async fn test_auth_bypass_expired_token() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "expired@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -407,15 +414,16 @@ async fn test_auth_bypass_wrong_secret() {
     let client = TestClient::new(app);
 
     // Create user
-    let user_id =
-        common::db::create_verified_user(&state.pool, "wrongsecret@example.com", "wronguser")
-            .await
-            .expect("Failed to create user");
+    let email = common::test_data::unique_email("wrongsecret");
+    let username = common::test_data::unique_username("wronguser");
+    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
+        .await
+        .expect("Failed to create user");
 
     // Create token with wrong secret
     let wrong_token = common::jwt::create_test_token(
         user_id,
-        "wrongsecret@example.com",
+        &email,
         "wrong_secret_that_doesnt_match_12345",
     );
 
@@ -430,7 +438,7 @@ async fn test_auth_bypass_wrong_secret() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "wrongsecret@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -486,16 +494,19 @@ async fn test_idor_profile_access() {
     let client = TestClient::new(app);
 
     // Create two users
-    let user1_id = common::db::create_verified_user(&state.pool, "idor1@example.com", "idor1")
+    let email1 = common::test_data::unique_email("idor1");
+    let username1 = common::test_data::unique_username("idor1");
+    let user1_id = common::db::create_verified_user(&state.pool, &email1, &username1)
         .await
         .expect("Failed to create user1");
 
-    let user2_id = common::db::create_verified_user(&state.pool, "idor2@example.com", "idor2")
+    let email2 = common::test_data::unique_email("idor2");
+    let username2 = common::test_data::unique_username("idor2");
+    let user2_id = common::db::create_verified_user(&state.pool, &email2, &username2)
         .await
         .expect("Failed to create user2");
 
-    let user1_token =
-        common::jwt::create_test_token(user1_id, "idor1@example.com", &state.jwt_secret);
+    let user1_token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
 
     // User1 tries to update user2's profile
     let body = json!({
@@ -520,13 +531,16 @@ async fn test_idor_profile_access() {
         .await
         .expect("Failed to get username");
 
-    assert_eq!(user2_username, "idor2", "Username should not be changed");
+    assert_eq!(
+        user2_username, username2,
+        "Username should not be changed"
+    );
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "idor1@example.com")
+    common::db::delete_user_by_email(&state.pool, &email1)
         .await
         .expect("Failed to cleanup");
-    common::db::delete_user_by_email(&state.pool, "idor2@example.com")
+    common::db::delete_user_by_email(&state.pool, &email2)
         .await
         .expect("Failed to cleanup");
 }
@@ -542,18 +556,19 @@ async fn test_idor_practice_submission() {
     let client = TestClient::new(app);
 
     // Create two users
-    let user1_id =
-        common::db::create_verified_user(&state.pool, "practice1@example.com", "practice1")
-            .await
-            .expect("Failed to create user1");
+    let email1 = common::test_data::unique_email("practice1");
+    let username1 = common::test_data::unique_username("practice1");
+    let user1_id = common::db::create_verified_user(&state.pool, &email1, &username1)
+        .await
+        .expect("Failed to create user1");
 
-    let user2_id =
-        common::db::create_verified_user(&state.pool, "practice2@example.com", "practice2")
-            .await
-            .expect("Failed to create user2");
+    let email2 = common::test_data::unique_email("practice2");
+    let username2 = common::test_data::unique_username("practice2");
+    let user2_id = common::db::create_verified_user(&state.pool, &email2, &username2)
+        .await
+        .expect("Failed to create user2");
 
-    let user1_token =
-        common::jwt::create_test_token(user1_id, "practice1@example.com", &state.jwt_secret);
+    let user1_token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
 
     // User1 tries to submit review for user2
     let fake_flashcard_id = uuid::Uuid::new_v4();
@@ -577,10 +592,10 @@ async fn test_idor_practice_submission() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "practice1@example.com")
+    common::db::delete_user_by_email(&state.pool, &email1)
         .await
         .expect("Failed to cleanup");
-    common::db::delete_user_by_email(&state.pool, "practice2@example.com")
+    common::db::delete_user_by_email(&state.pool, &email2)
         .await
         .expect("Failed to cleanup");
 }

@@ -15,22 +15,19 @@ async fn test_password_reset_full_flow_success() {
     let client = TestClient::new(app);
 
     // Step 1: Create a verified user with known password
+    let email = common::test_data::unique_email("resettest");
+    let username = common::test_data::unique_username("resetuser");
     let original_password = "OriginalP@ss123";
     let password_hash =
         bcrypt::hash(original_password, bcrypt::DEFAULT_COST).expect("Failed to hash password");
 
-    common::db::create_test_user(
-        &state.pool,
-        "resettest@example.com",
-        "resetuser",
-        &password_hash,
-    )
-    .await
-    .expect("Failed to create user");
+    common::db::create_test_user(&state.pool, &email, &username, &password_hash)
+        .await
+        .expect("Failed to create user");
 
     // Step 2: Verify user can login with original password
     let login_body = json!({
-        "email": "resettest@example.com",
+        "email": &email,
         "password": original_password
     });
     let login_response = client.post_json("/v1/users/login", &login_body).await;
@@ -38,7 +35,7 @@ async fn test_password_reset_full_flow_success() {
 
     // Step 3: Request password reset
     let reset_request = json!({
-        "email": "resettest@example.com"
+        "email": &email
     });
     let request_response = client
         .post_json("/v1/users/request-password-reset", &reset_request)
@@ -54,7 +51,7 @@ async fn test_password_reset_full_flow_success() {
     );
 
     // Step 4: Get user_id and create reset token
-    let user_id = common::db::get_user_by_email(&state.pool, "resettest@example.com")
+    let user_id = common::db::get_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to get user")
         .expect("User should exist");
@@ -69,7 +66,9 @@ async fn test_password_reset_full_flow_success() {
         "token": reset_token,
         "new_password": new_password
     });
-    let reset_response = client.post_json("/v1/users/reset-password", &reset_body).await;
+    let reset_response = client
+        .post_json("/v1/users/reset-password", &reset_body)
+        .await;
     reset_response.assert_status(StatusCode::OK);
 
     let reset_json: serde_json::Value = reset_response.json();
@@ -86,19 +85,22 @@ async fn test_password_reset_full_flow_success() {
     hasher.update(reset_token.as_bytes());
     let token_hash = format!("{:x}", hasher.finalize());
 
-    let token_used: bool = sqlx::query_scalar(
+    let token_used: Option<bool> = sqlx::query_scalar(
         r#"
-        SELECT used_at IS NOT NULL
-        FROM password_reset_tokens
-        WHERE token_hash = $1
+            SELECT used_at IS NOT NULL
+            FROM password_reset_tokens
+            WHERE token_hash = $1
         "#,
     )
     .bind(&token_hash)
-    .fetch_one(&state.pool)
+    .fetch_optional(&state.pool)
     .await
     .expect("Failed to check token status");
 
-    assert!(token_used, "Token should be marked as used");
+    assert!(
+        token_used.unwrap_or(false),
+        "Token should be marked as used"
+    );
 
     // Step 7: Verify old password no longer works
     let old_login = client.post_json("/v1/users/login", &login_body).await;
@@ -106,7 +108,7 @@ async fn test_password_reset_full_flow_success() {
 
     // Step 8: Verify new password works
     let new_login_body = json!({
-        "email": "resettest@example.com",
+        "email": &email,
         "password": new_password
     });
     let new_login = client.post_json("/v1/users/login", &new_login_body).await;
@@ -116,7 +118,7 @@ async fn test_password_reset_full_flow_success() {
     assert!(new_login_json["token"].is_string());
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "resettest@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -206,10 +208,11 @@ async fn test_password_reset_expired_token() {
     let client = TestClient::new(app);
 
     // Create user
-    let user_id =
-        common::db::create_verified_user(&state.pool, "expiredreset@example.com", "expireduser")
-            .await
-            .expect("Failed to create user");
+    let email = common::test_data::unique_email("expiredreset");
+    let username = common::test_data::unique_username("expireduser");
+    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
+        .await
+        .expect("Failed to create user");
 
     // Manually insert expired reset token
     let expired_token = "expired_reset_token_hash_12345";
@@ -244,7 +247,7 @@ async fn test_password_reset_expired_token() {
     );
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "expiredreset@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -260,26 +263,23 @@ async fn test_password_reset_already_used_token() {
     let client = TestClient::new(app);
 
     // Create user
+    let email = common::test_data::unique_email("usedresettoken");
+    let username = common::test_data::unique_username("usedresetuser");
     let password_hash = bcrypt::hash("OriginalP@ss123", bcrypt::DEFAULT_COST).unwrap();
-    common::db::create_test_user(
-        &state.pool,
-        "usedresettoken@example.com",
-        "usedresetuser",
-        &password_hash,
-    )
-    .await
-    .expect("Failed to create user");
+    common::db::create_test_user(&state.pool, &email, &username, &password_hash)
+        .await
+        .expect("Failed to create user");
 
     // Request password reset
     let request_body = json!({
-        "email": "usedresettoken@example.com"
+        "email": &email
     });
     client
         .post_json("/v1/users/request-password-reset", &request_body)
         .await;
 
     // Get user_id and create reset token
-    let user_id = common::db::get_user_by_email(&state.pool, "usedresettoken@example.com")
+    let user_id = common::db::get_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to get user")
         .expect("User should exist");
@@ -293,7 +293,9 @@ async fn test_password_reset_already_used_token() {
         "token": token,
         "new_password": "NewP@ssw0rd123"
     });
-    let first_response = client.post_json("/v1/users/reset-password", &reset_body).await;
+    let first_response = client
+        .post_json("/v1/users/reset-password", &reset_body)
+        .await;
     first_response.assert_status(StatusCode::OK);
 
     // Try to use same token again
@@ -317,7 +319,7 @@ async fn test_password_reset_already_used_token() {
     );
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "usedresettoken@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -333,19 +335,21 @@ async fn test_password_reset_weak_new_password() {
     let client = TestClient::new(app);
 
     // Create user and request reset
-    common::db::create_verified_user(&state.pool, "weakpass@example.com", "weakpassuser")
+    let email = common::test_data::unique_email("weakpass");
+    let username = common::test_data::unique_username("weakpassuser");
+    common::db::create_verified_user(&state.pool, &email, &username)
         .await
         .expect("Failed to create user");
 
     let request_body = json!({
-        "email": "weakpass@example.com"
+        "email": &email
     });
     client
         .post_json("/v1/users/request-password-reset", &request_body)
         .await;
 
     // Get user_id and create reset token
-    let user_id = common::db::get_user_by_email(&state.pool, "weakpass@example.com")
+    let user_id = common::db::get_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to get user")
         .expect("User should exist");
@@ -373,7 +377,7 @@ async fn test_password_reset_weak_new_password() {
     );
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "weakpass@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -417,20 +421,17 @@ async fn test_password_reset_revokes_old_sessions() {
     let client = TestClient::new(app);
 
     // Create user and login
+    let email = common::test_data::unique_email("revokesession");
+    let username = common::test_data::unique_username("revokeuser");
     let original_password = "OriginalP@ss123";
     let password_hash = bcrypt::hash(original_password, bcrypt::DEFAULT_COST).unwrap();
-    let user_id = common::db::create_test_user(
-        &state.pool,
-        "revokesession@example.com",
-        "revokeuser",
-        &password_hash,
-    )
-    .await
-    .expect("Failed to create user");
+    let user_id = common::db::create_test_user(&state.pool, &email, &username, &password_hash)
+        .await
+        .expect("Failed to create user");
 
     // Login and get tokens
     let login_body = json!({
-        "email": "revokesession@example.com",
+        "email": &email,
         "password": original_password
     });
     let login_response = client.post_json("/v1/users/login", &login_body).await;
@@ -451,7 +452,7 @@ async fn test_password_reset_revokes_old_sessions() {
 
     // Request and perform password reset
     let reset_request = json!({
-        "email": "revokesession@example.com"
+        "email": &email
     });
     client
         .post_json("/v1/users/request-password-reset", &reset_request)
@@ -465,7 +466,9 @@ async fn test_password_reset_revokes_old_sessions() {
         "token": reset_token,
         "new_password": "NewP@ssw0rd456"
     });
-    client.post_json("/v1/users/reset-password", &reset_body).await;
+    client
+        .post_json("/v1/users/reset-password", &reset_body)
+        .await;
 
     // Verify old refresh tokens are invalidated
     let refresh_token_count: i64 =
@@ -483,7 +486,7 @@ async fn test_password_reset_revokes_old_sessions() {
     );
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "revokesession@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -499,20 +502,22 @@ async fn test_password_reset_multiple_requests_invalidates_old_tokens() {
     let client = TestClient::new(app);
 
     // Create user
-    common::db::create_verified_user(&state.pool, "multireset@example.com", "multiresetuser")
+    let email = common::test_data::unique_email("multireset");
+    let username = common::test_data::unique_username("multiresetuser");
+    common::db::create_verified_user(&state.pool, &email, &username)
         .await
         .expect("Failed to create user");
 
     // Request reset first time
     let request_body = json!({
-        "email": "multireset@example.com"
+        "email": &email
     });
     client
         .post_json("/v1/users/request-password-reset", &request_body)
         .await;
 
     // Get user_id and create first reset token
-    let user_id = common::db::get_user_by_email(&state.pool, "multireset@example.com")
+    let user_id = common::db::get_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to get user")
         .expect("User should exist");
@@ -545,7 +550,9 @@ async fn test_password_reset_multiple_requests_invalidates_old_tokens() {
         "token": first_token,
         "new_password": "NewP@ssw0rd123"
     });
-    let response = client.post_json("/v1/users/reset-password", &reset_body).await;
+    let response = client
+        .post_json("/v1/users/reset-password", &reset_body)
+        .await;
 
     // If implementation invalidates old tokens, this should fail
     // If not, this test documents the current behavior
@@ -562,7 +569,7 @@ async fn test_password_reset_multiple_requests_invalidates_old_tokens() {
     response2.assert_status(StatusCode::OK);
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "multireset@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }

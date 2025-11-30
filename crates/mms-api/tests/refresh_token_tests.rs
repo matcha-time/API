@@ -125,19 +125,21 @@ async fn test_refresh_token_reuse_detection() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Create and login user
+    // Create and login user with unique email for concurrency safety
+    let email = common::test_data::unique_email("reuse");
+    let username = common::test_data::unique_username("reuseuser");
     let password_hash = bcrypt::hash("password123", bcrypt::DEFAULT_COST).unwrap();
     common::db::create_test_user(
         &state.pool,
-        "reuse@example.com",
-        "reuseuser",
+        &email,
+        &username,
         &password_hash,
     )
     .await
     .expect("Failed to create user");
 
     let login_body = json!({
-        "email": "reuse@example.com",
+        "email": &email,
         "password": "password123"
     });
     let login_response = client.post_json("/v1/users/login", &login_body).await;
@@ -172,7 +174,7 @@ async fn test_refresh_token_reuse_detection() {
     assert!(error_json["error"].as_str().is_some());
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "reuse@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -212,14 +214,16 @@ async fn test_refresh_token_invalid_token() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Create user for valid access token
+    // Create user for valid access token with unique email for concurrency safety
+    let email = common::test_data::unique_email("invalid");
+    let username = common::test_data::unique_username("invaliduser");
     let user_id =
-        common::db::create_verified_user(&state.pool, "invalid@example.com", "invaliduser")
+        common::db::create_verified_user(&state.pool, &email, &username)
             .await
             .expect("Failed to create user");
 
     let access_token =
-        common::jwt::create_test_token(user_id, "invalid@example.com", &state.jwt_secret);
+        common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
 
     // Try to refresh with invalid refresh token
     let response = client
@@ -234,7 +238,7 @@ async fn test_refresh_token_invalid_token() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "invalid@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -249,19 +253,21 @@ async fn test_logout_revokes_refresh_token() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Create and login user
+    // Create and login user with unique email for concurrency safety
+    let email = common::test_data::unique_email("logout");
+    let username = common::test_data::unique_username("logoutuser");
     let password_hash = bcrypt::hash("password123", bcrypt::DEFAULT_COST).unwrap();
     let user_id = common::db::create_test_user(
         &state.pool,
-        "logout@example.com",
-        "logoutuser",
+        &email,
+        &username,
         &password_hash,
     )
     .await
     .expect("Failed to create user");
 
     let login_body = json!({
-        "email": "logout@example.com",
+        "email": &email,
         "password": "password123"
     });
     let login_response = client.post_json("/v1/users/login", &login_body).await;
@@ -322,7 +328,7 @@ async fn test_logout_revokes_refresh_token() {
     refresh_after_logout.assert_status(StatusCode::UNAUTHORIZED);
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "logout@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -337,12 +343,14 @@ async fn test_multiple_concurrent_refresh_tokens() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Create user
+    // Create user with unique email for concurrency safety
+    let email = common::test_data::unique_email("multidevice");
+    let username = common::test_data::unique_username("multiuser");
     let password_hash = bcrypt::hash("password123", bcrypt::DEFAULT_COST).unwrap();
     let user_id = common::db::create_test_user(
         &state.pool,
-        "multidevice@example.com",
-        "multiuser",
+        &email,
+        &username,
         &password_hash,
     )
     .await
@@ -350,7 +358,7 @@ async fn test_multiple_concurrent_refresh_tokens() {
 
     // Login from "device 1"
     let login_body = json!({
-        "email": "multidevice@example.com",
+        "email": &email,
         "password": "password123"
     });
     let login1 = client.post_json("/v1/users/login", &login_body).await;
@@ -406,7 +414,7 @@ async fn test_multiple_concurrent_refresh_tokens() {
     refresh2.assert_status(StatusCode::OK);
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "multidevice@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -421,19 +429,21 @@ async fn test_refresh_token_family_invalidation_on_breach() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Create and login user
+    // Create and login user with unique email for concurrency safety
+    let email = common::test_data::unique_email("breach");
+    let username = common::test_data::unique_username("breachuser");
     let password_hash = bcrypt::hash("password123", bcrypt::DEFAULT_COST).unwrap();
     let user_id = common::db::create_test_user(
         &state.pool,
-        "breach@example.com",
-        "breachuser",
+        &email,
+        &username,
         &password_hash,
     )
     .await
     .expect("Failed to create user");
 
     let login_body = json!({
-        "email": "breach@example.com",
+        "email": &email,
         "password": "password123"
     });
     let login_response = client.post_json("/v1/users/login", &login_body).await;
@@ -481,7 +491,7 @@ async fn test_refresh_token_family_invalidation_on_breach() {
     // If not, token2 should still work (but token1 should not)
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "breach@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }
@@ -496,9 +506,11 @@ async fn test_refresh_token_expiration() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Create user
+    // Create user with unique email for concurrency safety
+    let email = common::test_data::unique_email("expired");
+    let username = common::test_data::unique_username("expireduser");
     let user_id =
-        common::db::create_verified_user(&state.pool, "expired@example.com", "expireduser")
+        common::db::create_verified_user(&state.pool, &email, &username)
             .await
             .expect("Failed to create user");
 
@@ -520,7 +532,7 @@ async fn test_refresh_token_expiration() {
     .expect("Failed to insert expired token");
 
     let access_token =
-        common::jwt::create_test_token(user_id, "expired@example.com", &state.jwt_secret);
+        common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
 
     // Try to use expired refresh token
     let response = client
@@ -535,7 +547,7 @@ async fn test_refresh_token_expiration() {
     response.assert_status(StatusCode::UNAUTHORIZED);
 
     // Cleanup
-    common::db::delete_user_by_email(&state.pool, "expired@example.com")
+    common::db::delete_user_by_email(&state.pool, &email)
         .await
         .expect("Failed to cleanup");
 }

@@ -149,7 +149,7 @@ async fn test_get_roadmaps_by_language_pair() {
         .expect("Failed to create test state");
 
     // Create test data
-    create_test_roadmap_and_decks(&state.pool)
+    let (roadmap_id, _, _) = create_test_roadmap_and_decks(&state.pool)
         .await
         .expect("Failed to create test data");
 
@@ -182,8 +182,8 @@ async fn test_get_roadmaps_by_language_pair() {
         "Should have no French-Spanish roadmaps"
     );
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
+    // Cleanup - delete only this test's roadmap
+    common::db::delete_roadmap_by_id(&state.pool, roadmap_id)
         .await
         .expect("Failed to cleanup");
 }
@@ -196,10 +196,11 @@ async fn test_get_roadmap_with_progress_authenticated() {
         .expect("Failed to create test state");
 
     // Create user
-    let user_id =
-        common::db::create_verified_user(&state.pool, "roadmap@example.com", "roadmapuser")
-            .await
-            .expect("Failed to create user");
+    let email = common::test_data::unique_email("roadmap");
+    let username = common::test_data::unique_username("roadmapuser");
+    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
+        .await
+        .expect("Failed to create user");
 
     // Create test data
     let (roadmap_id, deck1_id, _) = create_test_roadmap_and_decks(&state.pool)
@@ -219,7 +220,7 @@ async fn test_get_roadmap_with_progress_authenticated() {
     .await
     .expect("Failed to create progress");
 
-    let token = common::jwt::create_test_token(user_id, "roadmap@example.com", &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -258,10 +259,13 @@ async fn test_get_roadmap_with_progress_authenticated() {
         "Should have 1 mastered card"
     );
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
+    // Cleanup - delete roadmap (cascades to decks, flashcards) and user
+    common::db::delete_roadmap_by_id(&state.pool, roadmap_id)
         .await
-        .expect("Failed to cleanup");
+        .expect("Failed to cleanup roadmap");
+    common::db::delete_user_by_email(&state.pool, &email)
+        .await
+        .expect("Failed to cleanup user");
 }
 
 #[tokio::test]
@@ -272,11 +276,15 @@ async fn test_get_roadmap_progress_unauthorized() {
         .expect("Failed to create test state");
 
     // Create two users
-    let user1_id = common::db::create_verified_user(&state.pool, "user1@example.com", "user1")
+    let email1 = common::test_data::unique_email("user1unauth");
+    let username1 = common::test_data::unique_username("user1unauth");
+    let user1_id = common::db::create_verified_user(&state.pool, &email1, &username1)
         .await
         .expect("Failed to create user1");
 
-    let user2_id = common::db::create_verified_user(&state.pool, "user2@example.com", "user2")
+    let email2 = common::test_data::unique_email("user2unauth");
+    let username2 = common::test_data::unique_username("user2unauth");
+    let user2_id = common::db::create_verified_user(&state.pool, &email2, &username2)
         .await
         .expect("Failed to create user2");
 
@@ -286,7 +294,7 @@ async fn test_get_roadmap_progress_unauthorized() {
         .expect("Failed to create test data");
 
     // User1 tries to access user2's progress
-    let token = common::jwt::create_test_token(user1_id, "user1@example.com", &state.jwt_secret);
+    let token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -301,10 +309,16 @@ async fn test_get_roadmap_progress_unauthorized() {
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
+    // Cleanup - delete roadmap (cascades to decks, flashcards) and users
+    common::db::delete_roadmap_by_id(&state.pool, roadmap_id)
         .await
-        .expect("Failed to cleanup");
+        .expect("Failed to cleanup roadmap");
+    common::db::delete_user_by_email(&state.pool, &email1)
+        .await
+        .expect("Failed to cleanup user1");
+    common::db::delete_user_by_email(&state.pool, &email2)
+        .await
+        .expect("Failed to cleanup user2");
 }
 
 #[tokio::test]
@@ -315,17 +329,18 @@ async fn test_get_practice_session_for_deck() {
         .expect("Failed to create test state");
 
     // Create user
-    let user_id =
-        common::db::create_verified_user(&state.pool, "practice@example.com", "practiceuser")
-            .await
-            .expect("Failed to create user");
+    let email = common::test_data::unique_email("practice");
+    let username = common::test_data::unique_username("practiceuser");
+    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
+        .await
+        .expect("Failed to create user");
 
     // Create test data
-    let (_, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
+    let (roadmap_id, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
         .await
         .expect("Failed to create test data");
 
-    let token = common::jwt::create_test_token(user_id, "practice@example.com", &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -355,10 +370,13 @@ async fn test_get_practice_session_for_deck() {
     assert_eq!(card["times_correct"].as_i64().unwrap_or(0), 0);
     assert_eq!(card["times_wrong"].as_i64().unwrap_or(0), 0);
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
+    // Cleanup - delete roadmap (cascades to decks, flashcards) and user
+    common::db::delete_roadmap_by_id(&state.pool, roadmap_id)
         .await
-        .expect("Failed to cleanup");
+        .expect("Failed to cleanup roadmap");
+    common::db::delete_user_by_email(&state.pool, &email)
+        .await
+        .expect("Failed to cleanup user");
 }
 
 #[tokio::test]
@@ -369,24 +387,25 @@ async fn test_get_practice_session_unauthorized() {
         .expect("Failed to create test state");
 
     // Create two users
-    let user1_id =
-        common::db::create_verified_user(&state.pool, "user1practice@example.com", "user1")
-            .await
-            .expect("Failed to create user1");
+    let email1 = common::test_data::unique_email("user1practice");
+    let username1 = common::test_data::unique_username("user1practice");
+    let user1_id = common::db::create_verified_user(&state.pool, &email1, &username1)
+        .await
+        .expect("Failed to create user1");
 
-    let user2_id =
-        common::db::create_verified_user(&state.pool, "user2practice@example.com", "user2")
-            .await
-            .expect("Failed to create user2");
+    let email2 = common::test_data::unique_email("user2practice");
+    let username2 = common::test_data::unique_username("user2practice");
+    let user2_id = common::db::create_verified_user(&state.pool, &email2, &username2)
+        .await
+        .expect("Failed to create user2");
 
     // Create deck
-    let (_, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
+    let (roadmap_id, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
         .await
         .expect("Failed to create test data");
 
     // User1 tries to get user2's practice session
-    let token =
-        common::jwt::create_test_token(user1_id, "user1practice@example.com", &state.jwt_secret);
+    let token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -401,10 +420,16 @@ async fn test_get_practice_session_unauthorized() {
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
+    // Cleanup - delete roadmap (cascades to decks, flashcards) and users
+    common::db::delete_roadmap_by_id(&state.pool, roadmap_id)
         .await
-        .expect("Failed to cleanup");
+        .expect("Failed to cleanup roadmap");
+    common::db::delete_user_by_email(&state.pool, &email1)
+        .await
+        .expect("Failed to cleanup user1");
+    common::db::delete_user_by_email(&state.pool, &email2)
+        .await
+        .expect("Failed to cleanup user2");
 }
 
 #[tokio::test]
@@ -415,24 +440,32 @@ async fn test_submit_review_correct_answer() {
         .expect("Failed to create test state");
 
     // Create user
-    let user_id = common::db::create_verified_user(&state.pool, "review@example.com", "reviewuser")
+    let email = common::test_data::unique_email("review");
+    let username = common::test_data::unique_username("reviewuser");
+    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
         .await
         .expect("Failed to create user");
 
     // Create test data
-    let (_, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
+    let (roadmap_id, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
         .await
         .expect("Failed to create test data");
 
-    // Get a flashcard ID
+    // Get a flashcard from the deck we just created
     let flashcard_id: Uuid = sqlx::query_scalar(
-        "SELECT id FROM flashcards WHERE language_from = 'en' AND language_to = 'es' LIMIT 1",
+        r#"
+        SELECT f.id FROM flashcards f
+        JOIN deck_flashcards df ON f.id = df.flashcard_id
+        WHERE df.deck_id = $1
+        LIMIT 1
+        "#,
     )
+    .bind(deck_id)
     .fetch_one(&state.pool)
     .await
     .expect("Failed to get flashcard");
 
-    let token = common::jwt::create_test_token(user_id, "review@example.com", &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -495,10 +528,13 @@ async fn test_submit_review_correct_answer() {
 
     assert!(activity_count > 0, "Activity should be recorded");
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
+    // Cleanup - delete roadmap (cascades to decks, flashcards) and user
+    common::db::delete_roadmap_by_id(&state.pool, roadmap_id)
         .await
-        .expect("Failed to cleanup");
+        .expect("Failed to cleanup roadmap");
+    common::db::delete_user_by_email(&state.pool, &email)
+        .await
+        .expect("Failed to cleanup user");
 }
 
 #[tokio::test]
@@ -509,24 +545,32 @@ async fn test_submit_review_wrong_answer() {
         .expect("Failed to create test state");
 
     // Create user
-    let user_id = common::db::create_verified_user(&state.pool, "wrong@example.com", "wronguser")
+    let email = common::test_data::unique_email("wrong");
+    let username = common::test_data::unique_username("wronguser");
+    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
         .await
         .expect("Failed to create user");
 
     // Create test data
-    let (_, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
+    let (roadmap_id, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
         .await
         .expect("Failed to create test data");
 
-    // Get a flashcard ID
+    // Get a flashcard from the deck we just created
     let flashcard_id: Uuid = sqlx::query_scalar(
-        "SELECT id FROM flashcards WHERE language_from = 'en' AND language_to = 'es' LIMIT 1",
+        r#"
+        SELECT f.id FROM flashcards f
+        JOIN deck_flashcards df ON f.id = df.flashcard_id
+        WHERE df.deck_id = $1
+        LIMIT 1
+        "#,
     )
+    .bind(deck_id)
     .fetch_one(&state.pool)
     .await
     .expect("Failed to get flashcard");
 
-    let token = common::jwt::create_test_token(user_id, "wrong@example.com", &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -565,10 +609,13 @@ async fn test_submit_review_wrong_answer() {
 
     assert_eq!(times_wrong, 1, "Should have 1 wrong answer");
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
+    // Cleanup - delete roadmap (cascades to decks, flashcards) and user
+    common::db::delete_roadmap_by_id(&state.pool, roadmap_id)
         .await
-        .expect("Failed to cleanup");
+        .expect("Failed to cleanup roadmap");
+    common::db::delete_user_by_email(&state.pool, &email)
+        .await
+        .expect("Failed to cleanup user");
 }
 
 #[tokio::test]
@@ -579,18 +626,27 @@ async fn test_submit_review_updates_stats() {
         .expect("Failed to create test state");
 
     // Create user
-    let user_id = common::db::create_verified_user(&state.pool, "stats@example.com", "statsuser")
+    let email = common::test_data::unique_email("stats");
+    let username = common::test_data::unique_username("statsuser");
+    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
         .await
         .expect("Failed to create user");
 
     // Create test data
-    let (_, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
+    let (roadmap_id, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
         .await
         .expect("Failed to create test data");
 
+    // Get a flashcard from the deck we just created
     let flashcard_id: Uuid = sqlx::query_scalar(
-        "SELECT id FROM flashcards WHERE language_from = 'en' AND language_to = 'es' LIMIT 1",
+        r#"
+        SELECT f.id FROM flashcards f
+        JOIN deck_flashcards df ON f.id = df.flashcard_id
+        WHERE df.deck_id = $1
+        LIMIT 1
+        "#,
     )
+    .bind(deck_id)
     .fetch_one(&state.pool)
     .await
     .expect("Failed to get flashcard");
@@ -603,7 +659,7 @@ async fn test_submit_review_updates_stats() {
             .await
             .expect("Failed to get initial stats");
 
-    let token = common::jwt::create_test_token(user_id, "stats@example.com", &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -638,10 +694,13 @@ async fn test_submit_review_updates_stats() {
         "Total reviews should increase by 1"
     );
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
+    // Cleanup - delete roadmap (cascades to decks, flashcards) and user
+    common::db::delete_roadmap_by_id(&state.pool, roadmap_id)
         .await
-        .expect("Failed to cleanup");
+        .expect("Failed to cleanup roadmap");
+    common::db::delete_user_by_email(&state.pool, &email)
+        .await
+        .expect("Failed to cleanup user");
 }
 
 #[tokio::test]
@@ -652,18 +711,20 @@ async fn test_submit_review_unauthorized() {
         .expect("Failed to create test state");
 
     // Create two users
-    let user1_id =
-        common::db::create_verified_user(&state.pool, "user1review@example.com", "user1")
-            .await
-            .expect("Failed to create user1");
+    let email1 = common::test_data::unique_email("user1review");
+    let username1 = common::test_data::unique_username("user1review");
+    let user1_id = common::db::create_verified_user(&state.pool, &email1, &username1)
+        .await
+        .expect("Failed to create user1");
 
-    let user2_id =
-        common::db::create_verified_user(&state.pool, "user2review@example.com", "user2")
-            .await
-            .expect("Failed to create user2");
+    let email2 = common::test_data::unique_email("user2review");
+    let username2 = common::test_data::unique_username("user2review");
+    let user2_id = common::db::create_verified_user(&state.pool, &email2, &username2)
+        .await
+        .expect("Failed to create user2");
 
     // Create deck
-    let (_, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
+    let (roadmap_id, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
         .await
         .expect("Failed to create test data");
 
@@ -676,7 +737,7 @@ async fn test_submit_review_unauthorized() {
 
     // User1 tries to submit review for user2
     let token =
-        common::jwt::create_test_token(user1_id, "user1review@example.com", &state.jwt_secret);
+        common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -698,8 +759,14 @@ async fn test_submit_review_unauthorized() {
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
-    // Cleanup
-    common::db::cleanup(&state.pool)
+    // Cleanup - delete roadmap (cascades to decks, flashcards) and users
+    common::db::delete_roadmap_by_id(&state.pool, roadmap_id)
         .await
-        .expect("Failed to cleanup");
+        .expect("Failed to cleanup roadmap");
+    common::db::delete_user_by_email(&state.pool, &email1)
+        .await
+        .expect("Failed to cleanup user1");
+    common::db::delete_user_by_email(&state.pool, &email2)
+        .await
+        .expect("Failed to cleanup user2");
 }
