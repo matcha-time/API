@@ -11,6 +11,7 @@ exclude = [".github/"]
 members = [
     # Binaries
     "bin/serv",
+    "bin/shuttle-serv",
     # Crates
     "crates/mms-*",
 ]
@@ -165,3 +166,8 @@ tracing-appender = "0.2"
 metrics = "0.24"
 metrics-exporter-prometheus = "0.17"
 regex = "1.11"
+
+# Deployment dependencies (Shuttle.rs)
+shuttle-runtime = "0.51.0"
+shuttle-axum = "0.51.0"
+shuttle-shared-db = { version = "0.51.0", features = ["postgres", "sqlx"] }

@@ -3,23 +3,29 @@ use mms_api::{config::ApiConfig, state::ApiState};
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use tracing::Level;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Load configuration from environment variables
-    let config = ApiConfig::from_env()?;
+#[shuttle_runtime::main]
+async fn main(
+    #[shuttle_shared_db::Postgres] pool: sqlx::PgPool,
+    #[shuttle_runtime::Secrets] secrets: shuttle_runtime::SecretStore,
+) -> shuttle_axum::ShuttleAxum {
+    // Load configuration from Shuttle secrets
+    let config = ApiConfig::from_shuttle_secrets(&secrets)
+        .map_err(|e| anyhow::anyhow!("Config error: {}", e))?;
 
-    // Initialize tracing/logging based on environment
-    mms_api::tracing::init_tracing(&config.env);
+    // Note: Shuttle already initializes tracing, so we skip our custom init
+    // The Shuttle runtime provides default tracing subscriber
 
     // Initialize Prometheus metrics exporter
     let metrics_handle = mms_api::metrics::init_metrics()?;
     tracing::info!("Prometheus metrics exporter initialized");
 
-    // Initialize database pool and run migrations
-    let pool = mms_db::create_pool(&config.database_url, config.database_max_connections).await?;
-    mms_db::ensure_db_and_migrate(&config.database_url, &pool).await?;
+    // Run migrations on Shuttle-provided pool
+    sqlx::migrate!("../../crates/mms-db/migrations")
+        .run(&pool)
+        .await
+        .map_err(|e| anyhow::anyhow!("Migration error: {}", e))?;
 
-    // Initialize the application state
+    // Initialize the application state with the provided pool
     let state = ApiState::new(config.clone(), pool).await?;
 
     // Start background jobs for periodic maintenance
@@ -59,10 +65,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app =
         mms_api::middleware::security_headers::apply_security_headers(app, config.env.clone());
 
-    // Start the server
-    let bind_address = format!("0.0.0.0:{}", config.port);
-    let listener = tokio::net::TcpListener::bind(&bind_address).await?;
-    tracing::info!("Server starting on http://localhost:{}", config.port);
     tracing::info!("Environment: {:?}", config.env);
     tracing::info!("Production features enabled:");
     tracing::info!("  - Prometheus metrics at /metrics");
@@ -77,46 +79,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("  - Security headers (X-Content-Type-Options, X-Frame-Options, HSTS)");
     tracing::info!("  - Timing-safe responses for sensitive endpoints");
 
-    // Create graceful shutdown signal handler
-    let server = axum::serve(listener, app);
-
-    // Graceful shutdown with signal handling
-    let graceful = server.with_graceful_shutdown(shutdown_signal());
-
-    tracing::info!("Server ready to accept connections");
-    graceful.await?;
-
-    tracing::info!("Server shutdown complete");
-    Ok(())
-}
-
-/// Handle shutdown signals for graceful termination
-async fn shutdown_signal() {
-    use tokio::signal;
-
-    let ctrl_c = async {
-        signal::ctrl_c()
-            .await
-            .expect("failed to install Ctrl+C handler");
-    };
-
-    #[cfg(unix)]
-    let terminate = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("failed to install signal handler")
-            .recv()
-            .await;
-    };
-
-    #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
-
-    tokio::select! {
-        _ = ctrl_c => {
-            tracing::info!("Received SIGINT (Ctrl+C), starting graceful shutdown...");
-        },
-        _ = terminate => {
-            tracing::info!("Received SIGTERM, starting graceful shutdown...");
-        },
-    }
+    Ok(app.into())
 }

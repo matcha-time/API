@@ -275,7 +275,9 @@ async fn test_auth_bypass_missing_token() {
         .expect("Failed to create user");
 
     // Try to access protected endpoint without auth token
-    let response = client.get(&format!("/v1/users/{}/dashboard", user_id)).await;
+    let response = client
+        .get(&format!("/v1/users/{}/dashboard", user_id))
+        .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
@@ -421,11 +423,8 @@ async fn test_auth_bypass_wrong_secret() {
         .expect("Failed to create user");
 
     // Create token with wrong secret
-    let wrong_token = common::jwt::create_test_token(
-        user_id,
-        &email,
-        "wrong_secret_that_doesnt_match_12345",
-    );
+    let wrong_token =
+        common::jwt::create_test_token(user_id, &email, "wrong_secret_that_doesnt_match_12345");
 
     let response = client
         .get_with_auth(
@@ -531,10 +530,7 @@ async fn test_idor_profile_access() {
         .await
         .expect("Failed to get username");
 
-    assert_eq!(
-        user2_username, username2,
-        "Username should not be changed"
-    );
+    assert_eq!(user2_username, username2, "Username should not be changed");
 
     // Cleanup
     common::db::delete_user_by_email(&state.pool, &email1)

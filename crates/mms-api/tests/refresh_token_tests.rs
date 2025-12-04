@@ -129,14 +129,9 @@ async fn test_refresh_token_reuse_detection() {
     let email = common::test_data::unique_email("reuse");
     let username = common::test_data::unique_username("reuseuser");
     let password_hash = bcrypt::hash("password123", bcrypt::DEFAULT_COST).unwrap();
-    common::db::create_test_user(
-        &state.pool,
-        &email,
-        &username,
-        &password_hash,
-    )
-    .await
-    .expect("Failed to create user");
+    common::db::create_test_user(&state.pool, &email, &username, &password_hash)
+        .await
+        .expect("Failed to create user");
 
     let login_body = json!({
         "email": &email,
@@ -217,13 +212,11 @@ async fn test_refresh_token_invalid_token() {
     // Create user for valid access token with unique email for concurrency safety
     let email = common::test_data::unique_email("invalid");
     let username = common::test_data::unique_username("invaliduser");
-    let user_id =
-        common::db::create_verified_user(&state.pool, &email, &username)
-            .await
-            .expect("Failed to create user");
+    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
+        .await
+        .expect("Failed to create user");
 
-    let access_token =
-        common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
+    let access_token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
 
     // Try to refresh with invalid refresh token
     let response = client
@@ -257,14 +250,9 @@ async fn test_logout_revokes_refresh_token() {
     let email = common::test_data::unique_email("logout");
     let username = common::test_data::unique_username("logoutuser");
     let password_hash = bcrypt::hash("password123", bcrypt::DEFAULT_COST).unwrap();
-    let user_id = common::db::create_test_user(
-        &state.pool,
-        &email,
-        &username,
-        &password_hash,
-    )
-    .await
-    .expect("Failed to create user");
+    let user_id = common::db::create_test_user(&state.pool, &email, &username, &password_hash)
+        .await
+        .expect("Failed to create user");
 
     let login_body = json!({
         "email": &email,
@@ -347,14 +335,9 @@ async fn test_multiple_concurrent_refresh_tokens() {
     let email = common::test_data::unique_email("multidevice");
     let username = common::test_data::unique_username("multiuser");
     let password_hash = bcrypt::hash("password123", bcrypt::DEFAULT_COST).unwrap();
-    let user_id = common::db::create_test_user(
-        &state.pool,
-        &email,
-        &username,
-        &password_hash,
-    )
-    .await
-    .expect("Failed to create user");
+    let user_id = common::db::create_test_user(&state.pool, &email, &username, &password_hash)
+        .await
+        .expect("Failed to create user");
 
     // Login from "device 1"
     let login_body = json!({
@@ -433,14 +416,9 @@ async fn test_refresh_token_family_invalidation_on_breach() {
     let email = common::test_data::unique_email("breach");
     let username = common::test_data::unique_username("breachuser");
     let password_hash = bcrypt::hash("password123", bcrypt::DEFAULT_COST).unwrap();
-    let user_id = common::db::create_test_user(
-        &state.pool,
-        &email,
-        &username,
-        &password_hash,
-    )
-    .await
-    .expect("Failed to create user");
+    let user_id = common::db::create_test_user(&state.pool, &email, &username, &password_hash)
+        .await
+        .expect("Failed to create user");
 
     let login_body = json!({
         "email": &email,
@@ -509,10 +487,9 @@ async fn test_refresh_token_expiration() {
     // Create user with unique email for concurrency safety
     let email = common::test_data::unique_email("expired");
     let username = common::test_data::unique_username("expireduser");
-    let user_id =
-        common::db::create_verified_user(&state.pool, &email, &username)
-            .await
-            .expect("Failed to create user");
+    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
+        .await
+        .expect("Failed to create user");
 
     // Manually create an expired refresh token
     let expired_token = "expired_token_12345678901234567890";
@@ -531,8 +508,7 @@ async fn test_refresh_token_expiration() {
     .await
     .expect("Failed to insert expired token");
 
-    let access_token =
-        common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
+    let access_token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
 
     // Try to use expired refresh token
     let response = client

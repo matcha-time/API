@@ -190,6 +190,104 @@ impl ApiConfig {
         Ok(config)
     }
 
+    /// Load configuration from a shuttle SecretStore (for Shuttle.rs deployment)
+    #[cfg(feature = "shuttle")]
+    pub fn from_shuttle_secrets(
+        secrets: &shuttle_runtime::SecretStore,
+    ) -> Result<Self, ConfigError> {
+        let config = Self {
+            google_client_id: secrets
+                .get("GOOGLE_CLIENT_ID")
+                .ok_or_else(|| {
+                    ConfigError::ValidationError("GOOGLE_CLIENT_ID not found".to_string())
+                })?
+                .to_string(),
+            google_client_secret: secrets
+                .get("GOOGLE_CLIENT_SECRET")
+                .ok_or_else(|| {
+                    ConfigError::ValidationError("GOOGLE_CLIENT_SECRET not found".to_string())
+                })?
+                .to_string(),
+            redirect_url: secrets
+                .get("REDIRECT_URL")
+                .ok_or_else(|| ConfigError::ValidationError("REDIRECT_URL not found".to_string()))?
+                .to_string(),
+            jwt_secret: secrets
+                .get("JWT_SECRET")
+                .ok_or_else(|| ConfigError::ValidationError("JWT_SECRET not found".to_string()))?
+                .to_string(),
+            cookie_secret: secrets
+                .get("COOKIE_SECRET")
+                .ok_or_else(|| ConfigError::ValidationError("COOKIE_SECRET not found".to_string()))?
+                .to_string(),
+            jwt_expiry_hours: secrets
+                .get("JWT_EXPIRY_HOURS")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(default_jwt_expiry_hours),
+            refresh_token_expiry_days: secrets
+                .get("REFRESH_TOKEN_EXPIRY_DAYS")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(default_refresh_token_expiry_days),
+            oidc_flow_expiry_minutes: secrets
+                .get("OIDC_FLOW_EXPIRY_MINUTES")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(default_oidc_flow_expiry_minutes),
+            smtp_host: secrets.get("SMTP_HOST").map(|s| s.to_string()),
+            smtp_username: secrets.get("SMTP_USERNAME").map(|s| s.to_string()),
+            smtp_password: secrets.get("SMTP_PASSWORD").map(|s| s.to_string()),
+            smtp_from_email: secrets.get("SMTP_FROM_EMAIL").map(|s| s.to_string()),
+            smtp_from_name: secrets.get("SMTP_FROM_NAME").map(|s| s.to_string()),
+            // DATABASE_URL is not needed when using Shuttle's provided pool
+            // Use a dummy value since the pool is passed directly
+            database_url: secrets
+                .get("DATABASE_URL")
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "postgres://shuttle-provided".to_string()),
+            database_max_connections: secrets
+                .get("DATABASE_MAX_CONNECTIONS")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(default_database_max_connections),
+            port: secrets
+                .get("PORT")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(default_port),
+            max_request_body_size: secrets
+                .get("MAX_REQUEST_BODY_SIZE")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(default_max_request_body_size),
+            request_timeout_seconds: secrets
+                .get("REQUEST_TIMEOUT_SECONDS")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(default_request_timeout_seconds),
+            frontend_url: secrets
+                .get("FRONTEND_URL")
+                .ok_or_else(|| ConfigError::ValidationError("FRONTEND_URL not found".to_string()))?
+                .to_string(),
+            allowed_origins: secrets
+                .get("ALLOWED_ORIGINS")
+                .map(|s| s.to_string())
+                .unwrap_or_else(default_allowed_origins),
+            rate_limit_per_second: secrets
+                .get("RATE_LIMIT_PER_SECOND")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(default_rate_limit_per_second),
+            rate_limit_burst_size: secrets
+                .get("RATE_LIMIT_BURST_SIZE")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(default_rate_limit_burst_size),
+            env: secrets
+                .get("ENV")
+                .and_then(|s| match s.to_lowercase().as_str() {
+                    "development" => Some(Environment::Development),
+                    _ => Some(Environment::Production),
+                })
+                .unwrap_or_default(),
+        };
+
+        config.validate()?;
+        Ok(config)
+    }
+
     /// Validate the configuration
     fn validate(&self) -> Result<(), ConfigError> {
         // Validate JWT secret length and entropy

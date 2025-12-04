@@ -736,8 +736,7 @@ async fn test_submit_review_unauthorized() {
     .expect("Failed to get flashcard");
 
     // User1 tries to submit review for user2
-    let token =
-        common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
+    let token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
