@@ -192,11 +192,8 @@ async fn auth_callback(
     .await?;
 
     // Set cookies with JWT and refresh token
-    let auth_cookie = jwt::create_auth_cookie(
-        token.clone(),
-        &state.environment,
-        state.jwt_expiry_hours,
-    );
+    let auth_cookie =
+        jwt::create_auth_cookie(token.clone(), &state.environment, state.jwt_expiry_hours);
     let refresh_cookie = create_refresh_token_cookie(
         refresh_token,
         &state.environment,
@@ -286,12 +283,8 @@ async fn refresh_token(
     .map_err(|_| ApiError::Auth("User not found".to_string()))?;
 
     // Generate new JWT access token
-    let new_access_token = jwt::generate_jwt_token(
-        user_id,
-        email,
-        &state.jwt_secret,
-        state.jwt_expiry_hours,
-    )?;
+    let new_access_token =
+        jwt::generate_jwt_token(user_id, email, &state.jwt_secret, state.jwt_expiry_hours)?;
 
     // Update cookies
     let auth_cookie = jwt::create_auth_cookie(

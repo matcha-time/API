@@ -331,7 +331,9 @@ async fn test_resend_verification_already_verified_user() {
     let body = json!({
         "email": "verified@example.com"
     });
-    let response = client.post_json("/v1/users/resend-verification", &body).await;
+    let response = client
+        .post_json("/v1/users/resend-verification", &body)
+        .await;
 
     // Should return success to prevent enumeration
     response.assert_status(StatusCode::OK);
@@ -356,7 +358,9 @@ async fn test_resend_verification_nonexistent_user() {
     let body = json!({
         "email": "nonexistent@example.com"
     });
-    let response = client.post_json("/v1/users/resend-verification", &body).await;
+    let response = client
+        .post_json("/v1/users/resend-verification", &body)
+        .await;
 
     // Should return success to prevent enumeration
     response.assert_status(StatusCode::OK);
@@ -379,7 +383,9 @@ async fn test_resend_verification_invalid_email_format() {
     let body = json!({
         "email": "not-an-email"
     });
-    let response = client.post_json("/v1/users/resend-verification", &body).await;
+    let response = client
+        .post_json("/v1/users/resend-verification", &body)
+        .await;
 
     response.assert_status(StatusCode::BAD_REQUEST);
 

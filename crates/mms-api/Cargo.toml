@@ -10,6 +10,9 @@ exclude.workspace = true
 
 autotests = false
 
+[features]
+shuttle = ["dep:shuttle-runtime"]
+
 [dependencies]
 mms-db.workspace = true
 
@@ -44,6 +47,9 @@ tracing-subscriber.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 regex.workspace = true
+
+# Optional dependencies for Shuttle.rs deployment
+shuttle-runtime = { workspace = true, optional = true }
 
 [dev-dependencies]
 tower.workspace = true

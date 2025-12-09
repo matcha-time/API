@@ -174,9 +174,17 @@ mod tests {
         // Invalid URLs
         assert!(validate_profile_picture_url("http://example.com/image.jpg").is_err()); // HTTP not allowed
         assert!(validate_profile_picture_url("javascript:alert('xss')").is_err());
-        assert!(validate_profile_picture_url("data:text/html,<script>alert('xss')</script>").is_err());
-        assert!(validate_profile_picture_url("https://example.com/image.jpg?onerror=alert('xss')").is_err());
-        assert!(validate_profile_picture_url("https://example.com/image.jpg?onload=alert('xss')").is_err());
+        assert!(
+            validate_profile_picture_url("data:text/html,<script>alert('xss')</script>").is_err()
+        );
+        assert!(
+            validate_profile_picture_url("https://example.com/image.jpg?onerror=alert('xss')")
+                .is_err()
+        );
+        assert!(
+            validate_profile_picture_url("https://example.com/image.jpg?onload=alert('xss')")
+                .is_err()
+        );
 
         // Too long
         let long_url = format!("https://example.com/{}", "a".repeat(2050));

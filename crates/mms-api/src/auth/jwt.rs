@@ -102,8 +102,8 @@ mod tests {
         let secret = "test_jwt_secret_minimum_32_characters_long";
 
         // Generate token
-        let token =
-            generate_jwt_token(user_id, email.clone(), secret, 24).expect("Failed to generate token");
+        let token = generate_jwt_token(user_id, email.clone(), secret, 24)
+            .expect("Failed to generate token");
 
         assert!(!token.is_empty(), "Token should not be empty");
 
@@ -126,7 +126,8 @@ mod tests {
         let wrong_secret = "wrong_jwt_secret_minimum_32_characters_long";
 
         // Generate token with correct secret
-        let token = generate_jwt_token(user_id, email, secret, 24).expect("Failed to generate token");
+        let token =
+            generate_jwt_token(user_id, email, secret, 24).expect("Failed to generate token");
 
         // Try to verify with wrong secret
         let result = verify_jwt_token(&token, wrong_secret);
@@ -168,7 +169,8 @@ mod tests {
         let email = "test@example.com".to_string();
         let secret = "test_jwt_secret_minimum_32_characters_long";
 
-        let token = generate_jwt_token(user_id, email, secret, 24).expect("Failed to generate token");
+        let token =
+            generate_jwt_token(user_id, email, secret, 24).expect("Failed to generate token");
 
         let claims = verify_jwt_token(&token, secret).expect("Failed to verify token");
 

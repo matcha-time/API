@@ -33,14 +33,9 @@ pub struct ApiState {
 }
 
 impl ApiState {
-    pub async fn new(config: ApiConfig) -> anyhow::Result<Self> {
+    pub async fn new(config: ApiConfig, pool: PgPool) -> anyhow::Result<Self> {
         // Create cookie key
         let cookie_key = Key::from(config.cookie_secret.as_bytes());
-
-        // Initialize database pool and run migrations
-        let pool =
-            mms_db::create_pool(&config.database_url, config.database_max_connections).await?;
-        mms_db::ensure_db_and_migrate(&config.database_url, &pool).await?;
 
         // Discover Google's OIDC configuration
         let provider_metadata = CoreProviderMetadata::discover_async(
