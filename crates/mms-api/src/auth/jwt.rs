@@ -60,13 +60,18 @@ pub fn create_auth_cookie(
     expiry_hours: i64,
 ) -> Cookie<'static> {
     let is_development = environment.is_development();
+    let same_site = if is_development {
+        axum_extra::extract::cookie::SameSite::Lax
+    } else {
+        axum_extra::extract::cookie::SameSite::Strict
+    };
 
     Cookie::build(("auth_token", token))
         .path("/")
         .max_age(time::Duration::hours(expiry_hours))
         .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Strict)
-        .secure(!is_development) // Secure by default, insecure only in development
+        .same_site(same_site)
+        .secure(!is_development)
         .build()
 }
 
@@ -80,13 +85,18 @@ pub fn create_oidc_flow_cookie(
     expiry_minutes: i64,
 ) -> Cookie<'static> {
     let is_development = environment.is_development();
+    let same_site = if is_development {
+        axum_extra::extract::cookie::SameSite::Lax
+    } else {
+        axum_extra::extract::cookie::SameSite::Strict
+    };
 
     Cookie::build(("oidc_flow", oidc_json))
         .path("/")
         .max_age(time::Duration::minutes(expiry_minutes))
         .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Strict)
-        .secure(!is_development) // Secure by default, insecure only in development
+        .same_site(same_site)
+        .secure(!is_development)
         .build()
 }
 

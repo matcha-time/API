@@ -102,6 +102,7 @@ impl ApiState {
 
 impl FromRef<ApiState> for Key {
     fn from_ref(state: &ApiState) -> Self {
+        tracing::debug!("FromRef<ApiState> for Key called");
         state.cookie_key.clone()
     }
 }

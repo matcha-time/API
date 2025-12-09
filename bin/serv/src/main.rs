@@ -1,4 +1,5 @@
 use axum::{Router, middleware, routing::get};
+use mms_api::middleware::request_id::request_id_middleware;
 use mms_api::{config::ApiConfig, state::ApiState};
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use tracing::Level;
@@ -48,9 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = mms_api::router::router()
         .merge(metrics_app)
         .with_state(state)
-        .layer(middleware::from_fn(
-            mms_api::middleware::request_id::request_id_middleware,
-        ))
+        .layer(middleware::from_fn(request_id_middleware))
         .layer(middleware::from_fn(mms_api::metrics::track_metrics))
         .layer(trace_layer)
         .layer(cors);
@@ -78,7 +77,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("  - Timing-safe responses for sensitive endpoints");
 
     // Create graceful shutdown signal handler
-    let server = axum::serve(listener, app);
+    // IMPORTANT: Use into_make_service_with_connect_info for tower_governor to extract IP addresses
+    let server = axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    );
 
     // Graceful shutdown with signal handling
     let graceful = server.with_graceful_shutdown(shutdown_signal());

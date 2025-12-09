@@ -277,9 +277,9 @@ impl ApiConfig {
                 .unwrap_or_else(default_rate_limit_burst_size),
             env: secrets
                 .get("ENV")
-                .and_then(|s| match s.to_lowercase().as_str() {
-                    "development" => Some(Environment::Development),
-                    _ => Some(Environment::Production),
+                .map(|s| match s.to_lowercase().as_str() {
+                    "development" => Environment::Development,
+                    _ => Environment::Production,
                 })
                 .unwrap_or_default(),
         };

@@ -13,6 +13,7 @@ mms-api.workspace = true
 mms-db.workspace = true
 
 axum.workspace = true
+axum-extra.workspace = true
 tokio.workspace = true
 tower_governor.workspace = true
 tower-http.workspace = true

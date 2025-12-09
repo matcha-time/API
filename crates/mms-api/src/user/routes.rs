@@ -799,12 +799,17 @@ fn create_refresh_token_cookie(
     expiry_days: i64,
 ) -> Cookie<'static> {
     let is_development = environment.is_development();
+    let same_site = if is_development {
+        axum_extra::extract::cookie::SameSite::Lax
+    } else {
+        axum_extra::extract::cookie::SameSite::Strict
+    };
 
     Cookie::build(("refresh_token", token))
         .path("/")
         .max_age(time::Duration::days(expiry_days))
         .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Strict)
+        .same_site(same_site)
         .secure(!is_development)
         .build()
 }

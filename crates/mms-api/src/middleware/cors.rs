@@ -28,6 +28,12 @@ pub fn create_cors_layer(allowed_origins: Vec<String>) -> CorsLayer {
             Method::DELETE,
             Method::OPTIONS,
         ])
-        .allow_headers([header::CONTENT_TYPE, header::ACCEPT])
+        .allow_headers([
+            header::CONTENT_TYPE,
+            header::ACCEPT,
+            header::AUTHORIZATION,
+            header::COOKIE,
+        ])
+        .expose_headers([header::SET_COOKIE])
         .allow_credentials(true)
 }

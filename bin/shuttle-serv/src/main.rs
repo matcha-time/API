@@ -54,12 +54,12 @@ async fn main(
     let app = mms_api::router::router()
         .merge(metrics_app)
         .with_state(state)
+        .layer(cors)
+        .layer(trace_layer)
+        .layer(middleware::from_fn(mms_api::metrics::track_metrics))
         .layer(middleware::from_fn(
             mms_api::middleware::request_id::request_id_middleware,
-        ))
-        .layer(middleware::from_fn(mms_api::metrics::track_metrics))
-        .layer(trace_layer)
-        .layer(cors);
+        ));
 
     // Apply security headers (X-Content-Type-Options, X-Frame-Options, HSTS)
     let app =
@@ -79,5 +79,7 @@ async fn main(
     tracing::info!("  - Security headers (X-Content-Type-Options, X-Frame-Options, HSTS)");
     tracing::info!("  - Timing-safe responses for sensitive endpoints");
 
+    // Note: Shuttle.rs handles the service conversion internally
+    // We return the plain Router and Shuttle will serve it with ConnectInfo support
     Ok(app.into())
 }
