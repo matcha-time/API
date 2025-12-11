@@ -66,6 +66,7 @@ impl ApiState {
             config.smtp_from_email.as_ref(),
             config.smtp_from_name.as_ref(),
         ) {
+            tracing::info!("Initializing email service with host: {}", host);
             match EmailService::new(
                 host,
                 username,
@@ -74,14 +75,23 @@ impl ApiState {
                 from_name,
                 &config.frontend_url,
             ) {
-                Ok(service) => Some(service),
+                Ok(service) => {
+                    tracing::info!("Email service initialized successfully");
+                    Some(service)
+                }
                 Err(e) => {
                     tracing::error!("Failed to initialize email service: {e}");
                     None
                 }
             }
         } else {
-            tracing::warn!("Email service not configured (missing SMTP environment variables)");
+            tracing::warn!(
+                "Email service not configured. SMTP config: host={:?}, username={:?}, password=***, from_email={:?}, from_name={:?}",
+                config.smtp_host,
+                config.smtp_username,
+                config.smtp_from_email,
+                config.smtp_from_name
+            );
             None
         };
 
