@@ -209,9 +209,9 @@ async fn create_user(
         // Handle unique constraint violations gracefully
         if e.to_string().contains("duplicate key") {
             if e.to_string().contains("username") {
-                ApiError::Validation("Username is already taken.".to_string())
+                ApiError::Conflict("Username is already taken.".to_string())
             } else {
-                ApiError::Validation("An account with this email already exists.".to_string())
+                ApiError::Conflict("An account with this email already exists.".to_string())
             }
         } else {
             ApiError::Database(e)
@@ -734,9 +734,9 @@ async fn update_user_profile(
         .map_err(|e| {
             if e.to_string().contains("duplicate key") {
                 if e.to_string().contains("username") {
-                    ApiError::Validation("Username is already taken".to_string())
+                    ApiError::Conflict("Username is already taken".to_string())
                 } else {
-                    ApiError::Validation("Email is already in use".to_string())
+                    ApiError::Conflict("Email is already in use".to_string())
                 }
             } else {
                 ApiError::Database(e)
