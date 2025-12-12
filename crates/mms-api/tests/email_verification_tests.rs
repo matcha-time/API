@@ -138,16 +138,15 @@ async fn test_email_verification_expired_token() {
         .get(&format!("/v1/users/verify-email?token={}", expired_token))
         .await;
 
-    // Should still return success to prevent enumeration
-    response.assert_status(StatusCode::OK);
+    // Should return 401 for invalid/expired tokens
+    response.assert_status(StatusCode::UNAUTHORIZED);
 
     let json: serde_json::Value = response.json();
-    // Generic message to prevent enumeration
     assert!(
-        json["message"]
+        json["error"]
             .as_str()
             .unwrap()
-            .contains("processed successfully")
+            .contains("Invalid or expired verification token")
     );
 
     // Cleanup
@@ -195,15 +194,14 @@ async fn test_email_verification_already_used_token() {
         .get(&format!("/v1/users/verify-email?token={}", token))
         .await;
 
-    // Should return generic success to prevent enumeration
-    second_response.assert_status(StatusCode::OK);
+    second_response.assert_status(StatusCode::UNAUTHORIZED);
 
     let json: serde_json::Value = second_response.json();
     assert!(
-        json["message"]
+        json["error"]
             .as_str()
             .unwrap()
-            .contains("processed successfully")
+            .contains("Invalid or expired verification token")
     );
 
     // Cleanup
@@ -227,15 +225,14 @@ async fn test_email_verification_invalid_token_format() {
         .get("/v1/users/verify-email?token=invalid_token_12345")
         .await;
 
-    // Should return generic success to prevent enumeration
-    response.assert_status(StatusCode::OK);
+    response.assert_status(StatusCode::UNAUTHORIZED);
 
     let json: serde_json::Value = response.json();
     assert!(
-        json["message"]
+        json["error"]
             .as_str()
             .unwrap()
-            .contains("processed successfully")
+            .contains("Invalid or expired verification token")
     );
 }
 

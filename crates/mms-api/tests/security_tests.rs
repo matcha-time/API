@@ -140,7 +140,9 @@ async fn test_sql_injection_query_parameters() {
 
     // Should handle gracefully, not cause server error
     assert!(
-        response.status == StatusCode::OK || response.status == StatusCode::BAD_REQUEST,
+        response.status == StatusCode::OK
+            || response.status == StatusCode::BAD_REQUEST
+            || response.status == StatusCode::UNAUTHORIZED,
         "SQL injection in query param should be handled. Got: {}",
         response.status
     );
