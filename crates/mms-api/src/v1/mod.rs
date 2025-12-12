@@ -8,6 +8,7 @@ pub fn routes() -> Router<ApiState> {
         .merge(user::routes())
         .merge(deck::routes())
         .merge(auth::routes())
+        .merge(auth::google::routes())
         .merge(roadmap::routes())
         .merge(practice::routes())
 }

@@ -323,7 +323,7 @@ async fn test_google_callback_without_oidc_cookie() {
 
 #[tokio::test]
 async fn test_find_or_create_google_user_new_user() {
-    use mms_api::auth::service::find_or_create_google_user;
+    use mms_api::auth::google::service::find_or_create_google_user;
 
     let state = TestStateBuilder::new()
         .build()
@@ -367,7 +367,7 @@ async fn test_find_or_create_google_user_new_user() {
 
 #[tokio::test]
 async fn test_find_or_create_google_user_existing_google_user() {
-    use mms_api::auth::service::find_or_create_google_user;
+    use mms_api::auth::google::service::find_or_create_google_user;
 
     let state = TestStateBuilder::new()
         .build()
@@ -418,7 +418,7 @@ async fn test_find_or_create_google_user_existing_google_user() {
 
 #[tokio::test]
 async fn test_find_or_create_google_user_links_existing_email_user() {
-    use mms_api::auth::service::find_or_create_google_user;
+    use mms_api::auth::google::service::find_or_create_google_user;
 
     let state = TestStateBuilder::new()
         .build()
@@ -469,7 +469,7 @@ async fn test_find_or_create_google_user_links_existing_email_user() {
 
 #[tokio::test]
 async fn test_find_or_create_google_user_handles_username_conflict() {
-    use mms_api::auth::service::find_or_create_google_user;
+    use mms_api::auth::google::service::find_or_create_google_user;
 
     let state = TestStateBuilder::new()
         .build()

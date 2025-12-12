@@ -6,11 +6,6 @@ use axum::{
 use axum_extra::extract::cookie::Key;
 use http_body_util::BodyExt;
 use mms_api::{config::Environment, state::ApiState};
-use oauth2::{ClientId, ClientSecret, RedirectUrl};
-use openidconnect::{
-    IssuerUrl,
-    core::{CoreClient, CoreProviderMetadata},
-};
 use serde::Deserialize;
 use tower::ServiceExt;
 
@@ -62,21 +57,13 @@ impl TestStateBuilder {
         // Run migrations
         mms_db::ensure_db_and_migrate(&self.config.database_url, &pool).await?;
 
-        // Create a mock OIDC client (won't be used in most tests)
-        let provider_metadata = CoreProviderMetadata::discover_async(
-            IssuerUrl::new("https://accounts.google.com".to_string())?,
-            &reqwest::Client::new(),
+        // Create a mock OIDC client using the google module
+        let oidc_client = mms_api::auth::google::create_oidc_client(
+            "test_client_id".to_string(),
+            "test_client_secret".to_string(),
+            "http://localhost:3000/auth/callback".to_string(),
         )
         .await?;
-
-        let oidc_client = CoreClient::from_provider_metadata(
-            provider_metadata,
-            ClientId::new("test_client_id".to_string()),
-            Some(ClientSecret::new("test_client_secret".to_string())),
-        )
-        .set_redirect_uri(RedirectUrl::new(
-            "http://localhost:3000/auth/callback".to_string(),
-        )?);
 
         // Create cookie key
         let cookie_key = Key::from(self.config.cookie_secret.as_bytes());

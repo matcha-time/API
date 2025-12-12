@@ -10,7 +10,7 @@ use sqlx::types::Uuid;
 use crate::{
     ApiState,
     auth::{
-        self, AuthUser, jwt,
+        self, AuthUser, cookies, jwt,
         routes::{AuthResponse, UserResponse},
     },
     error::ApiError,
@@ -320,7 +320,7 @@ async fn login_user(
     // Set cookies with JWT and refresh token
     let auth_cookie =
         jwt::create_auth_cookie(token.clone(), &state.environment, state.jwt_expiry_hours);
-    let refresh_cookie = create_refresh_token_cookie(
+    let refresh_cookie = cookies::create_refresh_token_cookie(
         refresh_token.clone(),
         &state.environment,
         state.refresh_token_expiry_days,
@@ -785,29 +785,4 @@ async fn update_user_profile(
             user: user_response,
         }),
     ))
-}
-
-/// Create a refresh token cookie
-///
-/// Cookies are secure (HTTPS-only) by default in production.
-/// In development mode, cookies can be used over HTTP.
-fn create_refresh_token_cookie(
-    token: String,
-    environment: &crate::config::Environment,
-    expiry_days: i64,
-) -> Cookie<'static> {
-    let is_development = environment.is_development();
-    let same_site = if is_development {
-        axum_extra::extract::cookie::SameSite::Lax
-    } else {
-        axum_extra::extract::cookie::SameSite::Strict
-    };
-
-    Cookie::build(("refresh_token", token))
-        .path("/")
-        .max_age(time::Duration::days(expiry_days))
-        .http_only(true)
-        .same_site(same_site)
-        .secure(!is_development)
-        .build()
 }

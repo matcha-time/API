@@ -1,22 +1,9 @@
 use axum::extract::FromRef;
 use axum_extra::extract::cookie::Key;
-use oauth2::{EndpointMaybeSet, EndpointNotSet, EndpointSet};
-use openidconnect::{
-    ClientId, ClientSecret, IssuerUrl, RedirectUrl,
-    core::{CoreClient, CoreProviderMetadata},
-};
 
+use crate::auth::google::{self, OpenIdClient};
 use crate::{ApiConfig, config::Environment, user::email::EmailService};
 use sqlx::PgPool;
-
-pub type OpenIdClient = CoreClient<
-    EndpointSet,
-    EndpointNotSet,
-    EndpointNotSet,
-    EndpointNotSet,
-    EndpointMaybeSet,
-    EndpointMaybeSet,
->;
 
 #[derive(Clone)]
 pub struct ApiState {
@@ -37,20 +24,13 @@ impl ApiState {
         // Create cookie key
         let cookie_key = Key::from(config.cookie_secret.as_bytes());
 
-        // Discover Google's OIDC configuration
-        let provider_metadata = CoreProviderMetadata::discover_async(
-            IssuerUrl::new("https://accounts.google.com".to_string())?,
-            &reqwest::Client::new(),
+        // Create Google OIDC client
+        let oidc_client = google::create_oidc_client(
+            config.google_client_id,
+            config.google_client_secret,
+            config.redirect_url,
         )
         .await?;
-
-        // Create OIDC client
-        let oidc_client = CoreClient::from_provider_metadata(
-            provider_metadata,
-            ClientId::new(config.google_client_id),
-            Some(ClientSecret::new(config.google_client_secret)),
-        )
-        .set_redirect_uri(RedirectUrl::new(config.redirect_url)?);
 
         // Initialize email service if SMTP is configured
         let email_service = if let (

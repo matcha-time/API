@@ -230,12 +230,18 @@ Both methods use a dual-token system:
 
 ```bash
 auth/
+├── cookies.rs          - Shared cookie utilities
+├── google/             - Google OAuth implementation
+│   ├── client.rs       - OIDC client setup
+│   ├── models.rs       - Google OAuth data structures (OidcFlowData)
+│   ├── routes.rs       - Google OAuth endpoints (/auth/google, /auth/callback)
+│   └── service.rs      - Google user logic (find_or_create_google_user)
 ├── jwt.rs              - JWT token generation and verification
 ├── middleware.rs       - Auth middleware (validates JWT on protected routes)
-├── models.rs           - Data structures (OidcFlowData)
+├── models.rs           - General auth data structures
 ├── refresh_token.rs    - Refresh token logic (generate, verify, rotate, revoke)
-├── routes.rs           - Auth endpoints (/auth/google, /auth/callback, /auth/refresh, /auth/logout, /auth/me)
-├── service.rs          - Business logic (find_or_create_google_user)
+├── routes.rs           - General auth endpoints (/auth/refresh, /auth/logout, /auth/me)
+├── service.rs          - General auth business logic
 ├── validation.rs       - Input validation (email, password, username)
 └── README.md           - This file
 ```
