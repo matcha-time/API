@@ -462,8 +462,7 @@ async fn verify_email(
     Query(query): Query<VerifyEmailQuery>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Verify the token and mark the user's email as verified
-    let newly_verified = email_verification::verify_email_token(&state.pool, &query.token)
-        .await?; // Propagate the error to return proper error codes
+    let newly_verified = email_verification::verify_email_token(&state.pool, &query.token).await?; // Propagate the error to return proper error codes
 
     let message = if newly_verified {
         "Email verified successfully. You can now log in to your account."
