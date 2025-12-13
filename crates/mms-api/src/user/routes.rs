@@ -163,19 +163,13 @@ async fn create_user(
             let verification_token =
                 email_verification::create_verification_token(&state.pool, user_id, 24).await?;
 
-            if let Some(email_service) = &state.email_service {
-                let _ = email_service.send_verification_email(
-                    &request.email,
-                    &request.username,
-                    &verification_token,
-                );
-            } else {
-                tracing::info!(
-                    user_id = %user_id,
-                    token = %verification_token,
-                    "Email service not configured - verification token generated"
-                );
-            }
+            crate::user::email::send_verification_email_if_available(
+                &state.email_service,
+                user_id,
+                &request.email,
+                &request.username,
+                &verification_token,
+            );
         }
 
         // Return generic message regardless of verification status to prevent enumeration
@@ -208,11 +202,10 @@ async fn create_user(
     .map_err(|e| {
         // Handle unique constraint violations gracefully
         if e.to_string().contains("duplicate key") {
-            if e.to_string().contains("username") {
-                ApiError::Conflict("Username is already taken.".to_string())
-            } else {
-                ApiError::Conflict("An account with this email already exists.".to_string())
-            }
+            // Generic message to prevent enumeration
+            ApiError::Conflict(
+                "Registration failed. This username or email may already be in use.".to_string(),
+            )
         } else {
             ApiError::Database(e)
         }
@@ -241,23 +234,13 @@ async fn create_user(
     // Send verification email if email service is configured
     // Note: If this fails, user is created but email not sent
     // They can use the resend endpoint or re-register
-    if let Some(email_service) = &state.email_service {
-        if let Err(e) = email_service.send_verification_email(
-            &request.email,
-            &request.username,
-            &verification_token,
-        ) {
-            tracing::error!(error = %e, "Failed to send verification email");
-            // Don't fail the request, user can resend later
-        }
-    } else {
-        // If email service is not configured, log the verification URL to the console
-        tracing::info!(
-            user_id = %user_id,
-            token = %verification_token,
-            "Email service not configured - verification token generated"
-        );
-    }
+    crate::user::email::send_verification_email_if_available(
+        &state.email_service,
+        user_id,
+        &request.email,
+        &request.username,
+        &verification_token,
+    );
 
     Ok(Json(serde_json::json!({
         "message": "Registration successful. Please check your email to verify your account.",
@@ -270,8 +253,6 @@ async fn login_user(
     jar: PrivateCookieJar,
     Json(request): Json<LoginRequest>,
 ) -> Result<(PrivateCookieJar, Json<AuthResponse>), ApiError> {
-    let start = std::time::Instant::now();
-
     // Fetch user from database
     let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>, bool)>(
         // language=PostgreSQL
@@ -286,22 +267,15 @@ async fn login_user(
     .await?
     .ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
 
-    tracing::info!("DB query took: {}ms", start.elapsed().as_millis());
-
     let (id, username, email, password_hash, profile_picture_url, email_verified) = user;
 
     // Verify password exists and matches
     let password_hash =
         password_hash.ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
 
-    let bcrypt_start = std::time::Instant::now();
     if !bcrypt::verify(&request.password, &password_hash)? {
         return Err(ApiError::Auth("Invalid email or password".to_string()));
     }
-    tracing::info!(
-        "Bcrypt verify took: {}ms",
-        bcrypt_start.elapsed().as_millis()
-    );
 
     // Check if email is verified
     if !email_verified {
@@ -526,13 +500,12 @@ async fn resend_verification_email(
                 email_verification::create_verification_token(&state.pool, user_id, 24).await?;
 
             // Send verification email
+            // Note: If this fails, we don't return error to prevent email enumeration
             if let Some(email_service) = &state.email_service {
-                email_service
-                    .send_verification_email(&request.email, &username, &token)
-                    .map_err(|e| {
-                        tracing::error!(error = %e, "Failed to send verification email");
-                        ApiError::Email("Failed to send verification email".to_string())
-                    })?;
+                if let Err(e) = email_service.send_verification_email(&request.email, &username, &token) {
+                    tracing::error!(error = %e, "Failed to send verification email");
+                    // Don't fail the request - user can try resending again
+                }
             } else {
                 // Email service not configured - log the token for development
                 tracing::info!(
@@ -662,12 +635,19 @@ async fn update_user_profile(
         })?;
 
         // Verify current password
-        let password_hash = password_hash.ok_or_else(|| {
+        let password_hash_value = password_hash.ok_or_else(|| {
             ApiError::Auth("Password authentication not available for this account".to_string())
         })?;
 
-        if !bcrypt::verify(current_password, &password_hash)? {
+        if !bcrypt::verify(current_password, &password_hash_value)? {
             return Err(ApiError::Auth("Current password is incorrect".to_string()));
+        }
+
+        // Ensure new password is different from current password
+        if current_password == new_password {
+            return Err(ApiError::Validation(
+                "New password must be different from current password".to_string(),
+            ));
         }
 
         // Validate new password
@@ -762,19 +742,13 @@ async fn update_user_profile(
         let verification_token =
             email_verification::create_verification_token(&state.pool, user_id, 24).await?;
 
-        if let Some(email_service) = &state.email_service {
-            if let Err(e) =
-                email_service.send_verification_email(&email, &username, &verification_token)
-            {
-                tracing::error!(error = %e, "Failed to send verification email");
-            }
-        } else {
-            tracing::info!(
-                user_id = %user_id,
-                token = %verification_token,
-                "Email service not configured - verification token generated"
-            );
-        }
+        crate::user::email::send_verification_email_if_available(
+            &state.email_service,
+            user_id,
+            &email,
+            &username,
+            &verification_token,
+        );
     }
 
     let user_response = UserResponse {

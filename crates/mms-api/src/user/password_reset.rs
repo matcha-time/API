@@ -18,6 +18,8 @@ pub async fn create_reset_token(
     // Calculate expiration time
     let expires_at: DateTime<Utc> = Utc::now() + Duration::hours(expires_in_hours);
 
+    let mut tx = pool.begin().await?;
+
     // Invalidate any existing unused tokens for this user
     sqlx::query(
         // language=PostgreSQL
@@ -28,7 +30,7 @@ pub async fn create_reset_token(
         "#,
     )
     .bind(user_id)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
 
     // Insert new token
@@ -42,8 +44,10 @@ pub async fn create_reset_token(
     .bind(user_id)
     .bind(&token_hash)
     .bind(expires_at)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+
+    tx.commit().await?;
 
     Ok(token)
 }
@@ -90,6 +94,18 @@ pub async fn verify_and_reset_password(
         "#,
     )
     .bind(new_password_hash)
+    .bind(user_id)
+    .execute(&mut *tx)
+    .await?;
+
+    // Revoke all existing refresh tokens for security
+    // This ensures any stolen tokens cannot be used after password reset
+    sqlx::query(
+        // language=PostgreSQL
+        r#"
+            DELETE FROM refresh_tokens WHERE user_id = $1
+        "#,
+    )
     .bind(user_id)
     .execute(&mut *tx)
     .await?;

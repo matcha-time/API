@@ -2,6 +2,7 @@ use lettre::{
     Message, SmtpTransport, Transport, message::Mailbox,
     transport::smtp::authentication::Credentials,
 };
+use sqlx::types::Uuid;
 
 use crate::error::ApiError;
 
@@ -150,5 +151,28 @@ impl EmailService {
             .map_err(|e| ApiError::Email(format!("Failed to send email: {e}")))?;
 
         Ok(())
+    }
+}
+
+/// Helper function to send verification email if email service is available
+/// Logs errors but doesn't fail - useful for registration and resend flows
+pub fn send_verification_email_if_available(
+    email_service: &Option<EmailService>,
+    user_id: Uuid,
+    email: &str,
+    username: &str,
+    verification_token: &str,
+) {
+    if let Some(email_service) = email_service {
+        if let Err(e) = email_service.send_verification_email(email, username, verification_token) {
+            tracing::error!(error = %e, user_id = %user_id, "Failed to send verification email");
+            // Don't fail the request, user can resend later
+        }
+    } else {
+        tracing::info!(
+            user_id = %user_id,
+            token = %verification_token,
+            "Email service not configured - verification token generated"
+        );
     }
 }

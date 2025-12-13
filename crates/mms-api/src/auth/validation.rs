@@ -1,18 +1,14 @@
 use crate::error::ApiError;
+use validator::ValidateEmail;
 
-/// Validate email format
+/// Validate email format using the validator crate
 pub fn validate_email(email: &str) -> Result<(), ApiError> {
     if email.is_empty() {
         return Err(ApiError::Validation("Email cannot be empty".to_string()));
     }
 
-    // Basic email validation
-    if !email.contains('@') || !email.contains('.') {
-        return Err(ApiError::Validation("Invalid email format".to_string()));
-    }
-
-    let parts: Vec<&str> = email.split('@').collect();
-    if parts.len() != 2 || parts[0].is_empty() || parts[1].is_empty() {
+    // Use the validator crate for proper email validation
+    if !email.validate_email() {
         return Err(ApiError::Validation("Invalid email format".to_string()));
     }
 
@@ -75,18 +71,6 @@ pub fn validate_username(username: &str) -> Result<(), ApiError> {
         ));
     }
 
-    // Additional check: reject common XSS patterns
-    let username_lower = username.to_lowercase();
-    if username_lower.contains("script")
-        || username_lower.contains("<")
-        || username_lower.contains(">")
-        || username_lower.contains("&")
-    {
-        return Err(ApiError::Validation(
-            "Username contains invalid characters".to_string(),
-        ));
-    }
-
     Ok(())
 }
 
@@ -133,11 +117,19 @@ mod tests {
 
     #[test]
     fn test_validate_email() {
+        // Valid emails
         assert!(validate_email("user@example.com").is_ok());
+        assert!(validate_email("user.name@example.com").is_ok());
+        assert!(validate_email("user+tag@example.co.uk").is_ok());
+
+        // Invalid emails
         assert!(validate_email("").is_err());
         assert!(validate_email("invalid").is_err());
         assert!(validate_email("@example.com").is_err());
         assert!(validate_email("user@").is_err());
+        assert!(validate_email("user@@example.com").is_err());
+        assert!(validate_email("user@domain..com").is_err());
+        assert!(validate_email("user@.com").is_err());
     }
 
     #[test]
@@ -153,15 +145,16 @@ mod tests {
         assert!(validate_username("user123").is_ok());
         assert!(validate_username("user_name").is_ok());
         assert!(validate_username("user-name").is_ok());
+        assert!(validate_username("userscript").is_ok()); // Valid username
+        assert!(validate_username("javascript_dev").is_ok()); // Valid username
         assert!(validate_username("ab").is_err());
         assert!(validate_username("").is_err());
         assert!(validate_username("user name").is_err());
 
-        // XSS prevention tests
+        // XSS prevention tests - these are blocked by alphanumeric check
         assert!(validate_username("<script>alert('xss')</script>").is_err());
         assert!(validate_username("user<script>").is_err());
         assert!(validate_username("user&test").is_err());
-        assert!(validate_username("userscript").is_err()); // Contains "script"
     }
 
     #[test]

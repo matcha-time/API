@@ -166,6 +166,7 @@ tracing-appender = "0.2"
 metrics = "0.24"
 metrics-exporter-prometheus = "0.17"
 regex = "1.11"
+validator = { version = "0.18", features = ["derive"] }
 
 # Deployment dependencies (Shuttle.rs)
 shuttle-runtime = "0.51.0"

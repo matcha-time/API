@@ -45,17 +45,14 @@ impl IntoResponse for ApiError {
             ApiError::Email(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
             ApiError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
             ApiError::Database(e) => {
-                // Handle specific database errors
-                if let sqlx::Error::Database(db_err) = &e
-                    && db_err.constraint().is_some()
-                {
-                    return (
-                        StatusCode::CONFLICT,
-                        Json(serde_json::json!({ "error": "User already exists" })),
-                    )
-                        .into_response();
-                }
-                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+                // Log the actual error for debugging
+                tracing::error!(error = %e, "Database error occurred");
+
+                // Never expose internal database errors to users
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again later.".to_string(),
+                )
             }
         };
 

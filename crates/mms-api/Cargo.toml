@@ -47,6 +47,7 @@ tracing-subscriber.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 regex.workspace = true
+validator.workspace = true
 
 # Optional dependencies for Shuttle.rs deployment
 shuttle-runtime = { workspace = true, optional = true }
