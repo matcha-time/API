@@ -97,7 +97,7 @@ async fn refresh_token(
         jwt::generate_jwt_token(user_id, email, &state.jwt_secret, state.jwt_expiry_hours)?;
 
     // Update cookies
-    let auth_cookie = jwt::create_auth_cookie(
+    let auth_cookie = cookies::create_auth_cookie(
         new_access_token.clone(),
         &state.environment,
         state.jwt_expiry_hours,

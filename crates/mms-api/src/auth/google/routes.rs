@@ -55,7 +55,7 @@ async fn google_auth(
     let oidc_json = serde_json::to_string(&oidc_data)
         .map_err(|e| ApiError::Cookie(format!("Failed to serialize OIDC data: {}", e)))?;
 
-    let cookie = jwt::create_oidc_flow_cookie(
+    let cookie = cookies::create_oidc_flow_cookie(
         oidc_json,
         &state.environment,
         state.oidc_flow_expiry_minutes,
@@ -164,7 +164,7 @@ async fn auth_callback(
 
     // Set cookies with JWT and refresh token
     let auth_cookie =
-        jwt::create_auth_cookie(token.clone(), &state.environment, state.jwt_expiry_hours);
+        cookies::create_auth_cookie(token.clone(), &state.environment, state.jwt_expiry_hours);
     let refresh_cookie = cookies::create_refresh_token_cookie(
         refresh_token,
         &state.environment,

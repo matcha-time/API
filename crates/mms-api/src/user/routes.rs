@@ -319,7 +319,7 @@ async fn login_user(
 
     // Set cookies with JWT and refresh token
     let auth_cookie =
-        jwt::create_auth_cookie(token.clone(), &state.environment, state.jwt_expiry_hours);
+        cookies::create_auth_cookie(token.clone(), &state.environment, state.jwt_expiry_hours);
     let refresh_cookie = cookies::create_refresh_token_cookie(
         refresh_token.clone(),
         &state.environment,
@@ -772,7 +772,7 @@ async fn update_user_profile(
     let jar = if request.email.is_some() && request.email.as_ref() != Some(&current_email) {
         let token = jwt::generate_jwt_token(id, email, &state.jwt_secret, state.jwt_expiry_hours)?;
         let auth_cookie =
-            jwt::create_auth_cookie(token, &state.environment, state.jwt_expiry_hours);
+            cookies::create_auth_cookie(token, &state.environment, state.jwt_expiry_hours);
         jar.add(auth_cookie)
     } else {
         jar
