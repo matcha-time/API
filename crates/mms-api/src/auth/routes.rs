@@ -80,17 +80,26 @@ async fn refresh_token(
     )
     .await?;
 
-    // Fetch user email for JWT
-    let email = sqlx::query_scalar::<_, String>(
+    // Fetch user email and verify account status
+    let (email, email_verified) = sqlx::query_as::<_, (String, bool)>(
         // language=PostgreSQL
         r#"
-            SELECT email FROM users WHERE id = $1
+            SELECT email, email_verified
+            FROM users
+            WHERE id = $1
         "#,
     )
     .bind(user_id)
-    .fetch_one(&state.pool)
-    .await
-    .map_err(|_| ApiError::Auth("User not found".to_string()))?;
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| ApiError::Auth("User account no longer exists".to_string()))?;
+
+    // Ensure email is still verified
+    if !email_verified {
+        return Err(ApiError::Auth(
+            "Email verification required. Please verify your email.".to_string(),
+        ));
+    }
 
     // Generate new JWT access token
     let new_access_token =
@@ -125,8 +134,11 @@ async fn logout(
     jar: PrivateCookieJar,
 ) -> (PrivateCookieJar, Json<serde_json::Value>) {
     // Revoke refresh token if present
-    if let Some(refresh_cookie) = jar.get("refresh_token") {
-        let _ = rt::revoke_refresh_token(&state.pool, refresh_cookie.value()).await;
+    if let Some(refresh_cookie) = jar.get("refresh_token")
+        && let Err(e) = rt::revoke_refresh_token(&state.pool, refresh_cookie.value()).await
+    {
+        tracing::error!(error = %e, "Failed to revoke refresh token during logout");
+        // Still proceed with logout - clear cookies anyway
     }
 
     // Remove both auth and refresh token cookies
