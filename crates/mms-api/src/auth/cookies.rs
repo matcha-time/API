@@ -6,24 +6,26 @@ use crate::config::Environment;
 ///
 /// Cookies are secure (HTTPS-only) by default in production.
 /// In development mode, cookies can be used over HTTP.
+///
+/// For production with separate subdomains (api.matcha-time.dev and matcha-time.dev):
+/// - Uses SameSite=Lax for CSRF protection while allowing subdomain access
+/// - Sets Domain from frontend_url to work across all subdomains
+/// - Always secure and HttpOnly in production for maximum security
 pub fn create_auth_cookie(
     token: String,
     environment: &Environment,
     expiry_hours: i64,
+    frontend_url: &str,
 ) -> Cookie<'static> {
     let is_development = environment.is_development();
-    let same_site = if is_development {
-        axum_extra::extract::cookie::SameSite::Lax
-    } else {
-        axum_extra::extract::cookie::SameSite::Strict
-    };
 
     Cookie::build(("auth_token", token))
         .path("/")
         .max_age(time::Duration::hours(expiry_hours))
         .http_only(true)
-        .same_site(same_site)
+        .same_site(axum_extra::extract::cookie::SameSite::Lax)
         .secure(!is_development)
+        .domain(frontend_url.to_string())
         .build()
 }
 
@@ -31,24 +33,26 @@ pub fn create_auth_cookie(
 ///
 /// Cookies are secure (HTTPS-only) by default in production.
 /// In development mode, cookies can be used over HTTP.
+///
+/// For production with separate subdomains (api.matcha-time.dev and matcha-time.dev):
+/// - Uses SameSite=Lax for CSRF protection while allowing subdomain access
+/// - Sets Domain from frontend_url to work across all subdomains
+/// - Always secure and HttpOnly in production for maximum security
 pub fn create_oidc_flow_cookie(
     oidc_json: String,
     environment: &Environment,
     expiry_minutes: i64,
+    frontend_url: &str,
 ) -> Cookie<'static> {
     let is_development = environment.is_development();
-    let same_site = if is_development {
-        axum_extra::extract::cookie::SameSite::Lax
-    } else {
-        axum_extra::extract::cookie::SameSite::Strict
-    };
 
     Cookie::build(("oidc_flow", oidc_json))
         .path("/")
         .max_age(time::Duration::minutes(expiry_minutes))
         .http_only(true)
-        .same_site(same_site)
+        .same_site(axum_extra::extract::cookie::SameSite::Lax)
         .secure(!is_development)
+        .domain(frontend_url.to_string())
         .build()
 }
 
@@ -56,24 +60,26 @@ pub fn create_oidc_flow_cookie(
 ///
 /// Cookies are secure (HTTPS-only) by default in production.
 /// In development mode, cookies can be used over HTTP.
+///
+/// For production with separate subdomains (api.matcha-time.dev and matcha-time.dev):
+/// - Uses SameSite=Lax for CSRF protection while allowing subdomain access
+/// - Sets Domain from frontend_url to work across all subdomains
+/// - Always secure and HttpOnly in production for maximum security
 pub fn create_refresh_token_cookie(
     token: String,
     environment: &Environment,
     expiry_days: i64,
+    frontend_url: &str,
 ) -> Cookie<'static> {
     let is_development = environment.is_development();
-    let same_site = if is_development {
-        axum_extra::extract::cookie::SameSite::Lax
-    } else {
-        axum_extra::extract::cookie::SameSite::Strict
-    };
 
     Cookie::build(("refresh_token", token))
         .path("/")
         .max_age(time::Duration::days(expiry_days))
         .http_only(true)
-        .same_site(same_site)
+        .same_site(axum_extra::extract::cookie::SameSite::Lax)
         .secure(!is_development)
+        .domain(frontend_url.to_string())
         .build()
 }
 
@@ -86,7 +92,7 @@ mod tests {
         let token = "test_token".to_string();
         let environment = Environment::Development;
 
-        let cookie = create_auth_cookie(token.clone(), &environment, 24);
+        let cookie = create_auth_cookie(token.clone(), &environment, 24, "http://localhost:8080");
 
         assert_eq!(cookie.name(), "auth_token");
         assert_eq!(cookie.value(), token);
@@ -96,6 +102,7 @@ mod tests {
             !cookie.secure().unwrap_or(true),
             "Should not be secure in development"
         );
+        assert_eq!(cookie.domain(), Some("http://localhost:8080"));
     }
 
     #[test]
@@ -103,7 +110,7 @@ mod tests {
         let token = "test_token".to_string();
         let environment = Environment::Production;
 
-        let cookie = create_auth_cookie(token.clone(), &environment, 24);
+        let cookie = create_auth_cookie(token.clone(), &environment, 24, "https://matcha-time.dev");
 
         assert_eq!(cookie.name(), "auth_token");
         assert_eq!(cookie.value(), token);
@@ -112,6 +119,11 @@ mod tests {
         assert!(
             cookie.secure().unwrap_or(false),
             "Should be secure in production"
+        );
+        assert_eq!(
+            cookie.domain(),
+            Some("https://matcha-time.dev"),
+            "Should have domain for cross-subdomain support"
         );
     }
 
@@ -121,7 +133,7 @@ mod tests {
             r#"{"csrf_token":"test","nonce":"test","pkce_verifier":"test"}"#.to_string();
         let environment = Environment::Development;
 
-        let cookie = create_oidc_flow_cookie(oidc_json.clone(), &environment, 10);
+        let cookie = create_oidc_flow_cookie(oidc_json.clone(), &environment, 10, "http://localhost:8080");
 
         assert_eq!(cookie.name(), "oidc_flow");
         assert_eq!(cookie.value(), oidc_json);
@@ -131,6 +143,7 @@ mod tests {
             !cookie.secure().unwrap_or(true),
             "Should not be secure in development"
         );
+        assert_eq!(cookie.domain(), Some("http://localhost:8080"));
     }
 
     #[test]
@@ -139,7 +152,7 @@ mod tests {
             r#"{"csrf_token":"test","nonce":"test","pkce_verifier":"test"}"#.to_string();
         let environment = Environment::Production;
 
-        let cookie = create_oidc_flow_cookie(oidc_json.clone(), &environment, 10);
+        let cookie = create_oidc_flow_cookie(oidc_json.clone(), &environment, 10, "https://matcha-time.dev");
 
         assert_eq!(cookie.name(), "oidc_flow");
         assert_eq!(cookie.value(), oidc_json);
@@ -148,6 +161,11 @@ mod tests {
         assert!(
             cookie.secure().unwrap_or(false),
             "Should be secure in production"
+        );
+        assert_eq!(
+            cookie.domain(),
+            Some("https://matcha-time.dev"),
+            "Should have domain for cross-subdomain support"
         );
     }
 }
