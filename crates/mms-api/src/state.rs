@@ -9,6 +9,7 @@ use sqlx::PgPool;
 pub struct ApiState {
     pub oidc_client: OpenIdClient,
     pub jwt_secret: String,
+    pub bcrypt_cost: u32,
     pub jwt_expiry_hours: i64,
     pub refresh_token_expiry_days: i64,
     pub oidc_flow_expiry_minutes: i64,
@@ -76,9 +77,16 @@ impl ApiState {
             None
         };
 
+        tracing::info!(
+            "Initializing ApiState with bcrypt_cost: {} (estimated login time: ~{}ms)",
+            config.bcrypt_cost,
+            2_u32.pow(config.bcrypt_cost) / 10
+        );
+
         Ok(Self {
             oidc_client,
             jwt_secret: config.jwt_secret,
+            bcrypt_cost: config.bcrypt_cost,
             jwt_expiry_hours: config.jwt_expiry_hours,
             refresh_token_expiry_days: config.refresh_token_expiry_days,
             oidc_flow_expiry_minutes: config.oidc_flow_expiry_minutes,

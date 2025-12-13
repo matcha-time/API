@@ -39,6 +39,12 @@ pub struct ApiConfig {
     pub jwt_secret: String,
     pub cookie_secret: String,
 
+    /// Bcrypt cost factor for password hashing (default: 10)
+    /// Higher values are more secure but slower (each increment doubles the time)
+    /// Recommended: 10 (fast, ~100ms), 11 (medium, ~200ms), 12 (secure, ~400ms)
+    #[serde(default = "default_bcrypt_cost")]
+    pub bcrypt_cost: u32,
+
     /// JWT token expiry in hours (default: 24)
     #[serde(default = "default_jwt_expiry_hours")]
     pub jwt_expiry_hours: i64,
@@ -102,6 +108,11 @@ pub struct ApiConfig {
     /// Environment mode (development/production)
     #[serde(default)]
     pub env: Environment,
+}
+
+/// Default value for bcrypt cost (10 = ~100ms, good balance of security and speed)
+fn default_bcrypt_cost() -> u32 {
+    10
 }
 
 /// Default value for allowed_origins
@@ -225,6 +236,10 @@ impl ApiConfig {
                 .get("COOKIE_SECRET")
                 .ok_or_else(|| ConfigError::ValidationError("COOKIE_SECRET not found".to_string()))?
                 .to_string(),
+            bcrypt_cost: secrets
+                .get("BCRYPT_COST")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or_else(default_bcrypt_cost),
             jwt_expiry_hours: secrets
                 .get("JWT_EXPIRY_HOURS")
                 .and_then(|s| s.parse().ok())

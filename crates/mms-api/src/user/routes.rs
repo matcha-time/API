@@ -189,7 +189,7 @@ async fn create_user(
     let mut tx = state.pool.begin().await?;
 
     // Hash the password
-    let password_hash = bcrypt::hash(&request.password, bcrypt::DEFAULT_COST)?;
+    let password_hash = bcrypt::hash(&request.password, state.bcrypt_cost)?;
 
     // Insert user into database
     let user_id = sqlx::query_scalar::<_, Uuid>(
@@ -270,6 +270,8 @@ async fn login_user(
     jar: PrivateCookieJar,
     Json(request): Json<LoginRequest>,
 ) -> Result<(PrivateCookieJar, Json<AuthResponse>), ApiError> {
+    let start = std::time::Instant::now();
+
     // Fetch user from database
     let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>, bool)>(
         // language=PostgreSQL
@@ -284,15 +286,19 @@ async fn login_user(
     .await?
     .ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
 
+    tracing::info!("DB query took: {}ms", start.elapsed().as_millis());
+
     let (id, username, email, password_hash, profile_picture_url, email_verified) = user;
 
     // Verify password exists and matches
     let password_hash =
         password_hash.ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
 
+    let bcrypt_start = std::time::Instant::now();
     if !bcrypt::verify(&request.password, &password_hash)? {
         return Err(ApiError::Auth("Invalid email or password".to_string()));
     }
+    tracing::info!("Bcrypt verify took: {}ms", bcrypt_start.elapsed().as_millis());
 
     // Check if email is verified
     if !email_verified {
@@ -428,7 +434,7 @@ async fn reset_password(
     auth::validation::validate_password(&request.new_password)?;
 
     // Hash the new password
-    let password_hash = bcrypt::hash(&request.new_password, bcrypt::DEFAULT_COST)?;
+    let password_hash = bcrypt::hash(&request.new_password, state.bcrypt_cost)?;
 
     // Verify token and reset password in a single transaction
     // This prevents token burn without password update
@@ -717,7 +723,7 @@ async fn update_user_profile(
     }
 
     if let Some(new_pwd) = &request.new_password {
-        let new_password_hash = bcrypt::hash(new_pwd, bcrypt::DEFAULT_COST)?;
+        let new_password_hash = bcrypt::hash(new_pwd, state.bcrypt_cost)?;
         separated.push("password_hash = ");
         separated.push_bind_unseparated(new_password_hash);
     }
