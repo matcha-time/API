@@ -155,7 +155,8 @@ mod tests {
             r#"{"csrf_token":"test","nonce":"test","pkce_verifier":"test"}"#.to_string();
         let environment = Environment::Production;
 
-        let cookie = create_oidc_flow_cookie(oidc_json.clone(), &environment, 10, ".matcha-time.dev");
+        let cookie =
+            create_oidc_flow_cookie(oidc_json.clone(), &environment, 10, ".matcha-time.dev");
 
         assert_eq!(cookie.name(), "oidc_flow");
         assert_eq!(cookie.value(), oidc_json);

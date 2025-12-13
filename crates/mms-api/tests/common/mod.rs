@@ -79,6 +79,8 @@ impl TestStateBuilder {
             pool,
             environment: Environment::Development,
             email_service: None, // No email service in tests
+            cookie_domain: "localhost".to_string(),
+            bcrypt_cost: 8
         })
     }
 }
