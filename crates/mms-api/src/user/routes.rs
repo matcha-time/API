@@ -502,7 +502,9 @@ async fn resend_verification_email(
             // Send verification email
             // Note: If this fails, we don't return error to prevent email enumeration
             if let Some(email_service) = &state.email_service {
-                if let Err(e) = email_service.send_verification_email(&request.email, &username, &token) {
+                if let Err(e) =
+                    email_service.send_verification_email(&request.email, &username, &token)
+                {
                     tracing::error!(error = %e, "Failed to send verification email");
                     // Don't fail the request - user can try resending again
                 }
