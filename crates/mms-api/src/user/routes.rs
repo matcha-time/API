@@ -322,13 +322,13 @@ async fn login_user(
         token.clone(),
         &state.environment,
         state.jwt_expiry_hours,
-        &state.frontend_url,
+        &state.cookie_domain,
     );
     let refresh_cookie = cookies::create_refresh_token_cookie(
         refresh_token.clone(),
         &state.environment,
         state.refresh_token_expiry_days,
-        &state.frontend_url,
+        &state.cookie_domain,
     );
     let jar = jar.add(auth_cookie).add(refresh_cookie);
 
@@ -467,7 +467,7 @@ async fn verify_email(
     Query(query): Query<VerifyEmailQuery>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Verify the token and mark the user's email as verified
-    let newly_verified = email_verification::verify_email_token(&state.pool, &query.token).await?; // Propagate the error to return proper error codes
+    let (email, newly_verified) = email_verification::verify_email_token(&state.pool, &query.token).await?; // Propagate the error to return proper error codes
 
     let message = if newly_verified {
         "Email verified successfully. You can now log in to your account."
@@ -476,7 +476,8 @@ async fn verify_email(
     };
 
     Ok(Json(serde_json::json!({
-        "message": message
+        "message": message,
+        "email": email
     })))
 }
 
@@ -780,7 +781,7 @@ async fn update_user_profile(
             token,
             &state.environment,
             state.jwt_expiry_hours,
-            &state.frontend_url,
+            &state.cookie_domain,
         );
         jar.add(auth_cookie)
     } else {

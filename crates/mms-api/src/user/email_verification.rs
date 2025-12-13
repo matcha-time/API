@@ -92,8 +92,8 @@ pub async fn create_verification_token_tx(
 }
 
 /// Verify an email verification token and mark the user's email as verified
-/// Returns Ok(true) if email was newly verified, Ok(false) if already verified
-pub async fn verify_email_token(pool: &PgPool, token: &str) -> Result<bool, ApiError> {
+/// Returns Ok((email, true)) if email was newly verified, Ok((email, false)) if already verified
+pub async fn verify_email_token(pool: &PgPool, token: &str) -> Result<(String, bool), ApiError> {
     let token_hash = hash_token(token);
 
     // Start a transaction to ensure both operations succeed or fail together
@@ -119,11 +119,11 @@ pub async fn verify_email_token(pool: &PgPool, token: &str) -> Result<bool, ApiE
         .map(|(user_id,)| user_id)
         .ok_or_else(|| ApiError::Auth("Invalid or expired verification token".to_string()))?;
 
-    // Check if user's email is already verified
-    let already_verified = sqlx::query_scalar::<_, bool>(
+    // Check if user's email is already verified and get the email
+    let (email, already_verified) = sqlx::query_as::<_, (String, bool)>(
         // language=PostgreSQL
         r#"
-            SELECT email_verified
+            SELECT email, email_verified
             FROM users
             WHERE id = $1
         "#,
@@ -135,7 +135,7 @@ pub async fn verify_email_token(pool: &PgPool, token: &str) -> Result<bool, ApiE
     // If already verified, just return success without updating
     if already_verified {
         tx.commit().await?;
-        return Ok(false);
+        return Ok((email, false));
     }
 
     // Mark the user's email as verified
@@ -154,7 +154,7 @@ pub async fn verify_email_token(pool: &PgPool, token: &str) -> Result<bool, ApiE
     // Commit the transaction
     tx.commit().await?;
 
-    Ok(true)
+    Ok((email, true))
 }
 
 /// Clean up expired tokens (can be run periodically)

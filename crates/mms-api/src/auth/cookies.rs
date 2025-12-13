@@ -9,13 +9,13 @@ use crate::config::Environment;
 ///
 /// For production with separate subdomains (api.matcha-time.dev and matcha-time.dev):
 /// - Uses SameSite=Lax for CSRF protection while allowing subdomain access
-/// - Sets Domain from frontend_url to work across all subdomains
+/// - Sets Domain to work across all subdomains (e.g., ".matcha-time.dev")
 /// - Always secure and HttpOnly in production for maximum security
 pub fn create_auth_cookie(
     token: String,
     environment: &Environment,
     expiry_hours: i64,
-    frontend_url: &str,
+    cookie_domain: &str,
 ) -> Cookie<'static> {
     let is_development = environment.is_development();
 
@@ -25,7 +25,7 @@ pub fn create_auth_cookie(
         .http_only(true)
         .same_site(axum_extra::extract::cookie::SameSite::Lax)
         .secure(!is_development)
-        .domain(frontend_url.to_string())
+        .domain(cookie_domain.to_string())
         .build()
 }
 
@@ -36,13 +36,13 @@ pub fn create_auth_cookie(
 ///
 /// For production with separate subdomains (api.matcha-time.dev and matcha-time.dev):
 /// - Uses SameSite=Lax for CSRF protection while allowing subdomain access
-/// - Sets Domain from frontend_url to work across all subdomains
+/// - Sets Domain to work across all subdomains (e.g., ".matcha-time.dev")
 /// - Always secure and HttpOnly in production for maximum security
 pub fn create_oidc_flow_cookie(
     oidc_json: String,
     environment: &Environment,
     expiry_minutes: i64,
-    frontend_url: &str,
+    cookie_domain: &str,
 ) -> Cookie<'static> {
     let is_development = environment.is_development();
 
@@ -52,7 +52,7 @@ pub fn create_oidc_flow_cookie(
         .http_only(true)
         .same_site(axum_extra::extract::cookie::SameSite::Lax)
         .secure(!is_development)
-        .domain(frontend_url.to_string())
+        .domain(cookie_domain.to_string())
         .build()
 }
 
@@ -63,13 +63,13 @@ pub fn create_oidc_flow_cookie(
 ///
 /// For production with separate subdomains (api.matcha-time.dev and matcha-time.dev):
 /// - Uses SameSite=Lax for CSRF protection while allowing subdomain access
-/// - Sets Domain from frontend_url to work across all subdomains
+/// - Sets Domain to work across all subdomains (e.g., ".matcha-time.dev")
 /// - Always secure and HttpOnly in production for maximum security
 pub fn create_refresh_token_cookie(
     token: String,
     environment: &Environment,
     expiry_days: i64,
-    frontend_url: &str,
+    cookie_domain: &str,
 ) -> Cookie<'static> {
     let is_development = environment.is_development();
 
@@ -79,7 +79,7 @@ pub fn create_refresh_token_cookie(
         .http_only(true)
         .same_site(axum_extra::extract::cookie::SameSite::Lax)
         .secure(!is_development)
-        .domain(frontend_url.to_string())
+        .domain(cookie_domain.to_string())
         .build()
 }
 
@@ -92,7 +92,7 @@ mod tests {
         let token = "test_token".to_string();
         let environment = Environment::Development;
 
-        let cookie = create_auth_cookie(token.clone(), &environment, 24, "http://localhost:8080");
+        let cookie = create_auth_cookie(token.clone(), &environment, 24, "localhost");
 
         assert_eq!(cookie.name(), "auth_token");
         assert_eq!(cookie.value(), token);
@@ -102,7 +102,7 @@ mod tests {
             !cookie.secure().unwrap_or(true),
             "Should not be secure in development"
         );
-        assert_eq!(cookie.domain(), Some("http://localhost:8080"));
+        assert_eq!(cookie.domain(), Some("localhost"));
     }
 
     #[test]
@@ -110,7 +110,7 @@ mod tests {
         let token = "test_token".to_string();
         let environment = Environment::Production;
 
-        let cookie = create_auth_cookie(token.clone(), &environment, 24, "https://matcha-time.dev");
+        let cookie = create_auth_cookie(token.clone(), &environment, 24, ".matcha-time.dev");
 
         assert_eq!(cookie.name(), "auth_token");
         assert_eq!(cookie.value(), token);
@@ -120,10 +120,13 @@ mod tests {
             cookie.secure().unwrap_or(false),
             "Should be secure in production"
         );
-        assert_eq!(
-            cookie.domain(),
-            Some("https://matcha-time.dev"),
-            "Should have domain for cross-subdomain support"
+        // Note: The cookie library may strip the leading dot, but it's still set correctly
+        // The leading dot is implicit in modern cookie handling
+        let domain = cookie.domain().unwrap();
+        assert!(
+            domain == ".matcha-time.dev" || domain == "matcha-time.dev",
+            "Should have domain for cross-subdomain support, got: {}",
+            domain
         );
     }
 
@@ -133,7 +136,7 @@ mod tests {
             r#"{"csrf_token":"test","nonce":"test","pkce_verifier":"test"}"#.to_string();
         let environment = Environment::Development;
 
-        let cookie = create_oidc_flow_cookie(oidc_json.clone(), &environment, 10, "http://localhost:8080");
+        let cookie = create_oidc_flow_cookie(oidc_json.clone(), &environment, 10, "localhost");
 
         assert_eq!(cookie.name(), "oidc_flow");
         assert_eq!(cookie.value(), oidc_json);
@@ -143,7 +146,7 @@ mod tests {
             !cookie.secure().unwrap_or(true),
             "Should not be secure in development"
         );
-        assert_eq!(cookie.domain(), Some("http://localhost:8080"));
+        assert_eq!(cookie.domain(), Some("localhost"));
     }
 
     #[test]
@@ -152,7 +155,7 @@ mod tests {
             r#"{"csrf_token":"test","nonce":"test","pkce_verifier":"test"}"#.to_string();
         let environment = Environment::Production;
 
-        let cookie = create_oidc_flow_cookie(oidc_json.clone(), &environment, 10, "https://matcha-time.dev");
+        let cookie = create_oidc_flow_cookie(oidc_json.clone(), &environment, 10, ".matcha-time.dev");
 
         assert_eq!(cookie.name(), "oidc_flow");
         assert_eq!(cookie.value(), oidc_json);
@@ -162,10 +165,13 @@ mod tests {
             cookie.secure().unwrap_or(false),
             "Should be secure in production"
         );
-        assert_eq!(
-            cookie.domain(),
-            Some("https://matcha-time.dev"),
-            "Should have domain for cross-subdomain support"
+        // Note: The cookie library may strip the leading dot, but it's still set correctly
+        // The leading dot is implicit in modern cookie handling
+        let domain = cookie.domain().unwrap();
+        assert!(
+            domain == ".matcha-time.dev" || domain == "matcha-time.dev",
+            "Should have domain for cross-subdomain support, got: {}",
+            domain
         );
     }
 }

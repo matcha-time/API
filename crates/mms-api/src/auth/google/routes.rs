@@ -59,7 +59,7 @@ async fn google_auth(
         oidc_json,
         &state.environment,
         state.oidc_flow_expiry_minutes,
-        &state.frontend_url,
+        &state.cookie_domain,
     );
     let jar = jar.add(cookie);
 
@@ -168,13 +168,13 @@ async fn auth_callback(
         token.clone(),
         &state.environment,
         state.jwt_expiry_hours,
-        &state.frontend_url,
+        &state.cookie_domain,
     );
     let refresh_cookie = cookies::create_refresh_token_cookie(
         refresh_token,
         &state.environment,
         state.refresh_token_expiry_days,
-        &state.frontend_url,
+        &state.cookie_domain,
     );
     let jar = jar.add(auth_cookie).add(refresh_cookie);
 

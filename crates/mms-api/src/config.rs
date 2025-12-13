@@ -81,6 +81,11 @@ pub struct ApiConfig {
     // Frontend & CORS
     pub frontend_url: String,
 
+    /// Cookie domain for cross-subdomain cookie sharing
+    /// - Development: "localhost"
+    /// - Production: ".matcha-time.dev" (with leading dot for subdomains)
+    pub cookie_domain: String,
+
     /// Comma-separated list of allowed origins for CORS
     #[serde(default = "default_allowed_origins")]
     pub allowed_origins: String,
@@ -262,6 +267,10 @@ impl ApiConfig {
             frontend_url: secrets
                 .get("FRONTEND_URL")
                 .ok_or_else(|| ConfigError::ValidationError("FRONTEND_URL not found".to_string()))?
+                .to_string(),
+            cookie_domain: secrets
+                .get("COOKIE_DOMAIN")
+                .ok_or_else(|| ConfigError::ValidationError("COOKIE_DOMAIN not found".to_string()))?
                 .to_string(),
             allowed_origins: secrets
                 .get("ALLOWED_ORIGINS")

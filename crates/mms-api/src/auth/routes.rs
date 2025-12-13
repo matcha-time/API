@@ -101,13 +101,13 @@ async fn refresh_token(
         new_access_token.clone(),
         &state.environment,
         state.jwt_expiry_hours,
-        &state.frontend_url,
+        &state.cookie_domain,
     );
     let refresh_cookie = cookies::create_refresh_token_cookie(
         new_refresh_token,
         &state.environment,
         state.refresh_token_expiry_days,
-        &state.frontend_url,
+        &state.cookie_domain,
     );
     let jar = jar.add(auth_cookie).add(refresh_cookie);
 
