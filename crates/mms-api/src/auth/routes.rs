@@ -1,4 +1,4 @@
-use axum::{Json, Router, extract::State, routing::get};
+use axum::{Json, Router, extract::State, routing::{get, post}};
 use axum_extra::extract::{PrivateCookieJar, cookie::Cookie};
 use serde::Serialize;
 use sqlx::types::Uuid;
@@ -12,8 +12,8 @@ pub fn routes() -> Router<ApiState> {
     // Authenticated routes with general rate limiting
     Router::new()
         .route("/auth/me", get(auth_me))
-        .route("/auth/refresh", get(refresh_token))
-        .route("/auth/logout", get(logout))
+        .route("/auth/refresh", post(refresh_token))
+        .route("/auth/logout", post(logout))
         .layer(make_rate_limit_layer!(
             rate_limit::GENERAL_RATE_PER_SECOND,
             rate_limit::GENERAL_BURST_SIZE
