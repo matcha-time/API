@@ -29,7 +29,7 @@ async fn test_auth_me_without_token() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    let response = client.get("/v1/auth/me").await;
+    let response = client.post("/v1/auth/me").await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
@@ -61,7 +61,7 @@ async fn test_auth_me_with_valid_token() {
 
     // Use the simplified method
     let response = client
-        .get_with_auth("/v1/auth/me", &token, &state.cookie_key)
+        .post_with_auth("/v1/auth/me", &token, &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);
@@ -88,7 +88,7 @@ async fn test_auth_me_with_invalid_token() {
 
     // Use invalid token
     let response = client
-        .get_with_auth("/v1/auth/me", "invalid_token", &state.cookie_key)
+        .post_with_auth("/v1/auth/me", "invalid_token", &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
@@ -140,7 +140,7 @@ async fn test_auth_me_with_expired_token() {
 
     // Use expired token
     let response = client
-        .get_with_auth("/v1/auth/me", &expired_token, &state.cookie_key)
+        .post_with_auth("/v1/auth/me", &expired_token, &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
@@ -195,9 +195,9 @@ async fn test_logout() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Use the get_with_auth_and_refresh method for logout (needs both cookies)
+    // Use the post_with_auth_and_refresh method for logout (needs both cookies)
     let response = client
-        .get_with_auth_and_refresh("/v1/auth/logout", &token, &refresh_token, &state.cookie_key)
+        .post_with_auth_and_refresh("/v1/auth/logout", &token, &refresh_token, &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);

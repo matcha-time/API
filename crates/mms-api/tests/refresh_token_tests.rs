@@ -49,7 +49,7 @@ async fn test_refresh_token_rotation_success() {
 
     // Use refresh token to get new tokens
     let refresh_response = client
-        .get_with_auth_and_refresh(
+        .post_with_auth_and_refresh(
             "/v1/auth/refresh",
             old_access_token,
             old_refresh_token,
@@ -144,7 +144,7 @@ async fn test_refresh_token_reuse_detection() {
 
     // Use refresh token first time - should succeed
     let first_refresh = client
-        .get_with_auth_and_refresh(
+        .post_with_auth_and_refresh(
             "/v1/auth/refresh",
             access_token,
             refresh_token,
@@ -155,7 +155,7 @@ async fn test_refresh_token_reuse_detection() {
 
     // Try to reuse same refresh token - should fail
     let second_refresh = client
-        .get_with_auth_and_refresh(
+        .post_with_auth_and_refresh(
             "/v1/auth/refresh",
             access_token,
             refresh_token,
@@ -185,7 +185,7 @@ async fn test_refresh_token_missing_cookie() {
     let client = TestClient::new(app);
 
     // Try to refresh without any cookies
-    let response = client.get("/v1/auth/refresh").await;
+    let response = client.post("/v1/auth/refresh").await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
@@ -220,7 +220,7 @@ async fn test_refresh_token_invalid_token() {
 
     // Try to refresh with invalid refresh token
     let response = client
-        .get_with_auth_and_refresh(
+        .post_with_auth_and_refresh(
             "/v1/auth/refresh",
             &access_token,
             "invalid_refresh_token",
@@ -275,7 +275,7 @@ async fn test_logout_revokes_refresh_token() {
 
     // Logout
     let logout_response = client
-        .get_with_auth_and_refresh(
+        .post_with_auth_and_refresh(
             "/v1/auth/logout",
             access_token,
             refresh_token,
@@ -305,7 +305,7 @@ async fn test_logout_revokes_refresh_token() {
 
     // Try to use refresh token after logout - should fail
     let refresh_after_logout = client
-        .get_with_auth_and_refresh(
+        .post_with_auth_and_refresh(
             "/v1/auth/refresh",
             access_token,
             refresh_token,
@@ -376,7 +376,7 @@ async fn test_multiple_concurrent_refresh_tokens() {
 
     // Refresh from device 1
     let refresh1 = client
-        .get_with_auth_and_refresh(
+        .post_with_auth_and_refresh(
             "/v1/auth/refresh",
             &access_token1,
             &refresh_token1,
@@ -387,7 +387,7 @@ async fn test_multiple_concurrent_refresh_tokens() {
 
     // Refresh from device 2 should still work
     let refresh2 = client
-        .get_with_auth_and_refresh(
+        .post_with_auth_and_refresh(
             "/v1/auth/refresh",
             &access_token2,
             &refresh_token2,
@@ -430,7 +430,7 @@ async fn test_refresh_token_family_invalidation_on_breach() {
 
     // Rotate token
     let refresh1 = client
-        .get_with_auth_and_refresh(
+        .post_with_auth_and_refresh(
             "/v1/auth/refresh",
             login_json["token"].as_str().unwrap(),
             token1,
@@ -443,7 +443,7 @@ async fn test_refresh_token_family_invalidation_on_breach() {
 
     // Try to reuse old token1 (simulating token theft)
     let breach_attempt = client
-        .get_with_auth_and_refresh(
+        .post_with_auth_and_refresh(
             "/v1/auth/refresh",
             &refresh1_json["token"].as_str().unwrap(),
             token1,
@@ -512,7 +512,7 @@ async fn test_refresh_token_expiration() {
 
     // Try to use expired refresh token
     let response = client
-        .get_with_auth_and_refresh(
+        .post_with_auth_and_refresh(
             "/v1/auth/refresh",
             &access_token,
             expired_token,
@@ -539,7 +539,7 @@ async fn test_logout_without_refresh_token() {
     let client = TestClient::new(app);
 
     // Try to logout without any cookies - should still succeed gracefully
-    let response = client.get("/v1/auth/logout").await;
+    let response = client.post("/v1/auth/logout").await;
 
     response.assert_status(StatusCode::OK);
 
