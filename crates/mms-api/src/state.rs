@@ -3,7 +3,11 @@ use axum_extra::extract::cookie::Key;
 use tokio::sync::mpsc;
 
 use crate::auth::google::{self, OpenIdClient};
-use crate::{ApiConfig, config::Environment, user::email::{EmailJob, EmailService}};
+use crate::{
+    ApiConfig,
+    config::Environment,
+    user::email::{EmailJob, EmailService},
+};
 use sqlx::PgPool;
 
 #[derive(Clone)]

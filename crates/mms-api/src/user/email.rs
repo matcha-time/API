@@ -176,9 +176,7 @@ impl EmailService {
 
 /// Start the email worker background task
 /// Returns a sender channel for submitting email jobs
-pub fn start_email_worker(
-    email_service: EmailService,
-) -> mpsc::UnboundedSender<EmailJob> {
+pub fn start_email_worker(email_service: EmailService) -> mpsc::UnboundedSender<EmailJob> {
     let (tx, mut rx) = mpsc::unbounded_channel();
 
     tokio::spawn(async move {
@@ -191,22 +189,16 @@ pub fn start_email_worker(
                     ref to_email,
                     ref username,
                     ref verification_token,
-                } => {
-                    email_service.send_verification_email(to_email, username, verification_token)
-                }
+                } => email_service.send_verification_email(to_email, username, verification_token),
                 EmailJob::PasswordReset {
                     ref to_email,
                     ref username,
                     ref reset_token,
-                } => {
-                    email_service.send_password_reset_email(to_email, username, reset_token)
-                }
+                } => email_service.send_password_reset_email(to_email, username, reset_token),
                 EmailJob::PasswordChanged {
                     ref to_email,
                     ref username,
-                } => {
-                    email_service.send_password_changed_email(to_email, username)
-                }
+                } => email_service.send_password_changed_email(to_email, username),
             };
 
             if let Err(e) = result {
