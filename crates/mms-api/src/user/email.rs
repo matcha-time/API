@@ -3,8 +3,28 @@ use lettre::{
     transport::smtp::authentication::Credentials,
 };
 use sqlx::types::Uuid;
+use tokio::sync::mpsc;
 
 use crate::error::ApiError;
+
+/// Email job variants for the background worker
+#[derive(Debug, Clone)]
+pub enum EmailJob {
+    Verification {
+        to_email: String,
+        username: String,
+        verification_token: String,
+    },
+    PasswordReset {
+        to_email: String,
+        username: String,
+        reset_token: String,
+    },
+    PasswordChanged {
+        to_email: String,
+        username: String,
+    },
+}
 
 #[derive(Clone)]
 pub struct EmailService {
@@ -154,25 +174,76 @@ impl EmailService {
     }
 }
 
-/// Helper function to send verification email if email service is available
+/// Start the email worker background task
+/// Returns a sender channel for submitting email jobs
+pub fn start_email_worker(
+    email_service: EmailService,
+) -> mpsc::UnboundedSender<EmailJob> {
+    let (tx, mut rx) = mpsc::unbounded_channel();
+
+    tokio::spawn(async move {
+        tracing::info!("Email worker started");
+
+        while let Some(job) = rx.recv().await {
+            // Process the email job
+            let result = match job {
+                EmailJob::Verification {
+                    ref to_email,
+                    ref username,
+                    ref verification_token,
+                } => {
+                    email_service.send_verification_email(to_email, username, verification_token)
+                }
+                EmailJob::PasswordReset {
+                    ref to_email,
+                    ref username,
+                    ref reset_token,
+                } => {
+                    email_service.send_password_reset_email(to_email, username, reset_token)
+                }
+                EmailJob::PasswordChanged {
+                    ref to_email,
+                    ref username,
+                } => {
+                    email_service.send_password_changed_email(to_email, username)
+                }
+            };
+
+            if let Err(e) = result {
+                tracing::error!(error = %e, job = ?job, "Failed to send email in background worker");
+            }
+        }
+
+        tracing::warn!("Email worker stopped - channel closed");
+    });
+
+    tx
+}
+
+/// Helper function to send verification email via the email worker channel
 /// Logs errors but doesn't fail - useful for registration and resend flows
 pub fn send_verification_email_if_available(
-    email_service: &Option<EmailService>,
+    email_tx: &Option<mpsc::UnboundedSender<EmailJob>>,
     user_id: Uuid,
     email: &str,
     username: &str,
     verification_token: &str,
 ) {
-    if let Some(email_service) = email_service {
-        if let Err(e) = email_service.send_verification_email(email, username, verification_token) {
-            tracing::error!(error = %e, user_id = %user_id, "Failed to send verification email");
-            // Don't fail the request, user can resend later
+    if let Some(tx) = email_tx {
+        let job = EmailJob::Verification {
+            to_email: email.to_string(),
+            username: username.to_string(),
+            verification_token: verification_token.to_string(),
+        };
+
+        if let Err(e) = tx.send(job) {
+            tracing::error!(error = %e, user_id = %user_id, "Failed to queue verification email");
         }
     } else {
         tracing::info!(
             user_id = %user_id,
             token = %verification_token,
-            "Email service not configured - verification token generated"
+            "Email worker not available - verification token generated"
         );
     }
 }

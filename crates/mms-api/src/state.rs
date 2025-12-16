@@ -1,8 +1,9 @@
 use axum::extract::FromRef;
 use axum_extra::extract::cookie::Key;
+use tokio::sync::mpsc;
 
 use crate::auth::google::{self, OpenIdClient};
-use crate::{ApiConfig, config::Environment, user::email::EmailService};
+use crate::{ApiConfig, config::Environment, user::email::{EmailJob, EmailService}};
 use sqlx::PgPool;
 
 #[derive(Clone)]
@@ -18,7 +19,7 @@ pub struct ApiState {
     pub cookie_key: Key,
     pub pool: PgPool,
     pub environment: Environment,
-    pub email_service: Option<EmailService>,
+    pub email_tx: Option<mpsc::UnboundedSender<EmailJob>>,
 }
 
 impl ApiState {
@@ -34,8 +35,8 @@ impl ApiState {
         )
         .await?;
 
-        // Initialize email service if SMTP is configured
-        let email_service = if let (
+        // Initialize email worker if SMTP is configured
+        let email_tx = if let (
             Some(host),
             Some(username),
             Some(password),
@@ -59,7 +60,9 @@ impl ApiState {
             ) {
                 Ok(service) => {
                     tracing::info!("Email service initialized successfully");
-                    Some(service)
+                    let tx = crate::user::email::start_email_worker(service);
+                    tracing::info!("Email background worker started");
+                    Some(tx)
                 }
                 Err(e) => {
                     tracing::error!("Failed to initialize email service: {e}");
@@ -95,7 +98,7 @@ impl ApiState {
             cookie_key,
             pool,
             environment: config.env,
-            email_service,
+            email_tx,
         })
     }
 }

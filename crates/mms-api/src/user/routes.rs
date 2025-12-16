@@ -164,7 +164,7 @@ async fn create_user(
                 email_verification::create_verification_token(&state.pool, user_id, 24).await?;
 
             crate::user::email::send_verification_email_if_available(
-                &state.email_service,
+                &state.email_tx,
                 user_id,
                 &request.email,
                 &request.username,
@@ -231,11 +231,11 @@ async fn create_user(
     // Commit the transaction before sending email
     tx.commit().await?;
 
-    // Send verification email if email service is configured
+    // Send verification email via background worker if configured
     // Note: If this fails, user is created but email not sent
     // They can use the resend endpoint or re-register
     crate::user::email::send_verification_email_if_available(
-        &state.email_service,
+        &state.email_tx,
         user_id,
         &request.email,
         &request.username,
@@ -366,21 +366,25 @@ async fn request_password_reset(
         // Create reset token (expires in 1 hour)
         let token = password_reset::create_reset_token(&state.pool, user_id, 1).await?;
 
-        // Send password reset email
+        // Send password reset email via background worker
         // Note: If this fails, we don't return error to prevent email enumeration
-        if let Some(email_service) = &state.email_service {
-            if let Err(e) =
-                email_service.send_password_reset_email(&request.email, &username, &token)
-            {
-                tracing::error!(error = %e, "Failed to send password reset email");
+        if let Some(email_tx) = &state.email_tx {
+            let job = crate::user::email::EmailJob::PasswordReset {
+                to_email: request.email.clone(),
+                username: username.clone(),
+                reset_token: token,
+            };
+
+            if let Err(e) = email_tx.send(job) {
+                tracing::error!(error = %e, "Failed to queue password reset email");
                 // Don't fail the request to prevent revealing user existence
             }
         } else {
-            // Email service not configured - log the token for development
+            // Email worker not configured - log the token for development
             tracing::info!(
                 email = %request.email,
                 token = %token,
-                "Email service not configured - password reset token generated"
+                "Email worker not configured - password reset token generated"
             );
         }
     }
@@ -425,13 +429,18 @@ async fn reset_password(
                 )
             })?;
 
-    // Send password change confirmation email
+    // Send password change confirmation email via background worker
     // Note: We don't fail the request if email fails - password was already changed
-    if let Some(email_service) = &state.email_service
-        && let Err(e) = email_service.send_password_changed_email(&email, &username)
-    {
-        tracing::error!(error = %e, "Failed to send password change confirmation email");
-        // Don't fail - password was already successfully changed
+    if let Some(email_tx) = &state.email_tx {
+        let job = crate::user::email::EmailJob::PasswordChanged {
+            to_email: email.clone(),
+            username: username.clone(),
+        };
+
+        if let Err(e) = email_tx.send(job) {
+            tracing::error!(error = %e, "Failed to queue password change confirmation email");
+            // Don't fail - password was already successfully changed
+        }
     }
 
     Ok(Json(ResetPasswordResponse {
@@ -499,21 +508,25 @@ async fn resend_verification_email(
             let token =
                 email_verification::create_verification_token(&state.pool, user_id, 24).await?;
 
-            // Send verification email
+            // Send verification email via background worker
             // Note: If this fails, we don't return error to prevent email enumeration
-            if let Some(email_service) = &state.email_service {
-                if let Err(e) =
-                    email_service.send_verification_email(&request.email, &username, &token)
-                {
-                    tracing::error!(error = %e, "Failed to send verification email");
+            if let Some(email_tx) = &state.email_tx {
+                let job = crate::user::email::EmailJob::Verification {
+                    to_email: request.email.clone(),
+                    username: username.clone(),
+                    verification_token: token,
+                };
+
+                if let Err(e) = email_tx.send(job) {
+                    tracing::error!(error = %e, "Failed to queue verification email");
                     // Don't fail the request - user can try resending again
                 }
             } else {
-                // Email service not configured - log the token for development
+                // Email worker not configured - log the token for development
                 tracing::info!(
                     email = %request.email,
                     token = %token,
-                    "Email service not configured - verification token generated"
+                    "Email worker not configured - verification token generated"
                 );
             }
         }
@@ -745,7 +758,7 @@ async fn update_user_profile(
             email_verification::create_verification_token(&state.pool, user_id, 24).await?;
 
         crate::user::email::send_verification_email_if_available(
-            &state.email_service,
+            &state.email_tx,
             user_id,
             &email,
             &username,
