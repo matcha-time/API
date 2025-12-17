@@ -255,31 +255,6 @@ impl TestClient {
         self.request(request).await
     }
 
-    /// Send a POST request with authentication cookie (no body)
-    pub async fn post_with_auth(&self, uri: &str, token: &str, cookie_key: &Key) -> TestResponse {
-        use cookie::{CookieJar as RawCookieJar, Key as RawKey};
-
-        let raw_key = RawKey::try_from(cookie_key.master()).expect("Invalid key");
-        let mut raw_jar = RawCookieJar::new();
-        let raw_cookie = cookie::Cookie::new("auth_token", token.to_string());
-        raw_jar.private_mut(&raw_key).add(raw_cookie);
-
-        let encrypted = raw_jar.get("auth_token").expect("Cookie should exist");
-
-        let request = Request::builder()
-            .method("POST")
-            .uri(uri)
-            .header("x-forwarded-for", "127.0.0.1") // Required for rate limiting in tests
-            .header(
-                "cookie",
-                format!("{}={}", encrypted.name(), encrypted.value()),
-            )
-            .body(Body::empty())
-            .expect("Failed to build authenticated request");
-
-        self.request(request).await
-    }
-
     /// Send a POST request with both auth and refresh token cookies (no body)
     pub async fn post_with_auth_and_refresh(
         &self,
