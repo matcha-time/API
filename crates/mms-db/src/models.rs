@@ -40,15 +40,35 @@ pub struct Flashcard {
 #[derive(Serialize, sqlx::FromRow)]
 pub struct RoadmapNodeWithProgress {
     node_id: Uuid,
+    parent_node_id: Option<Uuid>,
     pos_x: i32,
     pos_y: i32,
     deck_id: Uuid,
     deck_title: String,
+    deck_description: Option<String>,
     total_cards: i32,
     mastered_cards: i32,
     cards_due_today: i32,
     total_practices: i32,
     last_practiced_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Serialize)]
+pub struct RoadmapWithProgress {
+    pub roadmap: RoadmapMetadata,
+    pub nodes: Vec<RoadmapNodeWithProgress>,
+}
+
+#[derive(Serialize, sqlx::FromRow)]
+pub struct RoadmapMetadata {
+    pub id: Uuid,
+    pub title: String,
+    pub description: Option<String>,
+    pub language_from: String,
+    pub language_to: String,
+    pub total_nodes: i32,
+    pub completed_nodes: i32,
+    pub progress_percentage: f64,
 }
 
 #[derive(Serialize, sqlx::FromRow)]

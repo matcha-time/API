@@ -189,6 +189,81 @@ async fn test_get_roadmaps_by_language_pair() {
 }
 
 #[tokio::test]
+async fn test_get_roadmap_nodes_public() {
+    let state = TestStateBuilder::new()
+        .build()
+        .await
+        .expect("Failed to create test state");
+
+    // Create test data
+    let (roadmap_id, _, _) = create_test_roadmap_and_decks(&state.pool)
+        .await
+        .expect("Failed to create test data");
+
+    let app = router::router().with_state(state.clone());
+    let client = TestClient::new(app);
+
+    // Get roadmap nodes (public endpoint - no auth required)
+    let response = client
+        .get(&format!("/v1/roadmaps/{}/nodes", roadmap_id))
+        .await;
+
+    response.assert_status(StatusCode::OK);
+
+    let json: serde_json::Value = response.json();
+
+    // Verify response structure
+    assert!(json.is_object(), "Response should be an object");
+    assert!(json["roadmap"].is_object(), "Should have roadmap metadata");
+    assert!(json["nodes"].is_array(), "Should have nodes array");
+
+    // Verify roadmap metadata
+    let roadmap = &json["roadmap"];
+    assert_eq!(roadmap["id"].as_str().unwrap(), roadmap_id.to_string());
+    assert_eq!(roadmap["total_nodes"].as_i64().unwrap(), 2, "Should have 2 nodes");
+    assert_eq!(
+        roadmap["completed_nodes"].as_i64().unwrap(),
+        0,
+        "Public endpoint should show 0 completed nodes"
+    );
+    assert_eq!(
+        roadmap["progress_percentage"].as_f64().unwrap(),
+        0.0,
+        "Public endpoint should show 0% progress"
+    );
+
+    let nodes = json["nodes"].as_array().unwrap();
+    assert_eq!(nodes.len(), 2, "Should have 2 nodes");
+
+    // Verify node structure
+    let first_node = &nodes[0];
+    assert!(first_node["node_id"].is_string(), "Should have node_id");
+    assert!(first_node.get("parent_node_id").is_some(), "Should have parent_node_id field");
+    assert!(first_node["deck_title"].is_string(), "Should have deck_title");
+    assert!(first_node.get("deck_description").is_some(), "Should have deck_description");
+    assert_eq!(
+        first_node["total_cards"].as_i64().unwrap(),
+        2,
+        "Should show actual deck size"
+    );
+    assert_eq!(
+        first_node["mastered_cards"].as_i64().unwrap(),
+        0,
+        "Public endpoint should show 0 mastered cards"
+    );
+    assert_eq!(
+        first_node["cards_due_today"].as_i64().unwrap(),
+        0,
+        "Public endpoint should show 0 cards due"
+    );
+
+    // Cleanup
+    common::db::delete_roadmap_by_id(&state.pool, roadmap_id)
+        .await
+        .expect("Failed to cleanup");
+}
+
+#[tokio::test]
 async fn test_get_roadmap_with_progress_authenticated() {
     let state = TestStateBuilder::new()
         .build()
@@ -237,10 +312,29 @@ async fn test_get_roadmap_with_progress_authenticated() {
     response.assert_status(StatusCode::OK);
 
     let json: serde_json::Value = response.json();
-    assert!(json.is_array(), "Response should be array of nodes");
 
-    let nodes = json.as_array().unwrap();
+    // Verify response structure
+    assert!(json.is_object(), "Response should be an object");
+    assert!(json["roadmap"].is_object(), "Should have roadmap metadata");
+    assert!(json["nodes"].is_array(), "Should have nodes array");
+
+    // Verify roadmap metadata
+    let roadmap = &json["roadmap"];
+    assert_eq!(roadmap["id"].as_str().unwrap(), roadmap_id.to_string());
+    assert!(roadmap["title"].as_str().unwrap().starts_with("Test Spanish Roadmap"));
+    assert_eq!(roadmap["language_from"].as_str().unwrap(), "en");
+    assert_eq!(roadmap["language_to"].as_str().unwrap(), "es");
+    assert_eq!(roadmap["total_nodes"].as_i64().unwrap(), 2, "Should have 2 nodes");
+    assert!(roadmap["progress_percentage"].is_number(), "Should have progress_percentage");
+
+    let nodes = json["nodes"].as_array().unwrap();
     assert!(!nodes.is_empty(), "Should have roadmap nodes");
+
+    // Verify node structure includes parent_node_id and deck_description
+    let first_node = &nodes[0];
+    assert!(first_node["node_id"].is_string(), "Should have node_id");
+    assert!(first_node.get("parent_node_id").is_some(), "Should have parent_node_id field");
+    assert!(first_node.get("deck_description").is_some(), "Should have deck_description field");
 
     // Find node with progress
     let node_with_progress = nodes
