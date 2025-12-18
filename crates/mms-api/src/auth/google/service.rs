@@ -8,6 +8,8 @@ pub struct User {
     pub username: String,
     pub email: String,
     pub profile_picture_url: Option<String>,
+    pub native_language: Option<String>,
+    pub learning_language: Option<String>,
 }
 
 // TODO: Refacto this whole ass thing
@@ -28,10 +30,10 @@ pub async fn find_or_create_google_user(
     picture: Option<&str>,
 ) -> Result<User, ApiError> {
     // First, try to find existing user by Google ID
-    if let Some(user) = sqlx::query_as::<_, (Uuid, String, String, Option<String>)>(
+    if let Some(user) = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>, Option<String>)>(
         // language=PostgreSQL
         r#"
-            SELECT id, username, email, profile_picture_url
+            SELECT id, username, email, profile_picture_url, native_language, learning_language
             FROM users
             WHERE google_id = $1
         "#,
@@ -61,15 +63,17 @@ pub async fn find_or_create_google_user(
             username: user.1,
             email: user.2,
             profile_picture_url: picture.map(|p| p.to_string()).or(user.3),
+            native_language: user.4,
+            learning_language: user.5,
         });
     }
 
     // If not found by Google ID, check if user exists with this email
     // This handles the case where user registered with email/password first
-    if let Some(user) = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>)>(
+    if let Some(user) = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>, Option<String>, Option<String>)>(
         // language=PostgreSQL
         r#"
-            SELECT id, username, email, google_id, profile_picture_url
+            SELECT id, username, email, google_id, profile_picture_url, native_language, learning_language
             FROM users
             WHERE email = $1
         "#,
@@ -114,6 +118,8 @@ pub async fn find_or_create_google_user(
             username: user.1,
             email: user.2,
             profile_picture_url: picture.map(|p| p.to_string()).or(user.4),
+            native_language: user.5,
+            learning_language: user.6,
         });
     }
 
@@ -162,6 +168,8 @@ pub async fn find_or_create_google_user(
                     username: final_username,
                     email: email.to_string(),
                     profile_picture_url: picture.map(|p| p.to_string()),
+                    native_language: None,
+                    learning_language: None,
                 });
             }
             Err(sqlx::Error::Database(db_err))

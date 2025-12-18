@@ -254,10 +254,10 @@ async fn login_user(
     Json(request): Json<LoginRequest>,
 ) -> Result<(PrivateCookieJar, Json<AuthResponse>), ApiError> {
     // Fetch user from database
-    let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>, bool)>(
+    let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>, bool, Option<String>, Option<String>)>(
         // language=PostgreSQL
         r#"
-            SELECT id, username, email, password_hash, profile_picture_url, email_verified
+            SELECT id, username, email, password_hash, profile_picture_url, email_verified, native_language, learning_language
             FROM users
             WHERE email = $1 AND auth_provider = 'email'
         "#,
@@ -267,7 +267,7 @@ async fn login_user(
     .await?
     .ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
 
-    let (id, username, email, password_hash, profile_picture_url, email_verified) = user;
+    let (id, username, email, password_hash, profile_picture_url, email_verified, native_language, learning_language) = user;
 
     // Verify password exists and matches
     let password_hash =
@@ -325,6 +325,8 @@ async fn login_user(
                 username,
                 email,
                 profile_picture_url,
+                native_language,
+                learning_language,
             },
         }),
     ))
@@ -689,11 +691,26 @@ async fn update_user_profile(
         || request.profile_picture_url.is_some();
 
     if !has_updates {
+        // Fetch current language preferences
+        let (profile_picture_url, native_language, learning_language) = sqlx::query_as::<_, (Option<String>, Option<String>, Option<String>)>(
+            // language=PostgreSQL
+            r#"
+                SELECT profile_picture_url, native_language, learning_language
+                FROM users
+                WHERE id = $1
+            "#,
+        )
+        .bind(user_id)
+        .fetch_one(&state.pool)
+        .await?;
+
         let user_response = UserResponse {
             id: user_id,
             username: current_username,
             email: current_email,
-            profile_picture_url: None,
+            profile_picture_url,
+            native_language,
+            learning_language,
         };
 
         return Ok((
@@ -734,10 +751,10 @@ async fn update_user_profile(
 
     query_builder.push(" WHERE id = ");
     query_builder.push_bind(user_id);
-    query_builder.push(" RETURNING id, username, email, profile_picture_url");
+    query_builder.push(" RETURNING id, username, email, profile_picture_url, native_language, learning_language");
 
-    let (id, username, email, profile_picture_url) = query_builder
-        .build_query_as::<(Uuid, String, String, Option<String>)>()
+    let (id, username, email, profile_picture_url, native_language, learning_language) = query_builder
+        .build_query_as::<(Uuid, String, String, Option<String>, Option<String>, Option<String>)>()
         .fetch_one(&state.pool)
         .await
         .map_err(|e| {
@@ -771,6 +788,8 @@ async fn update_user_profile(
         username: username.clone(),
         email: email.clone(),
         profile_picture_url,
+        native_language,
+        learning_language,
     };
 
     // Generate new JWT if email changed

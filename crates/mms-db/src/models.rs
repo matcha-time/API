@@ -7,6 +7,8 @@ pub struct User {
     id: Uuid,
     username: String,
     email: String,
+    native_language: Option<String>,
+    learning_language: Option<String>,
     created_at: DateTime<Utc>,
 }
 

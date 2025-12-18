@@ -1,10 +1,10 @@
 use axum::{
     Json, Router,
     extract::State,
-    routing::{get, post},
+    routing::{get, patch, post},
 };
 use axum_extra::extract::{PrivateCookieJar, cookie::Cookie};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::types::Uuid;
 
 use super::{cookies, jwt, middleware::AuthUser, refresh_token as rt};
@@ -18,6 +18,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/auth/me", get(auth_me))
         .route("/auth/refresh", post(refresh_token))
         .route("/auth/logout", post(logout))
+        .route("/users/me/language-preferences", patch(update_language_preferences))
         .layer(make_rate_limit_layer!(
             rate_limit::GENERAL_RATE_PER_SECOND,
             rate_limit::GENERAL_BURST_SIZE
@@ -37,6 +38,8 @@ pub struct UserResponse {
     pub username: String,
     pub email: String,
     pub profile_picture_url: Option<String>,
+    pub native_language: Option<String>,
+    pub learning_language: Option<String>,
 }
 
 async fn auth_me(
@@ -44,10 +47,10 @@ async fn auth_me(
     State(state): State<ApiState>,
 ) -> Result<Json<UserResponse>, ApiError> {
     // Fetch full user details from database
-    let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>)>(
+    let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>, Option<String>)>(
         // language=PostgreSQL
         r#"
-            SELECT id, username, email, profile_picture_url
+            SELECT id, username, email, profile_picture_url, native_language, learning_language
             FROM users
             WHERE id = $1
         "#,
@@ -62,6 +65,8 @@ async fn auth_me(
         username: user.1,
         email: user.2,
         profile_picture_url: user.3,
+        native_language: user.4,
+        learning_language: user.5,
     }))
 }
 
@@ -154,4 +159,63 @@ async fn logout(
         jar,
         Json(serde_json::json!({ "message": "Logged out successfully" })),
     )
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateLanguagePreferencesRequest {
+    native_language: String,
+    learning_language: String,
+}
+
+#[derive(Debug, Serialize)]
+struct UpdateLanguagePreferencesResponse {
+    message: String,
+    user: UserResponse,
+}
+
+async fn update_language_preferences(
+    auth_user: AuthUser,
+    State(state): State<ApiState>,
+    Json(payload): Json<UpdateLanguagePreferencesRequest>,
+) -> Result<Json<UpdateLanguagePreferencesResponse>, ApiError> {
+    // Validate language codes (must be 2 characters)
+    if payload.native_language.len() != 2 {
+        return Err(ApiError::Validation(
+            "native_language must be a 2-character ISO 639-1 code (e.g., 'en', 'es', 'fr')".to_string(),
+        ));
+    }
+
+    if payload.learning_language.len() != 2 {
+        return Err(ApiError::Validation(
+            "learning_language must be a 2-character ISO 639-1 code (e.g., 'en', 'es', 'fr')".to_string(),
+        ));
+    }
+
+    // Update both language preferences
+    let updated_user = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>, Option<String>)>(
+        // language=PostgreSQL
+        r#"
+            UPDATE users
+            SET native_language = $1, learning_language = $2
+            WHERE id = $3
+            RETURNING id, username, email, profile_picture_url, native_language, learning_language
+        "#,
+    )
+    .bind(&payload.native_language)
+    .bind(&payload.learning_language)
+    .bind(auth_user.user_id)
+    .fetch_one(&state.pool)
+    .await?;
+
+    Ok(Json(UpdateLanguagePreferencesResponse {
+        message: "Language preferences updated successfully".to_string(),
+        user: UserResponse {
+            id: updated_user.0,
+            username: updated_user.1,
+            email: updated_user.2,
+            profile_picture_url: updated_user.3,
+            native_language: updated_user.4,
+            learning_language: updated_user.5,
+        },
+    }))
 }
