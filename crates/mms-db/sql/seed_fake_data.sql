@@ -124,7 +124,131 @@ INSERT INTO flashcards (id, term, translation, language_from, language_to) VALUE
 ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb05', 'Fromage', 'Cheese', 'fr', 'en'),
 ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb06', 'Vin', 'Wine', 'fr', 'en'),
 ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb07', 'Viande', 'Meat', 'fr', 'en'),
-('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb08', 'Poisson', 'Fish', 'fr', 'en');
+('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb08', 'Poisson', 'Fish', 'fr', 'en'),
+
+-- Colors
+('cccccccc-cccc-cccc-cccc-cccccccccc01', 'Rouge', 'Red', 'fr', 'en'),
+('cccccccc-cccc-cccc-cccc-cccccccccc02', 'Bleu', 'Blue', 'fr', 'en'),
+('cccccccc-cccc-cccc-cccc-cccccccccc03', 'Jaune', 'Yellow', 'fr', 'en'),
+('cccccccc-cccc-cccc-cccc-cccccccccc04', 'Vert', 'Green', 'fr', 'en'),
+('cccccccc-cccc-cccc-cccc-cccccccccc05', 'Blanc', 'White', 'fr', 'en'),
+('cccccccc-cccc-cccc-cccc-cccccccccc06', 'Noir', 'Black', 'fr', 'en'),
+
+-- Family
+('dddddddd-dddd-dddd-dddd-dddddddddd01', 'Famille', 'Family', 'fr', 'en'),
+('dddddddd-dddd-dddd-dddd-dddddddddd02', 'Père', 'Father', 'fr', 'en'),
+('dddddddd-dddd-dddd-dddd-dddddddddd03', 'Mère', 'Mother', 'fr', 'en'),
+('dddddddd-dddd-dddd-dddd-dddddddddd04', 'Frère', 'Brother', 'fr', 'en'),
+('dddddddd-dddd-dddd-dddd-dddddddddd05', 'Soeur', 'Sister', 'fr', 'en'),
+('dddddddd-dddd-dddd-dddd-dddddddddd06', 'Fils', 'Son', 'fr', 'en'),
+('dddddddd-dddd-dddd-dddd-dddddddddd07', 'Fille', 'Daughter', 'fr', 'en'),
+
+-- ============================================================
+-- SPANISH - Additional Categories
+-- ============================================================
+-- Animals
+('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01', 'Perro', 'Dog', 'es', 'en'),
+('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02', 'Gato', 'Cat', 'es', 'en'),
+('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03', 'Pájaro', 'Bird', 'es', 'en'),
+('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee04', 'Caballo', 'Horse', 'es', 'en'),
+('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee05', 'Vaca', 'Cow', 'es', 'en'),
+('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee06', 'Pez', 'Fish', 'es', 'en'),
+('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee07', 'Ratón', 'Mouse', 'es', 'en'),
+('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee08', 'Elefante', 'Elephant', 'es', 'en'),
+
+-- Body Parts
+('ffffffff-ffff-ffff-ffff-ffffffffff01', 'Cabeza', 'Head', 'es', 'en'),
+('ffffffff-ffff-ffff-ffff-ffffffffff02', 'Ojo', 'Eye', 'es', 'en'),
+('ffffffff-ffff-ffff-ffff-ffffffffff03', 'Nariz', 'Nose', 'es', 'en'),
+('ffffffff-ffff-ffff-ffff-ffffffffff04', 'Boca', 'Mouth', 'es', 'en'),
+('ffffffff-ffff-ffff-ffff-ffffffffff05', 'Mano', 'Hand', 'es', 'en'),
+('ffffffff-ffff-ffff-ffff-ffffffffff06', 'Pie', 'Foot', 'es', 'en'),
+('ffffffff-ffff-ffff-ffff-ffffffffff07', 'Brazo', 'Arm', 'es', 'en'),
+('ffffffff-ffff-ffff-ffff-ffffffffff08', 'Pierna', 'Leg', 'es', 'en'),
+
+-- Places & Buildings
+('10000000-0000-0000-0000-000000000001', 'Casa', 'House', 'es', 'en'),
+('10000000-0000-0000-0000-000000000002', 'Escuela', 'School', 'es', 'en'),
+('10000000-0000-0000-0000-000000000003', 'Hospital', 'Hospital', 'es', 'en'),
+('10000000-0000-0000-0000-000000000004', 'Tienda', 'Shop', 'es', 'en'),
+('10000000-0000-0000-0000-000000000005', 'Restaurante', 'Restaurant', 'es', 'en'),
+('10000000-0000-0000-0000-000000000006', 'Parque', 'Park', 'es', 'en'),
+('10000000-0000-0000-0000-000000000007', 'Biblioteca', 'Library', 'es', 'en'),
+
+-- Weather
+('11000000-0000-0000-0000-000000000001', 'Sol', 'Sun', 'es', 'en'),
+('11000000-0000-0000-0000-000000000002', 'Lluvia', 'Rain', 'es', 'en'),
+('11000000-0000-0000-0000-000000000003', 'Nieve', 'Snow', 'es', 'en'),
+('11000000-0000-0000-0000-000000000004', 'Viento', 'Wind', 'es', 'en'),
+('11000000-0000-0000-0000-000000000005', 'Nube', 'Cloud', 'es', 'en'),
+('11000000-0000-0000-0000-000000000006', 'Calor', 'Heat', 'es', 'en'),
+('11000000-0000-0000-0000-000000000007', 'Frío', 'Cold', 'es', 'en'),
+
+-- ============================================================
+-- FRENCH - Additional Categories
+-- ============================================================
+-- Animals (reusing 'Poisson' from Food & Drinks and adding new ones)
+('12000000-0000-0000-0000-000000000001', 'Chien', 'Dog', 'fr', 'en'),
+('12000000-0000-0000-0000-000000000002', 'Chat', 'Cat', 'fr', 'en'),
+('12000000-0000-0000-0000-000000000003', 'Oiseau', 'Bird', 'fr', 'en'),
+('12000000-0000-0000-0000-000000000004', 'Cheval', 'Horse', 'fr', 'en'),
+('12000000-0000-0000-0000-000000000005', 'Vache', 'Cow', 'fr', 'en'),
+('12000000-0000-0000-0000-000000000006', 'Lapin', 'Rabbit', 'fr', 'en'),
+('12000000-0000-0000-0000-000000000007', 'Souris', 'Mouse', 'fr', 'en'),
+
+-- Body Parts
+('13000000-0000-0000-0000-000000000001', 'Tête', 'Head', 'fr', 'en'),
+('13000000-0000-0000-0000-000000000002', 'Oeil', 'Eye', 'fr', 'en'),
+('13000000-0000-0000-0000-000000000003', 'Nez', 'Nose', 'fr', 'en'),
+('13000000-0000-0000-0000-000000000004', 'Bouche', 'Mouth', 'fr', 'en'),
+('13000000-0000-0000-0000-000000000005', 'Main', 'Hand', 'fr', 'en'),
+('13000000-0000-0000-0000-000000000006', 'Pied', 'Foot', 'fr', 'en'),
+
+-- Weather
+('14000000-0000-0000-0000-000000000001', 'Soleil', 'Sun', 'fr', 'en'),
+('14000000-0000-0000-0000-000000000002', 'Pluie', 'Rain', 'fr', 'en'),
+('14000000-0000-0000-0000-000000000003', 'Neige', 'Snow', 'fr', 'en'),
+('14000000-0000-0000-0000-000000000004', 'Vent', 'Wind', 'fr', 'en'),
+('14000000-0000-0000-0000-000000000005', 'Nuage', 'Cloud', 'fr', 'en'),
+
+-- ============================================================
+-- ENGLISH - New Categories (reverse: en -> es/fr)
+-- ============================================================
+-- English to Spanish - Greetings
+('15000000-0000-0000-0000-000000000001', 'Hello', 'Hola', 'en', 'es'),
+('15000000-0000-0000-0000-000000000002', 'Goodbye', 'Adiós', 'en', 'es'),
+('15000000-0000-0000-0000-000000000003', 'Please', 'Por favor', 'en', 'es'),
+('15000000-0000-0000-0000-000000000004', 'Thank you', 'Gracias', 'en', 'es'),
+('15000000-0000-0000-0000-000000000005', 'Yes', 'Sí', 'en', 'es'),
+('15000000-0000-0000-0000-000000000006', 'No', 'No', 'en', 'es'),
+
+-- English to Spanish - Numbers
+('16000000-0000-0000-0000-000000000001', 'One', 'Uno', 'en', 'es'),
+('16000000-0000-0000-0000-000000000002', 'Two', 'Dos', 'en', 'es'),
+('16000000-0000-0000-0000-000000000003', 'Three', 'Tres', 'en', 'es'),
+('16000000-0000-0000-0000-000000000004', 'Four', 'Cuatro', 'en', 'es'),
+('16000000-0000-0000-0000-000000000005', 'Five', 'Cinco', 'en', 'es'),
+('16000000-0000-0000-0000-000000000006', 'Six', 'Seis', 'en', 'es'),
+('16000000-0000-0000-0000-000000000007', 'Seven', 'Siete', 'en', 'es'),
+('16000000-0000-0000-0000-000000000008', 'Eight', 'Ocho', 'en', 'es'),
+('16000000-0000-0000-0000-000000000009', 'Nine', 'Nueve', 'en', 'es'),
+('16000000-0000-0000-0000-000000000010', 'Ten', 'Diez', 'en', 'es'),
+
+-- English to French - Greetings
+('17000000-0000-0000-0000-000000000001', 'Hello', 'Bonjour', 'en', 'fr'),
+('17000000-0000-0000-0000-000000000002', 'Goodbye', 'Au revoir', 'en', 'fr'),
+('17000000-0000-0000-0000-000000000003', 'Please', 'S''il vous plaît', 'en', 'fr'),
+('17000000-0000-0000-0000-000000000004', 'Thank you', 'Merci', 'en', 'fr'),
+('17000000-0000-0000-0000-000000000005', 'Yes', 'Oui', 'en', 'fr'),
+('17000000-0000-0000-0000-000000000006', 'No', 'Non', 'en', 'fr'),
+
+-- English to French - Colors
+('18000000-0000-0000-0000-000000000001', 'Red', 'Rouge', 'en', 'fr'),
+('18000000-0000-0000-0000-000000000002', 'Blue', 'Bleu', 'en', 'fr'),
+('18000000-0000-0000-0000-000000000003', 'Yellow', 'Jaune', 'en', 'fr'),
+('18000000-0000-0000-0000-000000000004', 'Green', 'Vert', 'en', 'fr'),
+('18000000-0000-0000-0000-000000000005', 'White', 'Blanc', 'en', 'fr'),
+('18000000-0000-0000-0000-000000000006', 'Black', 'Noir', 'en', 'fr');
 
 -- ============================================================
 -- DECKS: Organizing flashcards into learning sets
@@ -139,12 +263,29 @@ INSERT INTO decks (id, title, description, language_from, language_to) VALUES
 ('d0000000-0000-0000-0000-000000000005', 'Spanish Food & Drinks', 'Common food and beverage vocabulary', 'es', 'en'),
 ('d0000000-0000-0000-0000-000000000006', 'Spanish Colors', 'Basic color vocabulary', 'es', 'en'),
 ('d0000000-0000-0000-0000-000000000007', 'Spanish Days & Time', 'Days of the week and time expressions', 'es', 'en'),
+('d0000000-0000-0000-0000-000000000008', 'Spanish Animals', 'Learn common animal names in Spanish', 'es', 'en'),
+('d0000000-0000-0000-0000-000000000009', 'Spanish Body Parts', 'Basic body vocabulary for health and descriptions', 'es', 'en'),
+('d0000000-0000-0000-0000-000000000010', 'Spanish Places', 'Common buildings and locations in Spanish', 'es', 'en'),
+('d0000000-0000-0000-0000-000000000020', 'Spanish Weather', 'Weather conditions and climate vocabulary', 'es', 'en'),
 
 -- French Decks
 ('d0000000-0000-0000-0000-000000000011', 'French Greetings', 'Essential greetings and polite expressions', 'fr', 'en'),
 ('d0000000-0000-0000-0000-000000000012', 'French Numbers 1-10', 'Basic counting numbers in French', 'fr', 'en'),
 ('d0000000-0000-0000-0000-000000000013', 'French Common Phrases', 'Everyday expressions in French', 'fr', 'en'),
-('d0000000-0000-0000-0000-000000000015', 'French Food & Drinks', 'Common food and beverage vocabulary', 'fr', 'en');
+('d0000000-0000-0000-0000-000000000014', 'French Colors', 'Basic color vocabulary in French', 'fr', 'en'),
+('d0000000-0000-0000-0000-000000000015', 'French Food & Drinks', 'Common food and beverage vocabulary', 'fr', 'en'),
+('d0000000-0000-0000-0000-000000000016', 'French Family', 'Family members and relationships', 'fr', 'en'),
+('d0000000-0000-0000-0000-000000000017', 'French Animals', 'Common animal names in French', 'fr', 'en'),
+('d0000000-0000-0000-0000-000000000018', 'French Body Parts', 'Basic body vocabulary in French', 'fr', 'en'),
+('d0000000-0000-0000-0000-000000000019', 'French Weather', 'Weather conditions and climate', 'fr', 'en'),
+
+-- English to Spanish Decks
+('d0000000-0000-0000-0000-000000000031', 'English to Spanish - Basics', 'Learn to translate basic English phrases into Spanish', 'en', 'es'),
+('d0000000-0000-0000-0000-000000000032', 'English to Spanish - Numbers', 'Practice English to Spanish number translation', 'en', 'es'),
+
+-- English to French Decks
+('d0000000-0000-0000-0000-000000000041', 'English to French - Basics', 'Learn to translate basic English phrases into French', 'en', 'fr'),
+('d0000000-0000-0000-0000-000000000042', 'English to French - Colors', 'Practice color vocabulary from English to French', 'en', 'fr');
 
 -- ============================================================
 -- DECK_FLASHCARDS: Link flashcards to decks
@@ -273,14 +414,155 @@ INSERT INTO deck_flashcards (deck_id, flashcard_id) VALUES
 ('d0000000-0000-0000-0000-000000000015', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb07'),
 ('d0000000-0000-0000-0000-000000000015', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb08');
 
+-- Spanish Animals Deck
+INSERT INTO deck_flashcards (deck_id, flashcard_id) VALUES
+('d0000000-0000-0000-0000-000000000008', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01'),
+('d0000000-0000-0000-0000-000000000008', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02'),
+('d0000000-0000-0000-0000-000000000008', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03'),
+('d0000000-0000-0000-0000-000000000008', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee04'),
+('d0000000-0000-0000-0000-000000000008', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee05'),
+('d0000000-0000-0000-0000-000000000008', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee06'),
+('d0000000-0000-0000-0000-000000000008', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee07'),
+('d0000000-0000-0000-0000-000000000008', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee08');
+
+-- Spanish Body Parts Deck
+INSERT INTO deck_flashcards (deck_id, flashcard_id) VALUES
+('d0000000-0000-0000-0000-000000000009', 'ffffffff-ffff-ffff-ffff-ffffffffff01'),
+('d0000000-0000-0000-0000-000000000009', 'ffffffff-ffff-ffff-ffff-ffffffffff02'),
+('d0000000-0000-0000-0000-000000000009', 'ffffffff-ffff-ffff-ffff-ffffffffff03'),
+('d0000000-0000-0000-0000-000000000009', 'ffffffff-ffff-ffff-ffff-ffffffffff04'),
+('d0000000-0000-0000-0000-000000000009', 'ffffffff-ffff-ffff-ffff-ffffffffff05'),
+('d0000000-0000-0000-0000-000000000009', 'ffffffff-ffff-ffff-ffff-ffffffffff06'),
+('d0000000-0000-0000-0000-000000000009', 'ffffffff-ffff-ffff-ffff-ffffffffff07'),
+('d0000000-0000-0000-0000-000000000009', 'ffffffff-ffff-ffff-ffff-ffffffffff08');
+
+-- Spanish Places Deck
+INSERT INTO deck_flashcards (deck_id, flashcard_id) VALUES
+('d0000000-0000-0000-0000-000000000010', '10000000-0000-0000-0000-000000000001'),
+('d0000000-0000-0000-0000-000000000010', '10000000-0000-0000-0000-000000000002'),
+('d0000000-0000-0000-0000-000000000010', '10000000-0000-0000-0000-000000000003'),
+('d0000000-0000-0000-0000-000000000010', '10000000-0000-0000-0000-000000000004'),
+('d0000000-0000-0000-0000-000000000010', '10000000-0000-0000-0000-000000000005'),
+('d0000000-0000-0000-0000-000000000010', '10000000-0000-0000-0000-000000000006'),
+('d0000000-0000-0000-0000-000000000010', '10000000-0000-0000-0000-000000000007');
+
+-- Spanish Weather Deck
+INSERT INTO deck_flashcards (deck_id, flashcard_id) VALUES
+('d0000000-0000-0000-0000-000000000020', '11000000-0000-0000-0000-000000000001'),
+('d0000000-0000-0000-0000-000000000020', '11000000-0000-0000-0000-000000000002'),
+('d0000000-0000-0000-0000-000000000020', '11000000-0000-0000-0000-000000000003'),
+('d0000000-0000-0000-0000-000000000020', '11000000-0000-0000-0000-000000000004'),
+('d0000000-0000-0000-0000-000000000020', '11000000-0000-0000-0000-000000000005'),
+('d0000000-0000-0000-0000-000000000020', '11000000-0000-0000-0000-000000000006'),
+('d0000000-0000-0000-0000-000000000020', '11000000-0000-0000-0000-000000000007');
+
+-- French Colors Deck
+INSERT INTO deck_flashcards (deck_id, flashcard_id) VALUES
+('d0000000-0000-0000-0000-000000000014', 'cccccccc-cccc-cccc-cccc-cccccccccc01'),
+('d0000000-0000-0000-0000-000000000014', 'cccccccc-cccc-cccc-cccc-cccccccccc02'),
+('d0000000-0000-0000-0000-000000000014', 'cccccccc-cccc-cccc-cccc-cccccccccc03'),
+('d0000000-0000-0000-0000-000000000014', 'cccccccc-cccc-cccc-cccc-cccccccccc04'),
+('d0000000-0000-0000-0000-000000000014', 'cccccccc-cccc-cccc-cccc-cccccccccc05'),
+('d0000000-0000-0000-0000-000000000014', 'cccccccc-cccc-cccc-cccc-cccccccccc06');
+
+-- French Family Deck
+INSERT INTO deck_flashcards (deck_id, flashcard_id) VALUES
+('d0000000-0000-0000-0000-000000000016', 'dddddddd-dddd-dddd-dddd-dddddddddd01'),
+('d0000000-0000-0000-0000-000000000016', 'dddddddd-dddd-dddd-dddd-dddddddddd02'),
+('d0000000-0000-0000-0000-000000000016', 'dddddddd-dddd-dddd-dddd-dddddddddd03'),
+('d0000000-0000-0000-0000-000000000016', 'dddddddd-dddd-dddd-dddd-dddddddddd04'),
+('d0000000-0000-0000-0000-000000000016', 'dddddddd-dddd-dddd-dddd-dddddddddd05'),
+('d0000000-0000-0000-0000-000000000016', 'dddddddd-dddd-dddd-dddd-dddddddddd06'),
+('d0000000-0000-0000-0000-000000000016', 'dddddddd-dddd-dddd-dddd-dddddddddd07');
+
+-- French Animals Deck
+INSERT INTO deck_flashcards (deck_id, flashcard_id) VALUES
+('d0000000-0000-0000-0000-000000000017', '12000000-0000-0000-0000-000000000001'),
+('d0000000-0000-0000-0000-000000000017', '12000000-0000-0000-0000-000000000002'),
+('d0000000-0000-0000-0000-000000000017', '12000000-0000-0000-0000-000000000003'),
+('d0000000-0000-0000-0000-000000000017', '12000000-0000-0000-0000-000000000004'),
+('d0000000-0000-0000-0000-000000000017', '12000000-0000-0000-0000-000000000005'),
+('d0000000-0000-0000-0000-000000000017', '12000000-0000-0000-0000-000000000006'),
+('d0000000-0000-0000-0000-000000000017', '12000000-0000-0000-0000-000000000007'),
+('d0000000-0000-0000-0000-000000000017', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb08'); -- Poisson (Fish) - shared with Food & Drinks deck
+
+-- French Body Parts Deck
+INSERT INTO deck_flashcards (deck_id, flashcard_id) VALUES
+('d0000000-0000-0000-0000-000000000018', '13000000-0000-0000-0000-000000000001'),
+('d0000000-0000-0000-0000-000000000018', '13000000-0000-0000-0000-000000000002'),
+('d0000000-0000-0000-0000-000000000018', '13000000-0000-0000-0000-000000000003'),
+('d0000000-0000-0000-0000-000000000018', '13000000-0000-0000-0000-000000000004'),
+('d0000000-0000-0000-0000-000000000018', '13000000-0000-0000-0000-000000000005'),
+('d0000000-0000-0000-0000-000000000018', '13000000-0000-0000-0000-000000000006');
+
+-- French Weather Deck
+INSERT INTO deck_flashcards (deck_id, flashcard_id) VALUES
+('d0000000-0000-0000-0000-000000000019', '14000000-0000-0000-0000-000000000001'),
+('d0000000-0000-0000-0000-000000000019', '14000000-0000-0000-0000-000000000002'),
+('d0000000-0000-0000-0000-000000000019', '14000000-0000-0000-0000-000000000003'),
+('d0000000-0000-0000-0000-000000000019', '14000000-0000-0000-0000-000000000004'),
+('d0000000-0000-0000-0000-000000000019', '14000000-0000-0000-0000-000000000005');
+
+-- English to Spanish - Basics Deck
+INSERT INTO deck_flashcards (deck_id, flashcard_id) VALUES
+('d0000000-0000-0000-0000-000000000031', '15000000-0000-0000-0000-000000000001'),
+('d0000000-0000-0000-0000-000000000031', '15000000-0000-0000-0000-000000000002'),
+('d0000000-0000-0000-0000-000000000031', '15000000-0000-0000-0000-000000000003'),
+('d0000000-0000-0000-0000-000000000031', '15000000-0000-0000-0000-000000000004'),
+('d0000000-0000-0000-0000-000000000031', '15000000-0000-0000-0000-000000000005'),
+('d0000000-0000-0000-0000-000000000031', '15000000-0000-0000-0000-000000000006');
+
+-- English to Spanish - Numbers Deck
+INSERT INTO deck_flashcards (deck_id, flashcard_id) VALUES
+('d0000000-0000-0000-0000-000000000032', '16000000-0000-0000-0000-000000000001'),
+('d0000000-0000-0000-0000-000000000032', '16000000-0000-0000-0000-000000000002'),
+('d0000000-0000-0000-0000-000000000032', '16000000-0000-0000-0000-000000000003'),
+('d0000000-0000-0000-0000-000000000032', '16000000-0000-0000-0000-000000000004'),
+('d0000000-0000-0000-0000-000000000032', '16000000-0000-0000-0000-000000000005'),
+('d0000000-0000-0000-0000-000000000032', '16000000-0000-0000-0000-000000000006'),
+('d0000000-0000-0000-0000-000000000032', '16000000-0000-0000-0000-000000000007'),
+('d0000000-0000-0000-0000-000000000032', '16000000-0000-0000-0000-000000000008'),
+('d0000000-0000-0000-0000-000000000032', '16000000-0000-0000-0000-000000000009'),
+('d0000000-0000-0000-0000-000000000032', '16000000-0000-0000-0000-000000000010');
+
+-- English to French - Basics Deck
+INSERT INTO deck_flashcards (deck_id, flashcard_id) VALUES
+('d0000000-0000-0000-0000-000000000041', '17000000-0000-0000-0000-000000000001'),
+('d0000000-0000-0000-0000-000000000041', '17000000-0000-0000-0000-000000000002'),
+('d0000000-0000-0000-0000-000000000041', '17000000-0000-0000-0000-000000000003'),
+('d0000000-0000-0000-0000-000000000041', '17000000-0000-0000-0000-000000000004'),
+('d0000000-0000-0000-0000-000000000041', '17000000-0000-0000-0000-000000000005'),
+('d0000000-0000-0000-0000-000000000041', '17000000-0000-0000-0000-000000000006');
+
+-- English to French - Colors Deck
+INSERT INTO deck_flashcards (deck_id, flashcard_id) VALUES
+('d0000000-0000-0000-0000-000000000042', '18000000-0000-0000-0000-000000000001'),
+('d0000000-0000-0000-0000-000000000042', '18000000-0000-0000-0000-000000000002'),
+('d0000000-0000-0000-0000-000000000042', '18000000-0000-0000-0000-000000000003'),
+('d0000000-0000-0000-0000-000000000042', '18000000-0000-0000-0000-000000000004'),
+('d0000000-0000-0000-0000-000000000042', '18000000-0000-0000-0000-000000000005'),
+('d0000000-0000-0000-0000-000000000042', '18000000-0000-0000-0000-000000000006');
+
 -- ============================================================
 -- ROADMAPS: Learning paths with visual structure
 -- ============================================================
 
 INSERT INTO roadmaps (id, title, description, language_from, language_to) VALUES
+-- Spanish Roadmaps
 ('a0000000-0000-0000-0000-000000000001', 'Spanish for Beginners', 'A comprehensive roadmap for starting your Spanish learning journey. Master the basics from greetings to everyday conversations.', 'es', 'en'),
+('a0000000-0000-0000-0000-000000000003', 'Spanish Quick Start', 'Fast-track Spanish learning focusing on essential vocabulary. Perfect for travelers and quick learners!', 'es', 'en'),
+('a0000000-0000-0000-0000-000000000004', 'Spanish Complete Mastery', 'Master everything about Spanish with this comprehensive 11-deck journey covering all fundamental topics.', 'es', 'en'),
+('a0000000-0000-0000-0000-000000000005', 'Spanish Nature & World', 'Learn Spanish vocabulary related to weather, animals, and the world around you.', 'es', 'en'),
+
+-- French Roadmaps
 ('a0000000-0000-0000-0000-000000000002', 'French Essentials', 'Essential French vocabulary and phrases for beginners. Start your French learning adventure!', 'fr', 'en'),
-('a0000000-0000-0000-0000-000000000003', 'Spanish Quick Start', 'Fast-track Spanish learning focusing on essential vocabulary. Perfect for travelers and quick learners!', 'es', 'en');
+('a0000000-0000-0000-0000-000000000006', 'French Fundamentals', 'Build a strong foundation in French with this comprehensive learning path.', 'fr', 'en'),
+('a0000000-0000-0000-0000-000000000007', 'French Advanced Path', 'Take your French to the next level with advanced vocabulary and expressions.', 'fr', 'en'),
+('a0000000-0000-0000-0000-000000000008', 'French Express', 'Quick and focused French learning for busy learners. Just the essentials!', 'fr', 'en'),
+
+-- English-based Roadmaps (reverse learning)
+('a0000000-0000-0000-0000-000000000011', 'English to Spanish Journey', 'Perfect for English speakers learning Spanish translation skills.', 'en', 'es'),
+('a0000000-0000-0000-0000-000000000012', 'English to French Journey', 'Master French translation from English with this focused path.', 'en', 'fr');
 
 -- ============================================================
 -- ROADMAP_NODES: Visual positioning of decks in roadmaps
@@ -332,6 +614,109 @@ INSERT INTO roadmap_nodes (id, roadmap_id, deck_id, parent_node_id, pos_x, pos_y
 -- Food & drinks for practical use
 ('b0000000-0000-0000-0000-000000000023', 'a0000000-0000-0000-0000-000000000003', 'd0000000-0000-0000-0000-000000000005', 'b0000000-0000-0000-0000-000000000022', 700, 150);
 
+-- Roadmap 4: Spanish Complete Mastery
+-- (Comprehensive roadmap with all 11 Spanish decks in a complex tree structure)
+INSERT INTO roadmap_nodes (id, roadmap_id, deck_id, parent_node_id, pos_x, pos_y) VALUES
+-- Core foundation: Greetings at the center
+('b0000000-0000-0000-0000-000000000031', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000001', NULL, 100, 250),
+
+-- Two parallel branches: Numbers and Common Phrases
+('b0000000-0000-0000-0000-000000000032', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000031', 300, 150),
+('b0000000-0000-0000-0000-000000000033', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000031', 300, 350),
+
+-- Intermediate level: Family and Colors
+('b0000000-0000-0000-0000-000000000034', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000032', 500, 100),
+('b0000000-0000-0000-0000-000000000035', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000033', 500, 400),
+
+-- Practical vocabulary: Food, Animals, Places
+('b0000000-0000-0000-0000-000000000036', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000005', 'b0000000-0000-0000-0000-000000000034', 700, 50),
+('b0000000-0000-0000-0000-000000000037', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000008', 'b0000000-0000-0000-0000-000000000034', 700, 150),
+('b0000000-0000-0000-0000-000000000038', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000010', 'b0000000-0000-0000-0000-000000000035', 700, 350),
+
+-- Advanced topics: Body Parts, Weather, Time
+('b0000000-0000-0000-0000-000000000039', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000009', 'b0000000-0000-0000-0000-000000000036', 900, 100),
+('b0000000-0000-0000-0000-000000000040', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000020', 'b0000000-0000-0000-0000-000000000037', 900, 200),
+('b0000000-0000-0000-0000-000000000041', 'a0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000007', 'b0000000-0000-0000-0000-000000000038', 900, 350);
+
+-- Roadmap 5: Spanish Nature & World
+-- (Focused on animals, weather, and places - small specialized roadmap)
+INSERT INTO roadmap_nodes (id, roadmap_id, deck_id, parent_node_id, pos_x, pos_y) VALUES
+-- Animals first
+('b0000000-0000-0000-0000-000000000051', 'a0000000-0000-0000-0000-000000000005', 'd0000000-0000-0000-0000-000000000008', NULL, 150, 200),
+
+-- Weather and Places parallel
+('b0000000-0000-0000-0000-000000000052', 'a0000000-0000-0000-0000-000000000005', 'd0000000-0000-0000-0000-000000000020', 'b0000000-0000-0000-0000-000000000051', 400, 150),
+('b0000000-0000-0000-0000-000000000053', 'a0000000-0000-0000-0000-000000000005', 'd0000000-0000-0000-0000-000000000010', 'b0000000-0000-0000-0000-000000000051', 400, 250),
+
+-- Colors to describe nature
+('b0000000-0000-0000-0000-000000000054', 'a0000000-0000-0000-0000-000000000005', 'd0000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000052', 650, 200);
+
+-- Roadmap 6: French Fundamentals
+-- (Large comprehensive French roadmap with 9 decks)
+INSERT INTO roadmap_nodes (id, roadmap_id, deck_id, parent_node_id, pos_x, pos_y) VALUES
+-- Start with greetings
+('b0000000-0000-0000-0000-000000000061', 'a0000000-0000-0000-0000-000000000006', 'd0000000-0000-0000-0000-000000000011', NULL, 100, 250),
+
+-- Numbers and Common Phrases branch off
+('b0000000-0000-0000-0000-000000000062', 'a0000000-0000-0000-0000-000000000006', 'd0000000-0000-0000-0000-000000000012', 'b0000000-0000-0000-0000-000000000061', 300, 150),
+('b0000000-0000-0000-0000-000000000063', 'a0000000-0000-0000-0000-000000000006', 'd0000000-0000-0000-0000-000000000013', 'b0000000-0000-0000-0000-000000000061', 300, 350),
+
+-- Colors and Family
+('b0000000-0000-0000-0000-000000000064', 'a0000000-0000-0000-0000-000000000006', 'd0000000-0000-0000-0000-000000000014', 'b0000000-0000-0000-0000-000000000062', 500, 100),
+('b0000000-0000-0000-0000-000000000065', 'a0000000-0000-0000-0000-000000000006', 'd0000000-0000-0000-0000-000000000016', 'b0000000-0000-0000-0000-000000000063', 500, 400),
+
+-- Practical vocabulary
+('b0000000-0000-0000-0000-000000000066', 'a0000000-0000-0000-0000-000000000006', 'd0000000-0000-0000-0000-000000000015', 'b0000000-0000-0000-0000-000000000064', 700, 100),
+('b0000000-0000-0000-0000-000000000067', 'a0000000-0000-0000-0000-000000000006', 'd0000000-0000-0000-0000-000000000017', 'b0000000-0000-0000-0000-000000000064', 700, 200),
+
+-- Advanced topics
+('b0000000-0000-0000-0000-000000000068', 'a0000000-0000-0000-0000-000000000006', 'd0000000-0000-0000-0000-000000000018', 'b0000000-0000-0000-0000-000000000066', 900, 150),
+('b0000000-0000-0000-0000-000000000069', 'a0000000-0000-0000-0000-000000000006', 'd0000000-0000-0000-0000-000000000019', 'b0000000-0000-0000-0000-000000000067', 900, 250);
+
+-- Roadmap 7: French Advanced Path
+-- (Medium-sized specialized roadmap with 5 decks)
+INSERT INTO roadmap_nodes (id, roadmap_id, deck_id, parent_node_id, pos_x, pos_y) VALUES
+-- Start with common phrases
+('b0000000-0000-0000-0000-000000000071', 'a0000000-0000-0000-0000-000000000007', 'd0000000-0000-0000-0000-000000000013', NULL, 150, 250),
+
+-- Family and Animals
+('b0000000-0000-0000-0000-000000000072', 'a0000000-0000-0000-0000-000000000007', 'd0000000-0000-0000-0000-000000000016', 'b0000000-0000-0000-0000-000000000071', 400, 200),
+('b0000000-0000-0000-0000-000000000073', 'a0000000-0000-0000-0000-000000000007', 'd0000000-0000-0000-0000-000000000017', 'b0000000-0000-0000-0000-000000000071', 400, 300),
+
+-- Body Parts and Weather (advanced)
+('b0000000-0000-0000-0000-000000000074', 'a0000000-0000-0000-0000-000000000007', 'd0000000-0000-0000-0000-000000000018', 'b0000000-0000-0000-0000-000000000072', 650, 200),
+('b0000000-0000-0000-0000-000000000075', 'a0000000-0000-0000-0000-000000000007', 'd0000000-0000-0000-0000-000000000019', 'b0000000-0000-0000-0000-000000000073', 650, 300);
+
+-- Roadmap 8: French Express
+-- (Small quick roadmap with 3 decks - linear path)
+INSERT INTO roadmap_nodes (id, roadmap_id, deck_id, parent_node_id, pos_x, pos_y) VALUES
+-- Greetings first
+('b0000000-0000-0000-0000-000000000081', 'a0000000-0000-0000-0000-000000000008', 'd0000000-0000-0000-0000-000000000011', NULL, 200, 200),
+
+-- Numbers second
+('b0000000-0000-0000-0000-000000000082', 'a0000000-0000-0000-0000-000000000008', 'd0000000-0000-0000-0000-000000000012', 'b0000000-0000-0000-0000-000000000081', 450, 200),
+
+-- Food & Drinks last
+('b0000000-0000-0000-0000-000000000083', 'a0000000-0000-0000-0000-000000000008', 'd0000000-0000-0000-0000-000000000015', 'b0000000-0000-0000-0000-000000000082', 700, 200);
+
+-- Roadmap 11: English to Spanish Journey
+-- (Reverse learning path with 2 decks)
+INSERT INTO roadmap_nodes (id, roadmap_id, deck_id, parent_node_id, pos_x, pos_y) VALUES
+-- Basics first
+('b0000000-0000-0000-0000-000000000111', 'a0000000-0000-0000-0000-000000000011', 'd0000000-0000-0000-0000-000000000031', NULL, 250, 200),
+
+-- Numbers next
+('b0000000-0000-0000-0000-000000000112', 'a0000000-0000-0000-0000-000000000011', 'd0000000-0000-0000-0000-000000000032', 'b0000000-0000-0000-0000-000000000111', 500, 200);
+
+-- Roadmap 12: English to French Journey
+-- (Reverse learning path with 2 decks)
+INSERT INTO roadmap_nodes (id, roadmap_id, deck_id, parent_node_id, pos_x, pos_y) VALUES
+-- Basics first
+('b0000000-0000-0000-0000-000000000121', 'a0000000-0000-0000-0000-000000000012', 'd0000000-0000-0000-0000-000000000041', NULL, 250, 200),
+
+-- Colors next
+('b0000000-0000-0000-0000-000000000122', 'a0000000-0000-0000-0000-000000000012', 'd0000000-0000-0000-0000-000000000042', 'b0000000-0000-0000-0000-000000000121', 500, 200);
+
 COMMIT;
 
 -- ============================================================
@@ -344,22 +729,47 @@ COMMIT;
 --   \i /path/to/seed_fake_data.sql
 --
 -- This creates:
---   - 85 flashcards (Spanish, French to English)
---   - 11 decks (organized by topic and language)
---   - 3 roadmaps with visual node layouts
---   - 14 roadmap nodes (decks positioned in learning paths)
+--   - 190 flashcards across Spanish, French, and English
+--   - 26 decks (organized by topic and language)
+--   - 10 roadmaps with visual node layouts (various sizes and structures)
+--   - 59 roadmap nodes (decks positioned in learning paths)
 --
 -- Languages included:
---   - Spanish (es) → English (en): 60 flashcards, 7 decks
---   - French (fr) → English (en): 25 flashcards, 4 decks
+--   - Spanish (es) → English (en): 94 flashcards, 11 decks
+--   - French (fr) → English (en): 64 flashcards, 9 decks
+--   - English (en) → Spanish (es): 16 flashcards, 2 decks
+--   - English (en) → French (fr): 12 flashcards, 2 decks
+--
+-- Deck Categories:
+--   Spanish: Greetings, Numbers, Common Phrases, Family, Food & Drinks, Colors,
+--            Days & Time, Animals, Body Parts, Places, Weather
+--   French: Greetings, Numbers, Common Phrases, Colors, Food & Drinks, Family,
+--           Animals, Body Parts, Weather
+--   English to Spanish: Basics, Numbers
+--   English to French: Basics, Colors
 --
 -- Test endpoints:
 --   GET /v1/roadmaps - See all roadmaps
 --   GET /v1/roadmaps/es/en - Filter by Spanish-to-English
 --   GET /v1/roadmaps/fr/en - Filter by French-to-English
+--   GET /v1/roadmaps/en/es - Filter by English-to-Spanish
+--   GET /v1/roadmaps/en/fr - Filter by English-to-French
 --   GET /v1/roadmaps/{roadmap_id}/progress/{user_id} - View with progress (requires auth)
 --
--- Roadmap IDs:
---   a0000000-0000-0000-0000-000000000001 - Spanish for Beginners (7 decks, comprehensive)
---   a0000000-0000-0000-0000-000000000002 - French Essentials (4 decks)
---   a0000000-0000-0000-0000-000000000003 - Spanish Quick Start (3 decks, fast-track)
+-- Roadmap Summary (by size and structure):
+--
+-- SPANISH ROADMAPS (es → en):
+--   a0000000-0000-0000-0000-000000000001 - Spanish for Beginners (7 decks, tree structure)
+--   a0000000-0000-0000-0000-000000000003 - Spanish Quick Start (3 decks, linear path)
+--   a0000000-0000-0000-0000-000000000004 - Spanish Complete Mastery (11 decks, complex tree)
+--   a0000000-0000-0000-0000-000000000005 - Spanish Nature & World (4 decks, branching)
+--
+-- FRENCH ROADMAPS (fr → en):
+--   a0000000-0000-0000-0000-000000000002 - French Essentials (4 decks, parallel paths)
+--   a0000000-0000-0000-0000-000000000006 - French Fundamentals (9 decks, comprehensive tree)
+--   a0000000-0000-0000-0000-000000000007 - French Advanced Path (5 decks, medium branching)
+--   a0000000-0000-0000-0000-000000000008 - French Express (3 decks, simple linear)
+--
+-- ENGLISH-BASED ROADMAPS (reverse learning):
+--   a0000000-0000-0000-0000-000000000011 - English to Spanish Journey (2 decks, en → es)
+--   a0000000-0000-0000-0000-000000000012 - English to French Journey (2 decks, en → fr)
