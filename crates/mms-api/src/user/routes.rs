@@ -267,7 +267,16 @@ async fn login_user(
     .await?
     .ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
 
-    let (id, username, email, password_hash, profile_picture_url, email_verified, native_language, learning_language) = user;
+    let (
+        id,
+        username,
+        email,
+        password_hash,
+        profile_picture_url,
+        email_verified,
+        native_language,
+        learning_language,
+    ) = user;
 
     // Verify password exists and matches
     let password_hash =
@@ -692,17 +701,18 @@ async fn update_user_profile(
 
     if !has_updates {
         // Fetch current language preferences
-        let (profile_picture_url, native_language, learning_language) = sqlx::query_as::<_, (Option<String>, Option<String>, Option<String>)>(
-            // language=PostgreSQL
-            r#"
+        let (profile_picture_url, native_language, learning_language) =
+            sqlx::query_as::<_, (Option<String>, Option<String>, Option<String>)>(
+                // language=PostgreSQL
+                r#"
                 SELECT profile_picture_url, native_language, learning_language
                 FROM users
                 WHERE id = $1
             "#,
-        )
-        .bind(user_id)
-        .fetch_one(&state.pool)
-        .await?;
+            )
+            .bind(user_id)
+            .fetch_one(&state.pool)
+            .await?;
 
         let user_response = UserResponse {
             id: user_id,
@@ -751,23 +761,33 @@ async fn update_user_profile(
 
     query_builder.push(" WHERE id = ");
     query_builder.push_bind(user_id);
-    query_builder.push(" RETURNING id, username, email, profile_picture_url, native_language, learning_language");
+    query_builder.push(
+        " RETURNING id, username, email, profile_picture_url, native_language, learning_language",
+    );
 
-    let (id, username, email, profile_picture_url, native_language, learning_language) = query_builder
-        .build_query_as::<(Uuid, String, String, Option<String>, Option<String>, Option<String>)>()
-        .fetch_one(&state.pool)
-        .await
-        .map_err(|e| {
-            if e.to_string().contains("duplicate key") {
-                if e.to_string().contains("username") {
-                    ApiError::Conflict("Username is already taken".to_string())
+    let (id, username, email, profile_picture_url, native_language, learning_language) =
+        query_builder
+            .build_query_as::<(
+                Uuid,
+                String,
+                String,
+                Option<String>,
+                Option<String>,
+                Option<String>,
+            )>()
+            .fetch_one(&state.pool)
+            .await
+            .map_err(|e| {
+                if e.to_string().contains("duplicate key") {
+                    if e.to_string().contains("username") {
+                        ApiError::Conflict("Username is already taken".to_string())
+                    } else {
+                        ApiError::Conflict("Email is already in use".to_string())
+                    }
                 } else {
-                    ApiError::Conflict("Email is already in use".to_string())
+                    ApiError::Database(e)
                 }
-            } else {
-                ApiError::Database(e)
-            }
-        })?;
+            })?;
 
     // If email changed, send verification email
     if request.email.is_some() && request.email.as_ref() != Some(&current_email) {

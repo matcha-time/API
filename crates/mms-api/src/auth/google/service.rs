@@ -30,7 +30,17 @@ pub async fn find_or_create_google_user(
     picture: Option<&str>,
 ) -> Result<User, ApiError> {
     // First, try to find existing user by Google ID
-    if let Some(user) = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>, Option<String>)>(
+    if let Some(user) = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ),
+    >(
         // language=PostgreSQL
         r#"
             SELECT id, username, email, profile_picture_url, native_language, learning_language

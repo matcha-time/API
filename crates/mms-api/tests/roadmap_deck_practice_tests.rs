@@ -220,7 +220,11 @@ async fn test_get_roadmap_nodes_public() {
     // Verify roadmap metadata
     let roadmap = &json["roadmap"];
     assert_eq!(roadmap["id"].as_str().unwrap(), roadmap_id.to_string());
-    assert_eq!(roadmap["total_nodes"].as_i64().unwrap(), 2, "Should have 2 nodes");
+    assert_eq!(
+        roadmap["total_nodes"].as_i64().unwrap(),
+        2,
+        "Should have 2 nodes"
+    );
     assert_eq!(
         roadmap["completed_nodes"].as_i64().unwrap(),
         0,
@@ -238,9 +242,18 @@ async fn test_get_roadmap_nodes_public() {
     // Verify node structure
     let first_node = &nodes[0];
     assert!(first_node["node_id"].is_string(), "Should have node_id");
-    assert!(first_node.get("parent_node_id").is_some(), "Should have parent_node_id field");
-    assert!(first_node["deck_title"].is_string(), "Should have deck_title");
-    assert!(first_node.get("deck_description").is_some(), "Should have deck_description");
+    assert!(
+        first_node.get("parent_node_id").is_some(),
+        "Should have parent_node_id field"
+    );
+    assert!(
+        first_node["deck_title"].is_string(),
+        "Should have deck_title"
+    );
+    assert!(
+        first_node.get("deck_description").is_some(),
+        "Should have deck_description"
+    );
     assert_eq!(
         first_node["total_cards"].as_i64().unwrap(),
         2,
@@ -321,11 +334,23 @@ async fn test_get_roadmap_with_progress_authenticated() {
     // Verify roadmap metadata
     let roadmap = &json["roadmap"];
     assert_eq!(roadmap["id"].as_str().unwrap(), roadmap_id.to_string());
-    assert!(roadmap["title"].as_str().unwrap().starts_with("Test Spanish Roadmap"));
+    assert!(
+        roadmap["title"]
+            .as_str()
+            .unwrap()
+            .starts_with("Test Spanish Roadmap")
+    );
     assert_eq!(roadmap["language_from"].as_str().unwrap(), "en");
     assert_eq!(roadmap["language_to"].as_str().unwrap(), "es");
-    assert_eq!(roadmap["total_nodes"].as_i64().unwrap(), 2, "Should have 2 nodes");
-    assert!(roadmap["progress_percentage"].is_number(), "Should have progress_percentage");
+    assert_eq!(
+        roadmap["total_nodes"].as_i64().unwrap(),
+        2,
+        "Should have 2 nodes"
+    );
+    assert!(
+        roadmap["progress_percentage"].is_number(),
+        "Should have progress_percentage"
+    );
 
     let nodes = json["nodes"].as_array().unwrap();
     assert!(!nodes.is_empty(), "Should have roadmap nodes");
@@ -333,8 +358,14 @@ async fn test_get_roadmap_with_progress_authenticated() {
     // Verify node structure includes parent_node_id and deck_description
     let first_node = &nodes[0];
     assert!(first_node["node_id"].is_string(), "Should have node_id");
-    assert!(first_node.get("parent_node_id").is_some(), "Should have parent_node_id field");
-    assert!(first_node.get("deck_description").is_some(), "Should have deck_description field");
+    assert!(
+        first_node.get("parent_node_id").is_some(),
+        "Should have parent_node_id field"
+    );
+    assert!(
+        first_node.get("deck_description").is_some(),
+        "Should have deck_description field"
+    );
 
     // Find node with progress
     let node_with_progress = nodes

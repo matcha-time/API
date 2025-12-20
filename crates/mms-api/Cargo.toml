@@ -51,6 +51,7 @@ validator.workspace = true
 
 # Optional dependencies for Shuttle.rs deployment
 shuttle-runtime = { workspace = true, optional = true }
+unicode-normalization = "0.1.25"
 
 [dev-dependencies]
 tower.workspace = true

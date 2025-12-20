@@ -18,7 +18,10 @@ pub fn routes() -> Router<ApiState> {
         .route("/auth/me", get(auth_me))
         .route("/auth/refresh", post(refresh_token))
         .route("/auth/logout", post(logout))
-        .route("/users/me/language-preferences", patch(update_language_preferences))
+        .route(
+            "/users/me/language-preferences",
+            patch(update_language_preferences),
+        )
         .layer(make_rate_limit_layer!(
             rate_limit::GENERAL_RATE_PER_SECOND,
             rate_limit::GENERAL_BURST_SIZE
@@ -47,7 +50,17 @@ async fn auth_me(
     State(state): State<ApiState>,
 ) -> Result<Json<UserResponse>, ApiError> {
     // Fetch full user details from database
-    let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>, Option<String>)>(
+    let user = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ),
+    >(
         // language=PostgreSQL
         r#"
             SELECT id, username, email, profile_picture_url, native_language, learning_language
@@ -181,18 +194,30 @@ async fn update_language_preferences(
     // Validate language codes (must be 2 characters)
     if payload.native_language.len() != 2 {
         return Err(ApiError::Validation(
-            "native_language must be a 2-character ISO 639-1 code (e.g., 'en', 'es', 'fr')".to_string(),
+            "native_language must be a 2-character ISO 639-1 code (e.g., 'en', 'es', 'fr')"
+                .to_string(),
         ));
     }
 
     if payload.learning_language.len() != 2 {
         return Err(ApiError::Validation(
-            "learning_language must be a 2-character ISO 639-1 code (e.g., 'en', 'es', 'fr')".to_string(),
+            "learning_language must be a 2-character ISO 639-1 code (e.g., 'en', 'es', 'fr')"
+                .to_string(),
         ));
     }
 
     // Update both language preferences
-    let updated_user = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>, Option<String>)>(
+    let updated_user = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ),
+    >(
         // language=PostgreSQL
         r#"
             UPDATE users
