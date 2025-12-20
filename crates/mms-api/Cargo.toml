@@ -15,6 +15,7 @@ shuttle = ["dep:shuttle-runtime"]
 
 [dependencies]
 mms-db.workspace = true
+mms-srs.workspace = true
 
 serde_json.workspace = true
 thiserror.workspace = true

@@ -2145,6 +2145,7 @@ dependencies = [
  "metrics",
  "metrics-exporter-prometheus",
  "mms-db",
+ "mms-srs",
  "oauth2",
  "openidconnect",
  "rand 0.8.5",
@@ -2177,6 +2178,13 @@ dependencies = [
  "serde",
  "sqlx",
  "uuid",
+]
+
+[[package]]
+name = "mms-srs"
+version = "0.1.0"
+dependencies = [
+ "chrono",
 ]
 
 [[package]]

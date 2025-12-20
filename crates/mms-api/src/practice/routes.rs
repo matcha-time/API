@@ -4,7 +4,8 @@ use axum::{
     http::StatusCode,
     routing::post,
 };
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
+use mms_srs::compute_next_review;
 use serde::Deserialize;
 use sqlx::types::Uuid;
 use unicode_normalization::UnicodeNormalization;
@@ -34,26 +35,6 @@ fn normalize_for_comparison(s: &str) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-/// Compute the next review date based on the SRS algorithm
-/// Uses a simple exponential backoff based on the score (times_correct - times_wrong)
-fn compute_next_review(times_correct: i32, times_wrong: i32) -> DateTime<Utc> {
-    let score = times_correct - times_wrong;
-
-    // SRS intervals in days based on score
-    let interval_days = match score {
-        s if s <= 0 => 1, // 1 day for new or struggling cards
-        1 => 3,           // 3 days after first correct answer
-        2 => 7,           // 1 week
-        3 => 14,          // 2 weeks
-        4 => 30,          // 1 month
-        5 => 60,          // 2 months
-        6 => 120,         // 4 months
-        _ => 180,         // 6 months for well-mastered cards
-    };
-
-    Utc::now() + Duration::days(interval_days)
 }
 
 async fn submit_review(

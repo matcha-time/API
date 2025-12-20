@@ -121,6 +121,7 @@ too_long_first_doc_paragraph = "allow"
 [workspace.dependencies]
 mms-api = { path = "crates/mms-api" }
 mms-db = { path = "crates/mms-db" }
+mms-srs = { path = "crates/mms-srs" }
 
 thiserror = "2.0.17"
 axum = "0.8.6"
