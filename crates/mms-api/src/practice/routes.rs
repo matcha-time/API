@@ -5,7 +5,6 @@ use axum::{
     routing::post,
 };
 use chrono::{DateTime, Utc};
-use mms_srs::compute_next_review;
 use serde::Deserialize;
 use sqlx::types::Uuid;
 use unicode_normalization::UnicodeNormalization;
@@ -118,7 +117,7 @@ async fn submit_review(
         };
 
         // Compute the next review date based on the new score
-        let next_review_at = compute_next_review(new_times_correct, new_times_wrong);
+        let next_review_at = mms_srs::compute_next_review(new_times_correct, new_times_wrong);
 
         // Update the progress
         sqlx::query(
