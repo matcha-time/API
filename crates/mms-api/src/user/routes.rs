@@ -58,7 +58,8 @@ pub fn routes() -> Router<ApiState> {
     // General authenticated routes with moderate rate limiting
     let general_routes = Router::new()
         .route("/users/{user_id}/dashboard", get(get_user_dashboard))
-        .route("/users/{user_id}", patch(update_user_profile))
+        .route("/users/{user_id}/password", patch(change_password))
+        .route("/users/{user_id}/username", patch(change_username))
         .route("/users/{user_id}", delete(delete_user))
         .route("/users/verify-email", get(verify_email))
         .layer(make_rate_limit_layer!(
@@ -601,28 +602,22 @@ async fn delete_user(
 }
 
 #[derive(Debug, Deserialize)]
-struct UpdateUserProfileRequest {
-    username: Option<String>,
-    email: Option<String>,
-    current_password: Option<String>,
-    new_password: Option<String>,
-    profile_picture_url: Option<String>,
+struct ChangePasswordRequest {
+    current_password: String,
+    new_password: String,
 }
 
 #[derive(Debug, Serialize)]
-struct UpdateUserProfileResponse {
+struct ChangePasswordResponse {
     message: String,
-    user: UserResponse,
 }
 
-// TODO: refactor this giant
-async fn update_user_profile(
+async fn change_password(
     auth: AuthUser,
     State(state): State<ApiState>,
-    jar: PrivateCookieJar,
     Path(user_id): Path<Uuid>,
-    Json(request): Json<UpdateUserProfileRequest>,
-) -> Result<(PrivateCookieJar, Json<UpdateUserProfileResponse>), ApiError> {
+    Json(request): Json<ChangePasswordRequest>,
+) -> Result<Json<ChangePasswordResponse>, ApiError> {
     // Verify the authenticated user matches the user to update
     if auth.user_id != user_id {
         return Err(ApiError::Auth(
@@ -631,206 +626,132 @@ async fn update_user_profile(
     }
 
     // Get current user data
-    let user = sqlx::query_as::<_, (String, String, Option<String>, String)>(
-        // language=PostgreSQL
-        r#"
-            SELECT username, email, password_hash, auth_provider::text
+    let (email, username, password_hash, auth_provider) =
+        sqlx::query_as::<_, (String, String, Option<String>, String)>(
+            // language=PostgreSQL
+            r#"
+            SELECT email, username, password_hash, auth_provider::text
             FROM users
             WHERE id = $1
         "#,
-    )
-    .bind(user_id)
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or_else(|| ApiError::NotFound("User not found".to_string()))?;
+        )
+        .bind(user_id)
+        .fetch_optional(&state.pool)
+        .await?
+        .ok_or_else(|| ApiError::NotFound("User not found".to_string()))?;
 
-    let (current_username, current_email, password_hash, auth_provider) = user;
-
-    // Validate password change request
-    if let Some(new_password) = &request.new_password {
-        // Ensure this is an email auth user
-        if auth_provider != "email" {
-            return Err(ApiError::Validation(
-                "Password changes are only available for email authentication users".to_string(),
-            ));
-        }
-
-        // Require current password for password changes
-        let current_password = request.current_password.as_ref().ok_or_else(|| {
-            ApiError::Validation("Current password is required to set a new password".to_string())
-        })?;
-
-        // Verify current password
-        let password_hash_value = password_hash.ok_or_else(|| {
-            ApiError::Auth("Password authentication not available for this account".to_string())
-        })?;
-
-        if !bcrypt::verify(current_password, &password_hash_value)? {
-            return Err(ApiError::Auth("Current password is incorrect".to_string()));
-        }
-
-        // Ensure new password is different from current password
-        if current_password == new_password {
-            return Err(ApiError::Validation(
-                "New password must be different from current password".to_string(),
-            ));
-        }
-
-        // Validate new password
-        auth::validation::validate_password(new_password)?;
-    }
-
-    // Validate optional fields
-    if let Some(username) = &request.username {
-        auth::validation::validate_username(username)?;
-    }
-
-    if let Some(email) = &request.email {
-        auth::validation::validate_email(email)?;
-    }
-
-    if let Some(profile_pic) = &request.profile_picture_url {
-        auth::validation::validate_profile_picture_url(profile_pic)?;
-    }
-
-    // Check if there are any updates to make
-    let has_updates = request.username.is_some()
-        || request.email.is_some()
-        || request.new_password.is_some()
-        || request.profile_picture_url.is_some();
-
-    if !has_updates {
-        // Fetch current language preferences
-        let (profile_picture_url, native_language, learning_language) =
-            sqlx::query_as::<_, (Option<String>, Option<String>, Option<String>)>(
-                // language=PostgreSQL
-                r#"
-                SELECT profile_picture_url, native_language, learning_language
-                FROM users
-                WHERE id = $1
-            "#,
-            )
-            .bind(user_id)
-            .fetch_one(&state.pool)
-            .await?;
-
-        let user_response = UserResponse {
-            id: user_id,
-            username: current_username,
-            email: current_email,
-            profile_picture_url,
-            native_language,
-            learning_language,
-        };
-
-        return Ok((
-            jar,
-            Json(UpdateUserProfileResponse {
-                message: "No changes were made".to_string(),
-                user: user_response,
-            }),
+    // Ensure this is an email auth user
+    if auth_provider != "email" {
+        return Err(ApiError::Validation(
+            "Password changes are only available for email authentication users".to_string(),
         ));
     }
 
-    // Build safe dynamic update query using QueryBuilder
-    let mut query_builder = sqlx::QueryBuilder::new("UPDATE users SET ");
-    let mut separated = query_builder.separated(", ");
+    // Verify current password
+    let password_hash_value = password_hash.ok_or_else(|| {
+        ApiError::Auth("Password authentication not available for this account".to_string())
+    })?;
 
-    if let Some(new_username) = &request.username {
-        separated.push("username = ");
-        separated.push_bind_unseparated(new_username);
+    if !bcrypt::verify(&request.current_password, &password_hash_value)? {
+        return Err(ApiError::Auth("Current password is incorrect".to_string()));
     }
 
-    if let Some(new_email) = &request.email {
-        separated.push("email = ");
-        separated.push_bind_unseparated(new_email);
-        // When email changes, mark as unverified
-        separated.push_unseparated("email_verified = FALSE");
+    // Ensure new password is different from current password
+    if request.current_password == request.new_password {
+        return Err(ApiError::Validation(
+            "New password must be different from current password".to_string(),
+        ));
     }
 
-    if let Some(new_pwd) = &request.new_password {
-        let new_password_hash = bcrypt::hash(new_pwd, state.bcrypt_cost)?;
-        separated.push("password_hash = ");
-        separated.push_bind_unseparated(new_password_hash);
+    // Validate new password
+    auth::validation::validate_password(&request.new_password)?;
+
+    // Hash the new password
+    let new_password_hash = bcrypt::hash(&request.new_password, state.bcrypt_cost)?;
+
+    // Update the password
+    sqlx::query(
+        // language=PostgreSQL
+        r#"
+            UPDATE users
+            SET password_hash = $1
+            WHERE id = $2
+        "#,
+    )
+    .bind(&new_password_hash)
+    .bind(user_id)
+    .execute(&state.pool)
+    .await
+    .map_err(ApiError::Database)?;
+
+    // Send password change confirmation email via background worker
+    if let Some(email_tx) = &state.email_tx {
+        let job = crate::user::email::EmailJob::PasswordChanged {
+            to_email: email,
+            username,
+        };
+
+        if let Err(e) = email_tx.send(job) {
+            tracing::error!(error = %e, "Failed to queue password change confirmation email");
+        }
     }
 
-    if let Some(profile_pic) = &request.profile_picture_url {
-        separated.push("profile_picture_url = ");
-        separated.push_bind_unseparated(profile_pic);
+    Ok(Json(ChangePasswordResponse {
+        message: "Password changed successfully".to_string(),
+    }))
+}
+
+#[derive(Debug, Deserialize)]
+struct ChangeUsernameRequest {
+    username: String,
+}
+
+#[derive(Debug, Serialize)]
+struct ChangeUsernameResponse {
+    message: String,
+    username: String,
+}
+
+async fn change_username(
+    auth: AuthUser,
+    State(state): State<ApiState>,
+    Path(user_id): Path<Uuid>,
+    Json(request): Json<ChangeUsernameRequest>,
+) -> Result<Json<ChangeUsernameResponse>, ApiError> {
+    // Verify the authenticated user matches the user to update
+    if auth.user_id != user_id {
+        return Err(ApiError::Auth(
+            "You are not authorized to update this profile".to_string(),
+        ));
     }
 
-    query_builder.push(" WHERE id = ");
-    query_builder.push_bind(user_id);
-    query_builder.push(
-        " RETURNING id, username, email, profile_picture_url, native_language, learning_language",
-    );
+    // Validate username
+    auth::validation::validate_username(&request.username)?;
 
-    let (id, username, email, profile_picture_url, native_language, learning_language) =
-        query_builder
-            .build_query_as::<(
-                Uuid,
-                String,
-                String,
-                Option<String>,
-                Option<String>,
-                Option<String>,
-            )>()
-            .fetch_one(&state.pool)
-            .await
-            .map_err(|e| {
-                if e.to_string().contains("duplicate key") {
-                    if e.to_string().contains("username") {
-                        ApiError::Conflict("Username is already taken".to_string())
-                    } else {
-                        ApiError::Conflict("Email is already in use".to_string())
-                    }
-                } else {
-                    ApiError::Database(e)
-                }
-            })?;
+    // Update the username
+    let username = sqlx::query_scalar::<_, String>(
+        // language=PostgreSQL
+        r#"
+            UPDATE users
+            SET username = $1
+            WHERE id = $2
+            RETURNING username
+        "#,
+    )
+    .bind(&request.username)
+    .bind(user_id)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(|e| {
+        if e.to_string().contains("duplicate key") && e.to_string().contains("username") {
+            ApiError::Conflict("Username is already taken".to_string())
+        } else {
+            ApiError::Database(e)
+        }
+    })?;
 
-    // If email changed, send verification email
-    if request.email.is_some() && request.email.as_ref() != Some(&current_email) {
-        let verification_token =
-            email_verification::create_verification_token(&state.pool, user_id, 24).await?;
-
-        crate::user::email::send_verification_email_if_available(
-            &state.email_tx,
-            user_id,
-            &email,
-            &username,
-            &verification_token,
-        );
-    }
-
-    let user_response = UserResponse {
-        id,
-        username: username.clone(),
-        email: email.clone(),
-        profile_picture_url,
-        native_language,
-        learning_language,
-    };
-
-    // Generate new JWT if email changed
-    let jar = if request.email.is_some() && request.email.as_ref() != Some(&current_email) {
-        let token = jwt::generate_jwt_token(id, email, &state.jwt_secret, state.jwt_expiry_hours)?;
-        let auth_cookie = cookies::create_auth_cookie(
-            token,
-            &state.environment,
-            state.jwt_expiry_hours,
-            &state.cookie_domain,
-        );
-        jar.add(auth_cookie)
-    } else {
-        jar
-    };
-
-    Ok((
-        jar,
-        Json(UpdateUserProfileResponse {
-            message: "Profile updated successfully".to_string(),
-            user: user_response,
-        }),
-    ))
+    Ok(Json(ChangeUsernameResponse {
+        message: "Username changed successfully".to_string(),
+        username,
+    }))
 }
