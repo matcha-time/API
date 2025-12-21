@@ -1,11 +1,10 @@
 use axum::{
     Json, Router,
     extract::{Path, State},
-    http::StatusCode,
     routing::post,
 };
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::types::Uuid;
 use unicode_normalization::UnicodeNormalization;
 
@@ -25,6 +24,12 @@ struct ReviewSubmission {
     deck_id: Uuid,
 }
 
+#[derive(Serialize)]
+struct ReviewResponse {
+    is_correct: bool,
+    correct_answer: String,
+}
+
 /// Normalize a string for comparison: remove accents, lowercase, remove special characters
 fn normalize_for_comparison(s: &str) -> String {
     s.nfd()
@@ -41,7 +46,7 @@ async fn submit_review(
     State(state): State<ApiState>,
     Path((user_id, flashcard_id)): Path<(Uuid, Uuid)>,
     Json(payload): Json<ReviewSubmission>,
-) -> Result<StatusCode, ApiError> {
+) -> Result<Json<ReviewResponse>, ApiError> {
     // Authorization check: ensure the authenticated user matches the user_id in the path
     if auth_user.user_id != user_id {
         return Err(ApiError::Auth(
@@ -190,5 +195,8 @@ async fn submit_review(
 
     tx.commit().await.map_err(ApiError::Database)?;
 
-    Ok(StatusCode::OK)
+    Ok(Json(ReviewResponse {
+        is_correct,
+        correct_answer: correct_translation,
+    }))
 }

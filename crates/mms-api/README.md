@@ -548,16 +548,52 @@ All API routes are prefixed with `/v1` unless otherwise noted.
 
   ```json
   {
-    "correct": true,
-    "next_review_at": "2024-01-15T10:30:00Z",
+    "user_answer": "Hello",
     "deck_id": "880e8400-e29b-41d4-a716-446655440000"
   }
   ```
 
   - **Response:** `200 OK`
-  - Updates user's review statistics and schedules next review
-  - Updates user activity heatmap
-  - Updates user stats (total reviews, last review date)
+
+  ```json
+  {
+    "is_correct": true,
+    "correct_answer": "Hello"
+  }
+  ```
+
+  - **Backend Processing:**
+    - Validates the user's answer against the flashcard's correct translation
+    - Answer validation is accent-insensitive, case-insensitive, and ignores special characters
+    - Computes the next review date using SRS (Spaced Repetition System) algorithm based on score
+    - Only updates progress if the current time is past or equal to `next_review_at` (prevents early practice from affecting SRS)
+    - Updates user's review statistics (times_correct/times_wrong counters)
+    - Updates deck progress
+    - Updates user activity heatmap
+    - Updates user stats (total reviews, last review date)
+  - **SRS Algorithm:**
+    - Score is calculated as: `times_correct - times_wrong`
+    - Uses exponential doubling with aggressive early practice
+    - Hour-based intervals for early learning, transitioning to days
+    - Next review intervals based on score:
+      - Score ≤ 0: 2 hours (immediate retry)
+      - Score 1: 4 hours
+      - Score 2: 8 hours
+      - Score 3: 1 day
+      - Score 4: 2 days
+      - Score 5: 5 days
+      - Score 6: 10 days
+      - Score 7: 20 days (~3 weeks)
+      - Score 8: 40 days (~6 weeks)
+      - Score 9: 60 days (2 months)
+      - Score ≥ 10: 90 days (3 months, mastered)
+  - **Translation Validation:**
+    - Both the user's answer and correct translation are normalized:
+      - Accents removed (e.g., "café" matches "cafe")
+      - Converted to lowercase (e.g., "Hello" matches "hello")
+      - Special characters removed (e.g., "Hello!" matches "Hello")
+      - Whitespace normalized
+    - Normalized strings must match exactly
   - **Errors:**
     - `401 Unauthorized`:
       - "Not authenticated" (missing auth token cookie)
@@ -566,7 +602,7 @@ All API routes are prefixed with `/v1` unless otherwise noted.
       - "You are not authorized to submit reviews for this user"
       - JWT verification errors (expired, invalid signature, etc.)
     - `500 Internal Server Error`:
-      - "An internal error occurred. Please try again later." (database error)
+      - "An internal error occurred. Please try again later." (database error or flashcard not found)
   - **Rate Limit:** 10 req/s (General tier)
 
 ## Rate Limiting
@@ -574,7 +610,7 @@ All API routes are prefixed with `/v1` unless otherwise noted.
 The API implements three tiers of rate limiting:
 
 | Tier | Rate Limit | Burst | Endpoints |
-|------|------------|-------|-----------|
+| ------ | ------------ | ------- | ----------- |
 | **General** | 10 req/s | 20 | Most endpoints (OAuth, authenticated routes, public data) |
 | **Auth** | 5 req/s | 5 | `/users/register`, `/users/login`, `/users/reset-password` |
 | **Sensitive** | 2 req/s | 3 | `/users/request-password-reset`, `/users/resend-verification` |
