@@ -109,7 +109,8 @@ async fn get_roadmap_nodes(
                 0::int as mastered_cards,
                 0::int as cards_due_today,
                 0::int as total_practices,
-                NULL::timestamptz as last_practiced_at
+                NULL::timestamptz as last_practiced_at,
+                0.0::float8 as progress_percentage
             FROM roadmap_nodes rn
             JOIN decks d ON d.id = rn.deck_id
             WHERE rn.roadmap_id = $1
@@ -197,7 +198,8 @@ async fn get_roadmap_with_progress(
                 COALESCE(udp.mastered_cards, 0) as mastered_cards,
                 COALESCE(udp.cards_due_today, 0) as cards_due_today,
                 COALESCE(udp.total_practices, 0) as total_practices,
-                udp.last_practiced_at
+                udp.last_practiced_at,
+                COALESCE(udp.progress_percentage, 0.0)::float8 as progress_percentage
             FROM roadmap_nodes rn
             JOIN decks d ON d.id = rn.deck_id
             LEFT JOIN user_deck_progress udp

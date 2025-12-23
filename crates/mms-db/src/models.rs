@@ -53,6 +53,7 @@ pub struct RoadmapNodeWithProgress {
     cards_due_today: i32,
     total_practices: i32,
     last_practiced_at: Option<DateTime<Utc>>,
+    progress_percentage: f64,
 }
 
 #[derive(Serialize)]

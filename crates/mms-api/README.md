@@ -478,22 +478,45 @@ All API routes are prefixed with `/v1` unless otherwise noted.
   - **Response:** `200 OK`
 
   ```json
-  [
-    {
-      "node_id": "770e8400-e29b-41d4-a716-446655440000",
-      "pos_x": 100,
-      "pos_y": 50,
-      "deck_id": "880e8400-e29b-41d4-a716-446655440000",
-      "deck_title": "Basic Greetings",
-      "total_cards": 20,
-      "mastered_cards": 15,
-      "cards_due_today": 3,
-      "total_practices": 45,
-      "last_practiced_at": "2024-01-15T10:30:00Z"
-    }
-  ]
+  {
+    "roadmap": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Spanish to English Learning Path",
+      "description": "A comprehensive roadmap for learning English from Spanish",
+      "language_from": "es",
+      "language_to": "en",
+      "total_nodes": 10,
+      "completed_nodes": 3,
+      "progress_percentage": 30.0
+    },
+    "nodes": [
+      {
+        "node_id": "770e8400-e29b-41d4-a716-446655440000",
+        "parent_node_id": null,
+        "pos_x": 100,
+        "pos_y": 50,
+        "deck_id": "880e8400-e29b-41d4-a716-446655440000",
+        "deck_title": "Basic Greetings",
+        "deck_description": "Learn common greetings and introductions",
+        "total_cards": 20,
+        "mastered_cards": 15,
+        "cards_due_today": 3,
+        "total_practices": 45,
+        "last_practiced_at": "2024-01-15T10:30:00Z",
+        "progress_percentage": 75.5
+      }
+    ]
+  }
   ```
 
+  - **Progress Percentage Calculation:**
+    - Each flashcard can contribute 0-10 points based on performance: `max(0, times_correct - times_wrong)`
+    - Deck progress: `(sum of card points) / (total_cards * 10) * 100`
+    - Example: A deck with 20 cards where each card has been answered correctly 5 times and wrong 2 times (score of 3):
+      - Total points: 20 cards × 3 points = 60
+      - Max points: 20 cards × 10 = 200
+      - Progress: (60 / 200) × 100 = 30%
+    - Roadmap progress is calculated as the percentage of completed nodes (where all cards are mastered)
   - **Errors:**
     - `401 Unauthorized`:
       - "Not authenticated" (missing auth token cookie)
