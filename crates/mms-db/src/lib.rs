@@ -1,4 +1,5 @@
 pub mod models;
+pub mod repositories;
 
 use anyhow::Context;
 use sqlx::{PgPool, Postgres, migrate::MigrateDatabase, postgres::PgPoolOptions};

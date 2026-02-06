@@ -10,19 +10,37 @@ use crate::{
 };
 use sqlx::PgPool;
 
+/// JWT and password-hashing configuration.
 #[derive(Clone)]
-pub struct ApiState {
-    pub oidc_client: OpenIdClient,
+pub struct AuthConfig {
     pub jwt_secret: String,
     pub bcrypt_cost: u32,
     pub jwt_expiry_hours: i64,
     pub refresh_token_expiry_days: i64,
-    pub oidc_flow_expiry_minutes: i64,
-    pub frontend_url: String,
+}
+
+/// Cookie-related configuration.
+#[derive(Clone)]
+pub struct CookieConfig {
     pub cookie_domain: String,
     pub cookie_key: Key,
-    pub pool: PgPool,
     pub environment: Environment,
+}
+
+/// Google OIDC configuration.
+#[derive(Clone)]
+pub struct OidcConfig {
+    pub oidc_client: OpenIdClient,
+    pub oidc_flow_expiry_minutes: i64,
+    pub frontend_url: String,
+}
+
+#[derive(Clone)]
+pub struct ApiState {
+    pub auth: AuthConfig,
+    pub cookie: CookieConfig,
+    pub oidc: OidcConfig,
+    pub pool: PgPool,
     pub email_tx: Option<mpsc::UnboundedSender<EmailJob>>,
 }
 
@@ -91,17 +109,23 @@ impl ApiState {
         );
 
         Ok(Self {
-            oidc_client,
-            jwt_secret: config.jwt_secret,
-            bcrypt_cost: config.bcrypt_cost,
-            jwt_expiry_hours: config.jwt_expiry_hours,
-            refresh_token_expiry_days: config.refresh_token_expiry_days,
-            oidc_flow_expiry_minutes: config.oidc_flow_expiry_minutes,
-            frontend_url: config.frontend_url.clone(),
-            cookie_domain: config.cookie_domain,
-            cookie_key,
+            auth: AuthConfig {
+                jwt_secret: config.jwt_secret,
+                bcrypt_cost: config.bcrypt_cost,
+                jwt_expiry_hours: config.jwt_expiry_hours,
+                refresh_token_expiry_days: config.refresh_token_expiry_days,
+            },
+            cookie: CookieConfig {
+                cookie_domain: config.cookie_domain,
+                cookie_key,
+                environment: config.env,
+            },
+            oidc: OidcConfig {
+                oidc_client,
+                oidc_flow_expiry_minutes: config.oidc_flow_expiry_minutes,
+                frontend_url: config.frontend_url.clone(),
+            },
             pool,
-            environment: config.env,
             email_tx,
         })
     }
@@ -109,7 +133,30 @@ impl ApiState {
 
 impl FromRef<ApiState> for Key {
     fn from_ref(state: &ApiState) -> Self {
-        tracing::debug!("FromRef<ApiState> for Key called");
-        state.cookie_key.clone()
+        state.cookie.cookie_key.clone()
+    }
+}
+
+impl FromRef<ApiState> for AuthConfig {
+    fn from_ref(state: &ApiState) -> Self {
+        state.auth.clone()
+    }
+}
+
+impl FromRef<ApiState> for CookieConfig {
+    fn from_ref(state: &ApiState) -> Self {
+        state.cookie.clone()
+    }
+}
+
+impl FromRef<ApiState> for OidcConfig {
+    fn from_ref(state: &ApiState) -> Self {
+        state.oidc.clone()
+    }
+}
+
+impl FromRef<ApiState> for PgPool {
+    fn from_ref(state: &ApiState) -> Self {
+        state.pool.clone()
     }
 }

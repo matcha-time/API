@@ -34,6 +34,7 @@ async fn google_auth(
 
     // Generate CSRF token and nonce
     let (auth_url, csrf_token, nonce) = state
+        .oidc
         .oidc_client
         .authorize_url(
             AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
@@ -57,9 +58,9 @@ async fn google_auth(
 
     let cookie = cookies::create_oidc_flow_cookie(
         oidc_json,
-        &state.environment,
-        state.oidc_flow_expiry_minutes,
-        &state.cookie_domain,
+        &state.cookie.environment,
+        state.oidc.oidc_flow_expiry_minutes,
+        &state.cookie.cookie_domain,
     );
     let jar = jar.add(cookie);
 
@@ -95,6 +96,7 @@ async fn auth_callback(
 
     // Exchange authorization code for tokens with PKCE verifier
     let token_response = state
+        .oidc
         .oidc_client
         .exchange_code(AuthorizationCode::new(query.code))
         .map_err(|e| ApiError::Oidc(format!("Token exchange failed: {}", e)))?
@@ -108,7 +110,7 @@ async fn auth_callback(
         .id_token()
         .ok_or_else(|| ApiError::InvalidIdToken("No ID token in response".to_string()))?;
 
-    let id_token_verifier = state.oidc_client.id_token_verifier();
+    let id_token_verifier = state.oidc.oidc_client.id_token_verifier();
     let id_token_claims = id_token
         .claims(&id_token_verifier, &Nonce::new(oidc_data.nonce))
         .map_err(|e| ApiError::InvalidIdToken(format!("ID token verification failed: {}", e)))?;
@@ -147,8 +149,8 @@ async fn auth_callback(
     let token = jwt::generate_jwt_token(
         user.id,
         user.email.clone(),
-        &state.jwt_secret,
-        state.jwt_expiry_hours,
+        &state.auth.jwt_secret,
+        state.auth.jwt_expiry_hours,
     )?;
 
     // Generate refresh token
@@ -159,22 +161,22 @@ async fn auth_callback(
         &refresh_token_hash,
         None,
         None,
-        state.refresh_token_expiry_days,
+        state.auth.refresh_token_expiry_days,
     )
     .await?;
 
     // Set cookies with JWT and refresh token
     let auth_cookie = cookies::create_auth_cookie(
         token.clone(),
-        &state.environment,
-        state.jwt_expiry_hours,
-        &state.cookie_domain,
+        &state.cookie.environment,
+        state.auth.jwt_expiry_hours,
+        &state.cookie.cookie_domain,
     );
     let refresh_cookie = cookies::create_refresh_token_cookie(
         refresh_token,
-        &state.environment,
-        state.refresh_token_expiry_days,
-        &state.cookie_domain,
+        &state.cookie.environment,
+        state.auth.refresh_token_expiry_days,
+        &state.cookie.cookie_domain,
     );
     let jar = jar.add(auth_cookie).add(refresh_cookie);
 
@@ -196,7 +198,7 @@ async fn auth_callback(
                 </body>
             </html>
         "#,
-        state.frontend_url
+        state.oidc.frontend_url
     );
 
     Ok((jar, axum::response::Html(html)))

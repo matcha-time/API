@@ -1,11 +1,10 @@
 use axum::{
     Json, Router,
-    extract::{Path, Query, State},
+    extract::{Query, State},
     routing::{delete, get, patch, post},
 };
 use axum_extra::extract::{PrivateCookieJar, cookie::Cookie};
 use serde::{Deserialize, Serialize};
-use sqlx::types::Uuid;
 
 use crate::{
     ApiState,
@@ -19,6 +18,16 @@ use crate::{
 };
 
 use mms_db::models::{ActivityDay, UserStats};
+use mms_db::repositories::user as user_repo;
+
+/// Check if a SQLx error is a PostgreSQL unique constraint violation (error code 23505).
+fn is_unique_violation(e: &sqlx::Error) -> bool {
+    if let sqlx::Error::Database(db_err) = e {
+        db_err.code().as_deref() == Some("23505")
+    } else {
+        false
+    }
+}
 
 /// Create the user routes
 pub fn routes() -> Router<ApiState> {
@@ -57,10 +66,10 @@ pub fn routes() -> Router<ApiState> {
 
     // General authenticated routes with moderate rate limiting
     let general_routes = Router::new()
-        .route("/users/{user_id}/dashboard", get(get_user_dashboard))
-        .route("/users/{user_id}/password", patch(change_password))
-        .route("/users/{user_id}/username", patch(change_username))
-        .route("/users/{user_id}", delete(delete_user))
+        .route("/users/me/dashboard", get(get_user_dashboard))
+        .route("/users/me/password", patch(change_password))
+        .route("/users/me/username", patch(change_username))
+        .route("/users/me", delete(delete_user))
         .route("/users/verify-email", get(verify_email))
         .layer(make_rate_limit_layer!(
             rate_limit::GENERAL_RATE_PER_SECOND,
@@ -83,40 +92,16 @@ struct UserDashboard {
 async fn get_user_dashboard(
     auth: AuthUser,
     State(state): State<ApiState>,
-    Path(user_id): Path<Uuid>,
 ) -> Result<Json<UserDashboard>, ApiError> {
-    // Verify the authenticated user matches the requested user
-    if auth.user_id != user_id {
-        return Err(ApiError::Auth(
-            "You are not authorized to access this dashboard".to_string(),
-        ));
-    }
+    let user_id = auth.user_id;
 
-    let stats = sqlx::query_as::<_, UserStats>(
-        // language=PostgreSQL
-        r#"
-            SELECT current_streak_days, longest_streak_days, total_reviews, total_cards_learned, last_review_date
-            FROM user_stats WHERE user_id = $1
-        "#,
-    )
-    .bind(user_id)
-    .fetch_one(&state.pool)
-    .await
-    .map_err(ApiError::Database)?;
+    let stats = user_repo::get_user_stats(&state.pool, user_id)
+        .await
+        .map_err(ApiError::Database)?;
 
-    let heatmap = sqlx::query_as::<_, ActivityDay>(
-        // language=PostgreSQL
-        r#"
-            SELECT activity_date, reviews_count
-            FROM user_activity
-            WHERE user_id = $1 AND activity_date >= CURRENT_DATE - 365
-            ORDER BY activity_date
-        "#,
-    )
-    .bind(user_id)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(ApiError::Database)?;
+    let heatmap = user_repo::get_user_activity(&state.pool, user_id)
+        .await
+        .map_err(ApiError::Database)?;
 
     Ok(Json(UserDashboard { stats, heatmap }))
 }
@@ -144,29 +129,19 @@ async fn create_user(
     auth::validation::validate_username(&request.username)?;
 
     // Check if user already exists
-    let existing_user = sqlx::query_as::<_, (Uuid, bool)>(
-        // language=PostgreSQL
-        r#"
-            SELECT id, email_verified
-            FROM users
-            WHERE email = $1 AND auth_provider = 'email'
-        "#,
-    )
-    .bind(&request.email)
-    .fetch_optional(&state.pool)
-    .await?;
+    let existing_user = user_repo::find_existence_by_email(&state.pool, &request.email).await?;
 
     // If user exists (verified or not), resend verification email
     // This prevents email enumeration by always returning the same response
-    if let Some((user_id, email_verified)) = existing_user {
+    if let Some(existing) = existing_user {
         // If verified, don't send email but return same message
-        if !email_verified {
+        if !existing.email_verified {
             let verification_token =
-                email_verification::create_verification_token(&state.pool, user_id, 24).await?;
+                email_verification::create_verification_token(&state.pool, existing.id, 24).await?;
 
             crate::user::email::send_verification_email_if_available(
                 &state.email_tx,
-                user_id,
+                existing.id,
                 &request.email,
                 &request.username,
                 &verification_token,
@@ -183,46 +158,32 @@ async fn create_user(
     // Start a transaction for user creation
     let mut tx = state.pool.begin().await?;
 
-    // Hash the password
-    let password_hash = bcrypt::hash(&request.password, state.bcrypt_cost)?;
+    // Hash the password (CPU-intensive, run off the async runtime)
+    let password = request.password.clone();
+    let cost = state.auth.bcrypt_cost;
+    let password_hash = tokio::task::spawn_blocking(move || bcrypt::hash(password, cost))
+        .await
+        .map_err(|_| ApiError::Auth("Hashing failed".into()))?
+        .map_err(ApiError::Bcrypt)?;
 
     // Insert user into database
-    let user_id = sqlx::query_scalar::<_, Uuid>(
-        // language=PostgreSQL
-        r#"
-            INSERT INTO users (username, email, password_hash, auth_provider)
-            VALUES ($1, $2, $3, 'email')
-            RETURNING id
-        "#,
-    )
-    .bind(&request.username)
-    .bind(&request.email)
-    .bind(&password_hash)
-    .fetch_one(&mut *tx)
-    .await
-    .map_err(|e| {
-        // Handle unique constraint violations gracefully
-        if e.to_string().contains("duplicate key") {
-            // Generic message to prevent enumeration
-            ApiError::Conflict(
-                "Registration failed. This username or email may already be in use.".to_string(),
-            )
-        } else {
-            ApiError::Database(e)
-        }
-    })?;
+    let user_id =
+        user_repo::create_email_user(&mut *tx, &request.username, &request.email, &password_hash)
+            .await
+            .map_err(|e| {
+                // Handle unique constraint violations gracefully (PostgreSQL error code 23505)
+                if is_unique_violation(&e) {
+                    ApiError::Conflict(
+                        "Registration failed. This username or email may already be in use."
+                            .to_string(),
+                    )
+                } else {
+                    ApiError::Database(e)
+                }
+            })?;
 
     // Create user_stats entry
-    sqlx::query(
-        // language=PostgreSQL
-        r#"
-            INSERT INTO user_stats (user_id)
-            VALUES ($1)
-        "#,
-    )
-    .bind(user_id)
-    .execute(&mut *tx)
-    .await?;
+    user_repo::create_user_stats(&mut *tx, user_id).await?;
 
     // Generate verification token (24 hour expiry)
     // Use the transaction version to respect foreign key constraints
@@ -255,73 +216,64 @@ async fn login_user(
     Json(request): Json<LoginRequest>,
 ) -> Result<(PrivateCookieJar, Json<AuthResponse>), ApiError> {
     // Fetch user from database
-    let user = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>, bool, Option<String>, Option<String>)>(
-        // language=PostgreSQL
-        r#"
-            SELECT id, username, email, password_hash, profile_picture_url, email_verified, native_language, learning_language
-            FROM users
-            WHERE email = $1 AND auth_provider = 'email'
-        "#,
-    )
-    .bind(&request.email)
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
-
-    let (
-        id,
-        username,
-        email,
-        password_hash,
-        profile_picture_url,
-        email_verified,
-        native_language,
-        learning_language,
-    ) = user;
+    let user = user_repo::find_credentials_by_email(&state.pool, &request.email)
+        .await?
+        .ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
 
     // Verify password exists and matches
-    let password_hash =
-        password_hash.ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
+    let password_hash = user
+        .password_hash
+        .ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
 
-    if !bcrypt::verify(&request.password, &password_hash)? {
+    let password = request.password.clone();
+    let hash = password_hash.clone();
+    let valid = tokio::task::spawn_blocking(move || bcrypt::verify(password, &hash))
+        .await
+        .map_err(|_| ApiError::Auth("Verification failed".into()))?
+        .map_err(ApiError::Bcrypt)?;
+    if !valid {
         return Err(ApiError::Auth("Invalid email or password".to_string()));
     }
 
     // Check if email is verified
-    if !email_verified {
+    if !user.email_verified {
         return Err(ApiError::Auth(
             "Please verify your email address before logging in. Check your inbox for the verification link.".to_string()
         ));
     }
 
     // Generate JWT access token
-    let token =
-        jwt::generate_jwt_token(id, email.clone(), &state.jwt_secret, state.jwt_expiry_hours)?;
+    let token = jwt::generate_jwt_token(
+        user.id,
+        user.email.clone(),
+        &state.auth.jwt_secret,
+        state.auth.jwt_expiry_hours,
+    )?;
 
     // Generate refresh token
     let (refresh_token, refresh_token_hash) = auth::refresh_token::generate_refresh_token();
     auth::refresh_token::store_refresh_token(
         &state.pool,
-        id,
+        user.id,
         &refresh_token_hash,
         None,
         None,
-        state.refresh_token_expiry_days,
+        state.auth.refresh_token_expiry_days,
     )
     .await?;
 
     // Set cookies with JWT and refresh token
     let auth_cookie = cookies::create_auth_cookie(
         token.clone(),
-        &state.environment,
-        state.jwt_expiry_hours,
-        &state.cookie_domain,
+        &state.cookie.environment,
+        state.auth.jwt_expiry_hours,
+        &state.cookie.cookie_domain,
     );
     let refresh_cookie = cookies::create_refresh_token_cookie(
         refresh_token.clone(),
-        &state.environment,
-        state.refresh_token_expiry_days,
-        &state.cookie_domain,
+        &state.cookie.environment,
+        state.auth.refresh_token_expiry_days,
+        &state.cookie.cookie_domain,
     );
     let jar = jar.add(auth_cookie).add(refresh_cookie);
 
@@ -331,12 +283,12 @@ async fn login_user(
             token,
             refresh_token,
             user: UserResponse {
-                id,
-                username,
-                email,
-                profile_picture_url,
-                native_language,
-                learning_language,
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                profile_picture_url: user.profile_picture_url,
+                native_language: user.native_language,
+                learning_language: user.learning_language,
             },
         }),
     ))
@@ -360,30 +312,20 @@ async fn request_password_reset(
     auth::validation::validate_email(&request.email)?;
 
     // Find user by email (only for email auth provider)
-    let user = sqlx::query_as::<_, (Uuid, String)>(
-        // language=PostgreSQL
-        r#"
-            SELECT id, username
-            FROM users
-            WHERE email = $1 AND auth_provider = 'email'
-        "#,
-    )
-    .bind(&request.email)
-    .fetch_optional(&state.pool)
-    .await?;
+    let user = user_repo::find_id_and_name_by_email(&state.pool, &request.email).await?;
 
     // If user exists, create token and send email
     // Note: We don't reveal if the email exists or not for security
-    if let Some((user_id, username)) = user {
+    if let Some(user) = user {
         // Create reset token (expires in 1 hour)
-        let token = password_reset::create_reset_token(&state.pool, user_id, 1).await?;
+        let token = password_reset::create_reset_token(&state.pool, user.id, 1).await?;
 
         // Send password reset email via background worker
         // Note: If this fails, we don't return error to prevent email enumeration
         if let Some(email_tx) = &state.email_tx {
             let job = crate::user::email::EmailJob::PasswordReset {
                 to_email: request.email.clone(),
-                username: username.clone(),
+                username: user.username.clone(),
                 reset_token: token,
             };
 
@@ -426,8 +368,13 @@ async fn reset_password(
     // Validate new password
     auth::validation::validate_password(&request.new_password)?;
 
-    // Hash the new password
-    let password_hash = bcrypt::hash(&request.new_password, state.bcrypt_cost)?;
+    // Hash the new password (CPU-intensive, run off the async runtime)
+    let new_password = request.new_password.clone();
+    let cost = state.auth.bcrypt_cost;
+    let password_hash = tokio::task::spawn_blocking(move || bcrypt::hash(new_password, cost))
+        .await
+        .map_err(|_| ApiError::Auth("Hashing failed".into()))?
+        .map_err(ApiError::Bcrypt)?;
 
     // Verify token and reset password in a single transaction
     // This prevents token burn without password update
@@ -499,33 +446,23 @@ async fn resend_verification_email(
     auth::validation::validate_email(&request.email)?;
 
     // Find user by email (only for email auth provider)
-    let user = sqlx::query_as::<_, (Uuid, String, bool)>(
-        // language=PostgreSQL
-        r#"
-            SELECT id, username, email_verified
-            FROM users
-            WHERE email = $1 AND auth_provider = 'email'
-        "#,
-    )
-    .bind(&request.email)
-    .fetch_optional(&state.pool)
-    .await?;
+    let user = user_repo::find_verification_info_by_email(&state.pool, &request.email).await?;
 
     // If user exists and is not verified, send verification email
     // Note: We don't reveal if the email exists or not for security
-    if let Some((user_id, username, email_verified)) = user {
+    if let Some(user) = user {
         // If already verified, don't send email but return success
-        if !email_verified {
+        if !user.email_verified {
             // Create verification token (24 hour expiry)
             let token =
-                email_verification::create_verification_token(&state.pool, user_id, 24).await?;
+                email_verification::create_verification_token(&state.pool, user.id, 24).await?;
 
             // Send verification email via background worker
             // Note: If this fails, we don't return error to prevent email enumeration
             if let Some(email_tx) = &state.email_tx {
                 let job = crate::user::email::EmailJob::Verification {
                     to_email: request.email.clone(),
-                    username: username.clone(),
+                    username: user.username.clone(),
                     verification_token: token,
                 };
 
@@ -559,32 +496,19 @@ async fn delete_user(
     auth: AuthUser,
     State(state): State<ApiState>,
     jar: PrivateCookieJar,
-    Path(user_id): Path<Uuid>,
 ) -> Result<(PrivateCookieJar, Json<DeleteUserResponse>), ApiError> {
-    // Verify the authenticated user matches the user to delete
-    if auth.user_id != user_id {
-        return Err(ApiError::Auth(
-            "You are not authorized to delete this account".to_string(),
-        ));
-    }
+    let user_id = auth.user_id;
 
     // Revoke all refresh tokens for this user
     let _ = auth::refresh_token::revoke_all_user_tokens(&state.pool, user_id).await;
 
     // Delete the user - cascade will handle all related data
-    let result = sqlx::query(
-        // language=PostgreSQL
-        r#"
-            DELETE FROM users WHERE id = $1
-        "#,
-    )
-    .bind(user_id)
-    .execute(&state.pool)
-    .await
-    .map_err(ApiError::Database)?;
+    let rows = user_repo::delete_user(&state.pool, user_id)
+        .await
+        .map_err(ApiError::Database)?;
 
     // Check if user was actually deleted
-    if result.rows_affected() == 0 {
+    if rows == 0 {
         return Err(ApiError::NotFound("User not found".to_string()));
     }
 
@@ -615,44 +539,34 @@ struct ChangePasswordResponse {
 async fn change_password(
     auth: AuthUser,
     State(state): State<ApiState>,
-    Path(user_id): Path<Uuid>,
     Json(request): Json<ChangePasswordRequest>,
 ) -> Result<Json<ChangePasswordResponse>, ApiError> {
-    // Verify the authenticated user matches the user to update
-    if auth.user_id != user_id {
-        return Err(ApiError::Auth(
-            "You are not authorized to update this profile".to_string(),
-        ));
-    }
+    let user_id = auth.user_id;
 
     // Get current user data
-    let (email, username, password_hash, auth_provider) =
-        sqlx::query_as::<_, (String, String, Option<String>, String)>(
-            // language=PostgreSQL
-            r#"
-            SELECT email, username, password_hash, auth_provider::text
-            FROM users
-            WHERE id = $1
-        "#,
-        )
-        .bind(user_id)
-        .fetch_optional(&state.pool)
+    let user_info = user_repo::find_password_info(&state.pool, user_id)
         .await?
         .ok_or_else(|| ApiError::NotFound("User not found".to_string()))?;
 
     // Ensure this is an email auth user
-    if auth_provider != "email" {
+    if user_info.auth_provider != "email" {
         return Err(ApiError::Validation(
             "Password changes are only available for email authentication users".to_string(),
         ));
     }
 
     // Verify current password
-    let password_hash_value = password_hash.ok_or_else(|| {
+    let password_hash_value = user_info.password_hash.ok_or_else(|| {
         ApiError::Auth("Password authentication not available for this account".to_string())
     })?;
 
-    if !bcrypt::verify(&request.current_password, &password_hash_value)? {
+    let current_password = request.current_password.clone();
+    let hash = password_hash_value.clone();
+    let valid = tokio::task::spawn_blocking(move || bcrypt::verify(current_password, &hash))
+        .await
+        .map_err(|_| ApiError::Auth("Verification failed".into()))?
+        .map_err(ApiError::Bcrypt)?;
+    if !valid {
         return Err(ApiError::Auth("Current password is incorrect".to_string()));
     }
 
@@ -666,29 +580,24 @@ async fn change_password(
     // Validate new password
     auth::validation::validate_password(&request.new_password)?;
 
-    // Hash the new password
-    let new_password_hash = bcrypt::hash(&request.new_password, state.bcrypt_cost)?;
+    // Hash the new password (CPU-intensive, run off the async runtime)
+    let new_password = request.new_password.clone();
+    let cost = state.auth.bcrypt_cost;
+    let new_password_hash = tokio::task::spawn_blocking(move || bcrypt::hash(new_password, cost))
+        .await
+        .map_err(|_| ApiError::Auth("Hashing failed".into()))?
+        .map_err(ApiError::Bcrypt)?;
 
     // Update the password
-    sqlx::query(
-        // language=PostgreSQL
-        r#"
-            UPDATE users
-            SET password_hash = $1
-            WHERE id = $2
-        "#,
-    )
-    .bind(&new_password_hash)
-    .bind(user_id)
-    .execute(&state.pool)
-    .await
-    .map_err(ApiError::Database)?;
+    user_repo::update_password_for_email_user(&state.pool, user_id, &new_password_hash)
+        .await
+        .map_err(ApiError::Database)?;
 
     // Send password change confirmation email via background worker
     if let Some(email_tx) = &state.email_tx {
         let job = crate::user::email::EmailJob::PasswordChanged {
-            to_email: email,
-            username,
+            to_email: user_info.email,
+            username: user_info.username,
         };
 
         if let Err(e) = email_tx.send(job) {
@@ -715,40 +624,23 @@ struct ChangeUsernameResponse {
 async fn change_username(
     auth: AuthUser,
     State(state): State<ApiState>,
-    Path(user_id): Path<Uuid>,
     Json(request): Json<ChangeUsernameRequest>,
 ) -> Result<Json<ChangeUsernameResponse>, ApiError> {
-    // Verify the authenticated user matches the user to update
-    if auth.user_id != user_id {
-        return Err(ApiError::Auth(
-            "You are not authorized to update this profile".to_string(),
-        ));
-    }
+    let user_id = auth.user_id;
 
     // Validate username
     auth::validation::validate_username(&request.username)?;
 
     // Update the username
-    let username = sqlx::query_scalar::<_, String>(
-        // language=PostgreSQL
-        r#"
-            UPDATE users
-            SET username = $1
-            WHERE id = $2
-            RETURNING username
-        "#,
-    )
-    .bind(&request.username)
-    .bind(user_id)
-    .fetch_one(&state.pool)
-    .await
-    .map_err(|e| {
-        if e.to_string().contains("duplicate key") && e.to_string().contains("username") {
-            ApiError::Conflict("Username is already taken".to_string())
-        } else {
-            ApiError::Database(e)
-        }
-    })?;
+    let username = user_repo::update_username(&state.pool, user_id, &request.username)
+        .await
+        .map_err(|e| {
+            if is_unique_violation(&e) {
+                ApiError::Conflict("Username is already taken".to_string())
+            } else {
+                ApiError::Database(e)
+            }
+        })?;
 
     Ok(Json(ChangeUsernameResponse {
         message: "Username changed successfully".to_string(),

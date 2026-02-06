@@ -429,8 +429,8 @@ async fn load_test_practice_review_submission() {
         let user_id = *user_id;
         let deck_id = deck_id;
         let flashcard_id = flashcard_id;
-        let jwt_secret = state.jwt_secret.clone();
-        let cookie_key = state.cookie_key.clone();
+        let jwt_secret = state.auth.jwt_secret.clone();
+        let cookie_key = state.cookie.cookie_key.clone();
 
         let handle = tokio::spawn(async move {
             let mut latencies = vec![];
@@ -451,7 +451,7 @@ async fn load_test_practice_review_submission() {
                 let req_start = Instant::now();
                 let response = client
                     .post_json_with_auth(
-                        &format!("/v1/practice/{}/{}/review", user_id, flashcard_id),
+                        &format!("/v1/practice/{}/review", flashcard_id),
                         &body,
                         &token,
                         &cookie_key,

@@ -119,15 +119,3 @@ async fn cleanup_unverified_accounts(pool: &PgPool) -> Result<u64, sqlx::Error> 
 
     Ok(result.rows_affected())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_job_intervals() {
-        // Verify that job intervals are reasonable
-        assert_eq!(Duration::from_secs(21600).as_secs(), 21600); // 6 hours
-        assert_eq!(Duration::from_secs(86400).as_secs(), 86400); // 24 hours
-    }
-}

@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::types::Uuid;
 
 use super::{cookies, jwt, middleware::AuthUser, refresh_token as rt};
-use crate::{ApiState, error::ApiError, middleware::rate_limit};
+use crate::{ApiState, error::ApiError, middleware::rate_limit, validation};
+
+use mms_db::repositories::user as user_repo;
 
 pub fn routes() -> Router<ApiState> {
     use crate::make_rate_limit_layer;
@@ -50,36 +52,18 @@ async fn auth_me(
     State(state): State<ApiState>,
 ) -> Result<Json<UserResponse>, ApiError> {
     // Fetch full user details from database
-    let user = sqlx::query_as::<
-        _,
-        (
-            Uuid,
-            String,
-            String,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-        ),
-    >(
-        // language=PostgreSQL
-        r#"
-            SELECT id, username, email, profile_picture_url, native_language, learning_language
-            FROM users
-            WHERE id = $1
-        "#,
-    )
-    .bind(auth_user.user_id)
-    .fetch_one(&state.pool)
-    .await
-    .map_err(|_| ApiError::Auth("User not found".to_string()))?;
+    let user = user_repo::find_profile_by_id(&state.pool, auth_user.user_id)
+        .await
+        .map_err(|_| ApiError::Auth("User not found".to_string()))?
+        .ok_or_else(|| ApiError::Auth("User not found".to_string()))?;
 
     Ok(Json(UserResponse {
-        id: user.0,
-        username: user.1,
-        email: user.2,
-        profile_picture_url: user.3,
-        native_language: user.4,
-        learning_language: user.5,
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        profile_picture_url: user.profile_picture_url,
+        native_language: user.native_language,
+        learning_language: user.learning_language,
     }))
 }
 
@@ -98,47 +82,42 @@ async fn refresh_token(
     let (user_id, new_refresh_token, _) = rt::verify_and_rotate_refresh_token(
         &state.pool,
         old_refresh_token,
-        state.refresh_token_expiry_days,
+        state.auth.refresh_token_expiry_days,
     )
     .await?;
 
     // Fetch user email and verify account status
-    let (email, email_verified) = sqlx::query_as::<_, (String, bool)>(
-        // language=PostgreSQL
-        r#"
-            SELECT email, email_verified
-            FROM users
-            WHERE id = $1
-        "#,
-    )
-    .bind(user_id)
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or_else(|| ApiError::Auth("User account no longer exists".to_string()))?;
+    let status = user_repo::find_email_verified_status(&state.pool, user_id)
+        .await?
+        .ok_or_else(|| ApiError::Auth("User account no longer exists".to_string()))?;
 
     // Ensure email is still verified
-    if !email_verified {
+    if !status.email_verified {
         return Err(ApiError::Auth(
             "Email verification required. Please verify your email.".to_string(),
         ));
     }
 
     // Generate new JWT access token
-    let new_access_token =
-        jwt::generate_jwt_token(user_id, email, &state.jwt_secret, state.jwt_expiry_hours)?;
+    let new_access_token = jwt::generate_jwt_token(
+        user_id,
+        status.email,
+        &state.auth.jwt_secret,
+        state.auth.jwt_expiry_hours,
+    )?;
 
     // Update cookies
     let auth_cookie = cookies::create_auth_cookie(
         new_access_token.clone(),
-        &state.environment,
-        state.jwt_expiry_hours,
-        &state.cookie_domain,
+        &state.cookie.environment,
+        state.auth.jwt_expiry_hours,
+        &state.cookie.cookie_domain,
     );
     let refresh_cookie = cookies::create_refresh_token_cookie(
         new_refresh_token,
-        &state.environment,
-        state.refresh_token_expiry_days,
-        &state.cookie_domain,
+        &state.cookie.environment,
+        state.auth.refresh_token_expiry_days,
+        &state.cookie.cookie_domain,
     );
     let jar = jar.add(auth_cookie).add(refresh_cookie);
 
@@ -191,56 +170,28 @@ async fn update_language_preferences(
     State(state): State<ApiState>,
     Json(payload): Json<UpdateLanguagePreferencesRequest>,
 ) -> Result<Json<UpdateLanguagePreferencesResponse>, ApiError> {
-    // Validate language codes (must be 2 characters)
-    if payload.native_language.len() != 2 {
-        return Err(ApiError::Validation(
-            "native_language must be a 2-character ISO 639-1 code (e.g., 'en', 'es', 'fr')"
-                .to_string(),
-        ));
-    }
-
-    if payload.learning_language.len() != 2 {
-        return Err(ApiError::Validation(
-            "learning_language must be a 2-character ISO 639-1 code (e.g., 'en', 'es', 'fr')"
-                .to_string(),
-        ));
-    }
+    // Validate language codes against the allowed whitelist
+    validation::validate_language_code(&payload.native_language)?;
+    validation::validate_language_code(&payload.learning_language)?;
 
     // Update both language preferences
-    let updated_user = sqlx::query_as::<
-        _,
-        (
-            Uuid,
-            String,
-            String,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-        ),
-    >(
-        // language=PostgreSQL
-        r#"
-            UPDATE users
-            SET native_language = $1, learning_language = $2
-            WHERE id = $3
-            RETURNING id, username, email, profile_picture_url, native_language, learning_language
-        "#,
+    let updated_user = user_repo::update_language_preferences(
+        &state.pool,
+        auth_user.user_id,
+        &payload.native_language,
+        &payload.learning_language,
     )
-    .bind(&payload.native_language)
-    .bind(&payload.learning_language)
-    .bind(auth_user.user_id)
-    .fetch_one(&state.pool)
     .await?;
 
     Ok(Json(UpdateLanguagePreferencesResponse {
         message: "Language preferences updated successfully".to_string(),
         user: UserResponse {
-            id: updated_user.0,
-            username: updated_user.1,
-            email: updated_user.2,
-            profile_picture_url: updated_user.3,
-            native_language: updated_user.4,
-            learning_language: updated_user.5,
+            id: updated_user.id,
+            username: updated_user.username,
+            email: updated_user.email,
+            profile_picture_url: updated_user.profile_picture_url,
+            native_language: updated_user.native_language,
+            learning_language: updated_user.learning_language,
         },
     }))
 }

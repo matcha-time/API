@@ -419,9 +419,9 @@ async fn test_password_reset_revokes_old_sessions() {
     // Verify old token works
     let dashboard_response = client
         .get_with_auth(
-            &format!("/v1/users/{}/dashboard", user_id),
+            "/v1/users/me/dashboard",
             old_token,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
     dashboard_response.assert_status(StatusCode::OK);

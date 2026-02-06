@@ -5,7 +5,7 @@ use axum::{
 };
 use axum_extra::extract::cookie::Key;
 use http_body_util::BodyExt;
-use mms_api::{config::Environment, state::ApiState};
+use mms_api::{AuthConfig, CookieConfig, OidcConfig, config::Environment, state::ApiState};
 use serde::Deserialize;
 use tower::ServiceExt;
 
@@ -69,18 +69,24 @@ impl TestStateBuilder {
         let cookie_key = Key::from(self.config.cookie_secret.as_bytes());
 
         Ok(ApiState {
-            oidc_client,
-            jwt_secret: self.config.jwt_secret,
-            jwt_expiry_hours: self.config.jwt_expiry_hours,
-            refresh_token_expiry_days: self.config.refresh_token_expiry_days,
-            oidc_flow_expiry_minutes: self.config.oidc_flow_expiry_minutes,
-            frontend_url: self.config.frontend_url,
-            cookie_key,
+            auth: AuthConfig {
+                jwt_secret: self.config.jwt_secret,
+                bcrypt_cost: 8,
+                jwt_expiry_hours: self.config.jwt_expiry_hours,
+                refresh_token_expiry_days: self.config.refresh_token_expiry_days,
+            },
+            cookie: CookieConfig {
+                cookie_domain: "localhost".to_string(),
+                cookie_key,
+                environment: Environment::Development,
+            },
+            oidc: OidcConfig {
+                oidc_client,
+                oidc_flow_expiry_minutes: self.config.oidc_flow_expiry_minutes,
+                frontend_url: self.config.frontend_url,
+            },
             pool,
-            environment: Environment::Development,
             email_tx: None, // No email worker in tests
-            cookie_domain: "localhost".to_string(),
-            bcrypt_cost: 8,
         })
     }
 }
