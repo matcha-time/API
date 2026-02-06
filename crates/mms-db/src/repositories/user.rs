@@ -212,28 +212,6 @@ where
     .await
 }
 
-pub async fn update_password<'e, E>(
-    executor: E,
-    user_id: Uuid,
-    password_hash: &str,
-) -> Result<(), sqlx::Error>
-where
-    E: Executor<'e, Database = Postgres>,
-{
-    sqlx::query(
-        // language=PostgreSQL
-        r#"
-            UPDATE users
-            SET password_hash = $1
-            WHERE id = $2
-        "#,
-    )
-    .bind(password_hash)
-    .bind(user_id)
-    .execute(executor)
-    .await?;
-    Ok(())
-}
 
 pub async fn update_password_for_email_user<'e, E>(
     executor: E,

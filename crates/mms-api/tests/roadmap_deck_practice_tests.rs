@@ -308,7 +308,7 @@ async fn test_get_roadmap_with_progress_authenticated() {
     .await
     .expect("Failed to create progress");
 
-    let token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, &email, &state.auth.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -318,7 +318,7 @@ async fn test_get_roadmap_with_progress_authenticated() {
         .get_with_auth(
             &format!("/v1/roadmaps/{}/progress", roadmap_id),
             &token,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 
@@ -440,7 +440,7 @@ async fn test_get_practice_session_for_deck() {
         .await
         .expect("Failed to create test data");
 
-    let token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, &email, &state.auth.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -450,7 +450,7 @@ async fn test_get_practice_session_for_deck() {
         .get_with_auth(
             &format!("/v1/decks/{}/practice", deck_id),
             &token,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 
@@ -538,7 +538,7 @@ async fn test_submit_review_correct_answer() {
     .await
     .expect("Failed to get flashcard");
 
-    let token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, &email, &state.auth.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -555,7 +555,7 @@ async fn test_submit_review_correct_answer() {
             &format!("/v1/practice/{}/review", flashcard_id),
             &review_body,
             &token,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 
@@ -643,7 +643,7 @@ async fn test_submit_review_wrong_answer() {
     .await
     .expect("Failed to get flashcard");
 
-    let token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, &email, &state.auth.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -660,7 +660,7 @@ async fn test_submit_review_wrong_answer() {
             &format!("/v1/practice/{}/review", flashcard_id),
             &review_body,
             &token,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 
@@ -732,7 +732,7 @@ async fn test_submit_review_updates_stats() {
             .await
             .expect("Failed to get initial stats");
 
-    let token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, &email, &state.auth.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -749,7 +749,7 @@ async fn test_submit_review_updates_stats() {
             &format!("/v1/practice/{}/review", flashcard_id),
             &review_body,
             &token,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 

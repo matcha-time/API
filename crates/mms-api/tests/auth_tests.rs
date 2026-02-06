@@ -54,14 +54,14 @@ async fn test_auth_me_with_valid_token() {
 
     // Generate a valid JWT token
     let token =
-        common::jwt::create_test_token(user_id, "test_valid@example.com", &state.jwt_secret);
+        common::jwt::create_test_token(user_id, "test_valid@example.com", &state.auth.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
     // Use the simplified method
     let response = client
-        .get_with_auth("/v1/auth/me", &token, &state.cookie_key)
+        .get_with_auth("/v1/auth/me", &token, &state.cookie.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);
@@ -88,7 +88,7 @@ async fn test_auth_me_with_invalid_token() {
 
     // Use invalid token
     let response = client
-        .get_with_auth("/v1/auth/me", "invalid_token", &state.cookie_key)
+        .get_with_auth("/v1/auth/me", "invalid_token", &state.cookie.cookie_key)
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
@@ -131,7 +131,7 @@ async fn test_auth_me_with_expired_token() {
     let expired_token = jsonwebtoken::encode(
         &Header::default(),
         &claims,
-        &EncodingKey::from_secret(state.jwt_secret.as_bytes()),
+        &EncodingKey::from_secret(state.auth.jwt_secret.as_bytes()),
     )
     .expect("Failed to create expired token");
 
@@ -140,7 +140,7 @@ async fn test_auth_me_with_expired_token() {
 
     // Use expired token
     let response = client
-        .get_with_auth("/v1/auth/me", &expired_token, &state.cookie_key)
+        .get_with_auth("/v1/auth/me", &expired_token, &state.cookie.cookie_key)
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
@@ -169,7 +169,7 @@ async fn test_logout() {
 
     // Generate a valid JWT token
     let token =
-        common::jwt::create_test_token(user_id, "test_logout@example.com", &state.jwt_secret);
+        common::jwt::create_test_token(user_id, "test_logout@example.com", &state.auth.jwt_secret);
 
     // Create a refresh token in the database
     let refresh_token = uuid::Uuid::new_v4().to_string();
@@ -197,7 +197,7 @@ async fn test_logout() {
 
     // Use the post_with_auth_and_refresh method for logout (needs both cookies)
     let response = client
-        .post_with_auth_and_refresh("/v1/auth/logout", &token, &refresh_token, &state.cookie_key)
+        .post_with_auth_and_refresh("/v1/auth/logout", &token, &refresh_token, &state.cookie.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);

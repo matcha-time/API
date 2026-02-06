@@ -57,7 +57,7 @@ where
         // language=PostgreSQL
         r#"
             UPDATE users
-            SET google_id = $1, auth_provider = 'google', profile_picture_url = $2
+            SET google_id = $1, profile_picture_url = COALESCE($2, profile_picture_url)
             WHERE id = $3
         "#,
     )

@@ -69,9 +69,9 @@ pub async fn find_or_create_google_user(
 
     // Handle potential username conflicts by appending a number
     let mut final_username = username.clone();
-    let mut counter = 1;
+    let max_retries = 10;
 
-    loop {
+    for attempt in 0..max_retries {
         match auth_repo::create_google_user(pool, &final_username, email, google_id, picture).await
         {
             Ok(user_id) => {
@@ -91,10 +91,13 @@ pub async fn find_or_create_google_user(
                 if db_err.constraint() == Some("users_username_key") =>
             {
                 // Username conflict, try with a number suffix
-                counter += 1;
-                final_username = format!("{}{}", username, counter);
+                final_username = format!("{}{}", username, attempt + 2);
             }
             Err(e) => return Err(e.into()),
         }
     }
+
+    Err(ApiError::Conflict(
+        "Unable to generate a unique username. Please try again.".to_string(),
+    ))
 }

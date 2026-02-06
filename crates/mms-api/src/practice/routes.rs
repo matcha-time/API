@@ -31,10 +31,11 @@ struct ReviewResponse {
 
 /// Normalize a string for comparison: remove accents, lowercase, remove special characters
 fn normalize_for_comparison(s: &str) -> String {
-    s.nfd()
+    s.to_lowercase()
+        .replace('ß', "ss")
+        .nfd()
         .filter(|c| c.is_alphanumeric() || c.is_whitespace())
         .collect::<String>()
-        .to_lowercase()
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
@@ -121,6 +122,11 @@ async fn submit_review(
 
         // Update user stats
         practice_repo::increment_review_stats(&mut *tx, user_id)
+            .await
+            .map_err(ApiError::Database)?;
+
+        // Update streak (must run after record_activity so today's entry exists)
+        practice_repo::update_streak(&mut *tx, user_id)
             .await
             .map_err(ApiError::Database)?;
     }

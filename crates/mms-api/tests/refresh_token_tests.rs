@@ -53,7 +53,7 @@ async fn test_refresh_token_rotation_success() {
             "/v1/auth/refresh",
             old_access_token,
             old_refresh_token,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 
@@ -148,7 +148,7 @@ async fn test_refresh_token_reuse_detection() {
             "/v1/auth/refresh",
             access_token,
             refresh_token,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
     first_refresh.assert_status(StatusCode::OK);
@@ -159,7 +159,7 @@ async fn test_refresh_token_reuse_detection() {
             "/v1/auth/refresh",
             access_token,
             refresh_token,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 
@@ -216,7 +216,7 @@ async fn test_refresh_token_invalid_token() {
         .await
         .expect("Failed to create user");
 
-    let access_token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
+    let access_token = common::jwt::create_test_token(user_id, &email, &state.auth.jwt_secret);
 
     // Try to refresh with invalid refresh token
     let response = client
@@ -224,7 +224,7 @@ async fn test_refresh_token_invalid_token() {
             "/v1/auth/refresh",
             &access_token,
             "invalid_refresh_token",
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 
@@ -279,7 +279,7 @@ async fn test_logout_revokes_refresh_token() {
             "/v1/auth/logout",
             access_token,
             refresh_token,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 
@@ -309,7 +309,7 @@ async fn test_logout_revokes_refresh_token() {
             "/v1/auth/refresh",
             access_token,
             refresh_token,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 
@@ -380,7 +380,7 @@ async fn test_multiple_concurrent_refresh_tokens() {
             "/v1/auth/refresh",
             &access_token1,
             &refresh_token1,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
     refresh1.assert_status(StatusCode::OK);
@@ -391,7 +391,7 @@ async fn test_multiple_concurrent_refresh_tokens() {
             "/v1/auth/refresh",
             &access_token2,
             &refresh_token2,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
     refresh2.assert_status(StatusCode::OK);
@@ -434,7 +434,7 @@ async fn test_refresh_token_family_invalidation_on_breach() {
             "/v1/auth/refresh",
             login_json["token"].as_str().unwrap(),
             token1,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
     refresh1.assert_status(StatusCode::OK);
@@ -447,7 +447,7 @@ async fn test_refresh_token_family_invalidation_on_breach() {
             "/v1/auth/refresh",
             &refresh1_json["token"].as_str().unwrap(),
             token1,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 
@@ -508,7 +508,7 @@ async fn test_refresh_token_expiration() {
     .await
     .expect("Failed to insert expired token");
 
-    let access_token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
+    let access_token = common::jwt::create_test_token(user_id, &email, &state.auth.jwt_secret);
 
     // Try to use expired refresh token
     let response = client
@@ -516,7 +516,7 @@ async fn test_refresh_token_expiration() {
             "/v1/auth/refresh",
             &access_token,
             expired_token,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 

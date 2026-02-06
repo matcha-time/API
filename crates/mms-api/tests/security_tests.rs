@@ -226,7 +226,7 @@ async fn test_xss_in_profile_update() {
         .await
         .expect("Failed to create user");
 
-    let token = common::jwt::create_test_token(user_id, &email, &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, &email, &state.auth.jwt_secret);
 
     // Try to update with XSS payload
     let body = json!({
@@ -234,7 +234,7 @@ async fn test_xss_in_profile_update() {
     });
 
     let response = client
-        .patch_json_with_auth("/v1/users/me/username", &body, &token, &state.cookie_key)
+        .patch_json_with_auth("/v1/users/me/username", &body, &token, &state.cookie.cookie_key)
         .await;
 
     // Should handle safely
@@ -285,7 +285,7 @@ async fn test_auth_bypass_invalid_token() {
         .get_with_auth(
             "/v1/users/me/dashboard",
             "invalid.jwt.token",
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 
@@ -310,11 +310,11 @@ async fn test_auth_bypass_wrong_user_token() {
         .expect("Failed to create user1");
 
     // Get token for user1
-    let user1_token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
+    let user1_token = common::jwt::create_test_token(user1_id, &email1, &state.auth.jwt_secret);
 
     // Access user1's own dashboard with their token (should succeed since /me resolves from JWT)
     let response = client
-        .get_with_auth("/v1/users/me/dashboard", &user1_token, &state.cookie_key)
+        .get_with_auth("/v1/users/me/dashboard", &user1_token, &state.cookie.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);
@@ -341,7 +341,7 @@ async fn test_auth_bypass_expired_token() {
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiZXhwIjowfQ.invalid";
 
     let response = client
-        .get_with_auth("/v1/users/me/dashboard", expired_token, &state.cookie_key)
+        .get_with_auth("/v1/users/me/dashboard", expired_token, &state.cookie.cookie_key)
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
@@ -369,7 +369,7 @@ async fn test_auth_bypass_wrong_secret() {
         common::jwt::create_test_token(user_id, &email, "wrong_secret_that_doesnt_match_12345");
 
     let response = client
-        .get_with_auth("/v1/users/me/dashboard", &wrong_token, &state.cookie_key)
+        .get_with_auth("/v1/users/me/dashboard", &wrong_token, &state.cookie.cookie_key)
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
@@ -443,7 +443,7 @@ async fn test_idor_profile_access() {
         .await
         .expect("Failed to create user2");
 
-    let user1_token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
+    let user1_token = common::jwt::create_test_token(user1_id, &email1, &state.auth.jwt_secret);
 
     // User1 updates via /me endpoint - this only affects user1, not user2
     // With the new /me routes, IDOR is impossible since user_id comes from JWT
@@ -456,7 +456,7 @@ async fn test_idor_profile_access() {
             "/v1/users/me/username",
             &body,
             &user1_token,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 
@@ -501,7 +501,7 @@ async fn test_idor_practice_submission() {
         .await
         .expect("Failed to create user1");
 
-    let user1_token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
+    let user1_token = common::jwt::create_test_token(user1_id, &email1, &state.auth.jwt_secret);
 
     // With /me routes, IDOR is impossible since user_id comes from JWT.
     // Test that submitting a review with a non-existent flashcard returns an error.
@@ -519,7 +519,7 @@ async fn test_idor_practice_submission() {
             &format!("/v1/practice/{}/review", fake_flashcard_id),
             &body,
             &user1_token,
-            &state.cookie_key,
+            &state.cookie.cookie_key,
         )
         .await;
 

@@ -141,3 +141,19 @@ where
     .await?;
     Ok(())
 }
+
+pub async fn update_streak<'e, E>(executor: E, user_id: Uuid) -> Result<(), sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    sqlx::query(
+        // language=PostgreSQL
+        r#"
+            SELECT calculate_and_update_streak($1)
+        "#,
+    )
+    .bind(user_id)
+    .execute(executor)
+    .await?;
+    Ok(())
+}

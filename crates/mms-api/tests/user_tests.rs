@@ -311,14 +311,14 @@ async fn test_get_user_dashboard() {
             .expect("Failed to create test user");
 
     // Generate auth token
-    let token = common::jwt::create_test_token(user_id, "dashboard@example.com", &state.jwt_secret);
+    let token = common::jwt::create_test_token(user_id, "dashboard@example.com", &state.auth.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
     // Get dashboard with authentication
     let response = client
-        .get_with_auth("/v1/users/me/dashboard", &token, &state.cookie_key)
+        .get_with_auth("/v1/users/me/dashboard", &token, &state.cookie.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);
@@ -374,7 +374,7 @@ async fn test_update_user_profile() {
 
     // Generate auth token
     let token =
-        common::jwt::create_test_token(user_id, "update_profile@example.com", &state.jwt_secret);
+        common::jwt::create_test_token(user_id, "update_profile@example.com", &state.auth.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -385,7 +385,7 @@ async fn test_update_user_profile() {
     });
 
     let response = client
-        .patch_json_with_auth("/v1/users/me/username", &body, &token, &state.cookie_key)
+        .patch_json_with_auth("/v1/users/me/username", &body, &token, &state.cookie.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);
@@ -424,14 +424,14 @@ async fn test_delete_user() {
 
     // Generate auth token
     let token =
-        common::jwt::create_test_token(user_id, "delete_user@example.com", &state.jwt_secret);
+        common::jwt::create_test_token(user_id, "delete_user@example.com", &state.auth.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
     // Delete user
     let response = client
-        .delete_with_auth("/v1/users/me", &token, &state.cookie_key)
+        .delete_with_auth("/v1/users/me", &token, &state.cookie.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);

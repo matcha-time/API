@@ -589,7 +589,7 @@ async fn change_password(
         .map_err(ApiError::Bcrypt)?;
 
     // Update the password
-    user_repo::update_password(&state.pool, user_id, &new_password_hash)
+    user_repo::update_password_for_email_user(&state.pool, user_id, &new_password_hash)
         .await
         .map_err(ApiError::Database)?;
 

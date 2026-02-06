@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::types::Uuid;
 
 use super::{cookies, jwt, middleware::AuthUser, refresh_token as rt};
-use crate::{ApiState, error::ApiError, middleware::rate_limit};
+use crate::{ApiState, error::ApiError, middleware::rate_limit, validation};
 
 use mms_db::repositories::user as user_repo;
 
@@ -170,20 +170,9 @@ async fn update_language_preferences(
     State(state): State<ApiState>,
     Json(payload): Json<UpdateLanguagePreferencesRequest>,
 ) -> Result<Json<UpdateLanguagePreferencesResponse>, ApiError> {
-    // Validate language codes (must be 2 characters)
-    if payload.native_language.len() != 2 {
-        return Err(ApiError::Validation(
-            "native_language must be a 2-character ISO 639-1 code (e.g., 'en', 'es', 'fr')"
-                .to_string(),
-        ));
-    }
-
-    if payload.learning_language.len() != 2 {
-        return Err(ApiError::Validation(
-            "learning_language must be a 2-character ISO 639-1 code (e.g., 'en', 'es', 'fr')"
-                .to_string(),
-        ));
-    }
+    // Validate language codes against the allowed whitelist
+    validation::validate_language_code(&payload.native_language)?;
+    validation::validate_language_code(&payload.learning_language)?;
 
     // Update both language preferences
     let updated_user = user_repo::update_language_preferences(

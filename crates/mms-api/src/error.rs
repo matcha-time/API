@@ -34,7 +34,13 @@ pub enum ApiError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
-            ApiError::Oidc(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+            ApiError::Oidc(msg) => {
+                tracing::error!(error = %msg, "OIDC error occurred");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again later.".to_string(),
+                )
+            }
             ApiError::Cookie(msg) => (StatusCode::BAD_REQUEST, msg),
             ApiError::Jwt(e) => {
                 tracing::error!(error = %e, "JWT error occurred");
@@ -54,7 +60,13 @@ impl IntoResponse for ApiError {
                     "An internal error occurred. Please try again later.".to_string(),
                 )
             }
-            ApiError::Email(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+            ApiError::Email(msg) => {
+                tracing::error!(error = %msg, "Email error occurred");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again later.".to_string(),
+                )
+            }
             ApiError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
             ApiError::Database(e) => {
                 // Log the actual error for debugging
