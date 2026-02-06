@@ -311,7 +311,8 @@ async fn test_get_user_dashboard() {
             .expect("Failed to create test user");
 
     // Generate auth token
-    let token = common::jwt::create_test_token(user_id, "dashboard@example.com", &state.auth.jwt_secret);
+    let token =
+        common::jwt::create_test_token(user_id, "dashboard@example.com", &state.auth.jwt_secret);
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -373,8 +374,11 @@ async fn test_update_user_profile() {
     .expect("Failed to create test user");
 
     // Generate auth token
-    let token =
-        common::jwt::create_test_token(user_id, "update_profile@example.com", &state.auth.jwt_secret);
+    let token = common::jwt::create_test_token(
+        user_id,
+        "update_profile@example.com",
+        &state.auth.jwt_secret,
+    );
 
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
@@ -385,7 +389,12 @@ async fn test_update_user_profile() {
     });
 
     let response = client
-        .patch_json_with_auth("/v1/users/me/username", &body, &token, &state.cookie.cookie_key)
+        .patch_json_with_auth(
+            "/v1/users/me/username",
+            &body,
+            &token,
+            &state.cookie.cookie_key,
+        )
         .await;
 
     response.assert_status(StatusCode::OK);

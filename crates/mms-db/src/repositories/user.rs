@@ -212,7 +212,6 @@ where
     .await
 }
 
-
 pub async fn update_password_for_email_user<'e, E>(
     executor: E,
     user_id: Uuid,

@@ -197,7 +197,12 @@ async fn test_logout() {
 
     // Use the post_with_auth_and_refresh method for logout (needs both cookies)
     let response = client
-        .post_with_auth_and_refresh("/v1/auth/logout", &token, &refresh_token, &state.cookie.cookie_key)
+        .post_with_auth_and_refresh(
+            "/v1/auth/logout",
+            &token,
+            &refresh_token,
+            &state.cookie.cookie_key,
+        )
         .await;
 
     response.assert_status(StatusCode::OK);

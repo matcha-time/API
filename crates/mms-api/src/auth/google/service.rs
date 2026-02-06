@@ -5,8 +5,6 @@ use sqlx::PgPool;
 use mms_db::repositories::auth as auth_repo;
 use mms_db::repositories::user as user_repo;
 
-// TODO: Refacto this whole ass thing
-
 /// Find or create a user from Google OAuth
 ///
 /// This function will:
