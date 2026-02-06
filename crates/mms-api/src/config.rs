@@ -166,29 +166,12 @@ fn default_oidc_flow_expiry_minutes() -> i64 {
 }
 
 /// Custom error type for configuration
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
-    ParseError(envy::Error),
+    #[error("Configuration parse error: {0}")]
+    ParseError(#[from] envy::Error),
+    #[error("Configuration validation error: {0}")]
     ValidationError(String),
-}
-
-impl std::fmt::Display for ConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ConfigError::ParseError(err) => write!(f, "Configuration parse error: {}", err),
-            ConfigError::ValidationError(msg) => {
-                write!(f, "Configuration validation error: {}", msg)
-            }
-        }
-    }
-}
-
-impl std::error::Error for ConfigError {}
-
-impl From<envy::Error> for ConfigError {
-    fn from(err: envy::Error) -> Self {
-        ConfigError::ParseError(err)
-    }
 }
 
 impl ApiConfig {

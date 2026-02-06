@@ -6,7 +6,7 @@ use axum_extra::extract::{PrivateCookieJar, cookie::Key};
 use sqlx::types::Uuid;
 
 use super::jwt::verify_jwt_token;
-use crate::{ApiState, error::ApiError};
+use crate::{error::ApiError, state::AuthConfig};
 
 /// Authenticated user extractor
 ///
@@ -35,15 +35,15 @@ pub struct AuthUser {
 
 impl<S> FromRequestParts<S> for AuthUser
 where
-    ApiState: FromRef<S>,
+    AuthConfig: FromRef<S>,
     Key: FromRef<S>,
     S: Send + Sync,
 {
     type Rejection = ApiError;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        // Extract the state
-        let api_state = ApiState::from_ref(state);
+        // Extract the auth config
+        let auth_config = AuthConfig::from_ref(state);
 
         // Extract the cookie jar
         let jar = PrivateCookieJar::<Key>::from_request_parts(parts, state)
@@ -58,7 +58,7 @@ where
             .to_owned();
 
         // Verify the token
-        let claims = verify_jwt_token(&token, &api_state.jwt_secret)?;
+        let claims = verify_jwt_token(&token, &auth_config.jwt_secret)?;
 
         // Parse user_id from claims
         let user_id = Uuid::parse_str(&claims.sub)

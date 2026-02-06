@@ -3,68 +3,29 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
-use serde::Serialize;
 use sqlx::types::Uuid;
 
 use crate::{ApiState, auth::AuthUser, error::ApiError};
 
+use mms_db::models::PracticeCard;
+use mms_db::repositories::deck as deck_repo;
+
 /// Create the deck routes
 pub fn routes() -> Router<ApiState> {
     Router::new().route(
-        "/decks/{deck_id}/practice/{user_id}",
+        "/decks/{deck_id}/practice",
         get(get_practice_session),
     )
 }
 
-// NOTE: This structure can also be replaced by the original DTO if needed
-#[derive(Serialize, sqlx::FromRow)]
-struct PracticeCard {
-    id: Uuid,
-    term: String,
-    translation: String,
-    times_correct: i32,
-    times_wrong: i32,
-}
-
 async fn get_practice_session(
-    AuthUser {
-        user_id: auth_user_id,
-        ..
-    }: AuthUser,
+    auth_user: AuthUser,
     State(state): State<ApiState>,
-    Path((deck_id, user_id)): Path<(Uuid, Uuid)>,
+    Path(deck_id): Path<Uuid>,
 ) -> Result<Json<Vec<PracticeCard>>, ApiError> {
-    // Verify the authenticated user matches the requested user
-    if auth_user_id != user_id {
-        return Err(ApiError::Auth(
-            "You are not authorized to access this deck".to_string(),
-        ));
-    }
-
-    let cards = sqlx::query_as::<_, PracticeCard>(
-        // language=PostgreSQL
-        r#"
-            SELECT 
-                f.id,
-                f.term,
-                f.translation,
-                COALESCE(ucp.times_correct, 0) as times_correct,
-                COALESCE(ucp.times_wrong, 0) as times_wrong
-            FROM deck_flashcards df
-            JOIN flashcards f ON f.id = df.flashcard_id
-            LEFT JOIN user_card_progress ucp 
-                ON ucp.flashcard_id = f.id AND ucp.user_id = $2
-            WHERE df.deck_id = $1
-                AND (ucp.next_review_at IS NULL OR ucp.next_review_at <= NOW())
-            ORDER BY ucp.next_review_at NULLS FIRST
-        "#,
-        // LIMIT 20 ?
-    )
-    .bind(deck_id)
-    .bind(user_id)
-    .fetch_all(&state.pool)
-    .await
-    .map_err(ApiError::Database)?;
+    let cards = deck_repo::get_practice_cards(&state.pool, deck_id, auth_user.user_id)
+        .await
+        .map_err(ApiError::Database)?;
 
     Ok(Json(cards))
 }

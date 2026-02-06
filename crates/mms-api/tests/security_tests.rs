@@ -235,7 +235,7 @@ async fn test_xss_in_profile_update() {
 
     let response = client
         .patch_json_with_auth(
-            &format!("/v1/users/{}", user_id),
+            "/v1/users/me/username",
             &body,
             &token,
             &state.cookie_key,
@@ -269,24 +269,12 @@ async fn test_auth_bypass_missing_token() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Create user
-    let email = common::test_data::unique_email("noauth");
-    let username = common::test_data::unique_username("noauthuser");
-    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
-        .await
-        .expect("Failed to create user");
-
     // Try to access protected endpoint without auth token
     let response = client
-        .get(&format!("/v1/users/{}/dashboard", user_id))
+        .get("/v1/users/me/dashboard")
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
-
-    // Cleanup
-    common::db::delete_user_by_email(&state.pool, &email)
-        .await
-        .expect("Failed to cleanup");
 }
 
 #[tokio::test]
@@ -299,28 +287,16 @@ async fn test_auth_bypass_invalid_token() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Create user
-    let email = common::test_data::unique_email("badtoken");
-    let username = common::test_data::unique_username("badtokenuser");
-    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
-        .await
-        .expect("Failed to create user");
-
     // Try with completely invalid token
     let response = client
         .get_with_auth(
-            &format!("/v1/users/{}/dashboard", user_id),
+            "/v1/users/me/dashboard",
             "invalid.jwt.token",
             &state.cookie_key,
         )
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
-
-    // Cleanup
-    common::db::delete_user_by_email(&state.pool, &email)
-        .await
-        .expect("Failed to cleanup");
 }
 
 #[tokio::test]
@@ -333,38 +309,29 @@ async fn test_auth_bypass_wrong_user_token() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Create two users
+    // Create a user
     let email1 = common::test_data::unique_email("user1");
     let username1 = common::test_data::unique_username("user1");
     let user1_id = common::db::create_verified_user(&state.pool, &email1, &username1)
         .await
         .expect("Failed to create user1");
 
-    let email2 = common::test_data::unique_email("user2");
-    let username2 = common::test_data::unique_username("user2");
-    let user2_id = common::db::create_verified_user(&state.pool, &email2, &username2)
-        .await
-        .expect("Failed to create user2");
-
     // Get token for user1
     let user1_token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
 
-    // Try to access user2's dashboard with user1's token
+    // Access user1's own dashboard with their token (should succeed since /me resolves from JWT)
     let response = client
         .get_with_auth(
-            &format!("/v1/users/{}/dashboard", user2_id),
+            "/v1/users/me/dashboard",
             &user1_token,
             &state.cookie_key,
         )
         .await;
 
-    response.assert_status(StatusCode::UNAUTHORIZED);
+    response.assert_status(StatusCode::OK);
 
     // Cleanup
     common::db::delete_user_by_email(&state.pool, &email1)
-        .await
-        .expect("Failed to cleanup");
-    common::db::delete_user_by_email(&state.pool, &email2)
         .await
         .expect("Failed to cleanup");
 }
@@ -379,13 +346,6 @@ async fn test_auth_bypass_expired_token() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Create user
-    let email = common::test_data::unique_email("expired");
-    let username = common::test_data::unique_username("expireduser");
-    let user_id = common::db::create_verified_user(&state.pool, &email, &username)
-        .await
-        .expect("Failed to create user");
-
     // Create token with past expiration (would require custom JWT creation)
     // For now, just test with malformed token
     let expired_token =
@@ -393,18 +353,13 @@ async fn test_auth_bypass_expired_token() {
 
     let response = client
         .get_with_auth(
-            &format!("/v1/users/{}/dashboard", user_id),
+            "/v1/users/me/dashboard",
             expired_token,
             &state.cookie_key,
         )
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
-
-    // Cleanup
-    common::db::delete_user_by_email(&state.pool, &email)
-        .await
-        .expect("Failed to cleanup");
 }
 
 #[tokio::test]
@@ -430,7 +385,7 @@ async fn test_auth_bypass_wrong_secret() {
 
     let response = client
         .get_with_auth(
-            &format!("/v1/users/{}/dashboard", user_id),
+            "/v1/users/me/dashboard",
             &wrong_token,
             &state.cookie_key,
         )
@@ -509,30 +464,32 @@ async fn test_idor_profile_access() {
 
     let user1_token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
 
-    // User1 tries to update user2's profile
+    // User1 updates via /me endpoint - this only affects user1, not user2
+    // With the new /me routes, IDOR is impossible since user_id comes from JWT
     let body = json!({
         "username": "hacked"
     });
 
     let response = client
         .patch_json_with_auth(
-            &format!("/v1/users/{}", user2_id),
+            "/v1/users/me/username",
             &body,
             &user1_token,
             &state.cookie_key,
         )
         .await;
 
-    response.assert_status(StatusCode::UNAUTHORIZED);
+    // The update should succeed, but only affect user1
+    response.assert_status(StatusCode::OK);
 
-    // Verify user2's username wasn't changed
+    // Verify user2's username was NOT changed
     let user2_username: String = sqlx::query_scalar("SELECT username FROM users WHERE id = $1")
         .bind(user2_id)
         .fetch_one(&state.pool)
         .await
         .expect("Failed to get username");
 
-    assert_eq!(user2_username, username2, "Username should not be changed");
+    assert_eq!(user2_username, username2, "User2's username should not be changed");
 
     // Cleanup
     common::db::delete_user_by_email(&state.pool, &email1)
@@ -553,22 +510,17 @@ async fn test_idor_practice_submission() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Create two users
+    // Create a user
     let email1 = common::test_data::unique_email("practice1");
     let username1 = common::test_data::unique_username("practice1");
     let user1_id = common::db::create_verified_user(&state.pool, &email1, &username1)
         .await
         .expect("Failed to create user1");
 
-    let email2 = common::test_data::unique_email("practice2");
-    let username2 = common::test_data::unique_username("practice2");
-    let user2_id = common::db::create_verified_user(&state.pool, &email2, &username2)
-        .await
-        .expect("Failed to create user2");
-
     let user1_token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
 
-    // User1 tries to submit review for user2
+    // With /me routes, IDOR is impossible since user_id comes from JWT.
+    // Test that submitting a review with a non-existent flashcard returns an error.
     let fake_flashcard_id = uuid::Uuid::new_v4();
     let fake_deck_id = uuid::Uuid::new_v4();
 
@@ -580,20 +532,24 @@ async fn test_idor_practice_submission() {
 
     let response = client
         .post_json_with_auth(
-            &format!("/v1/practice/{}/{}/review", user2_id, fake_flashcard_id),
+            &format!("/v1/practice/{}/review", fake_flashcard_id),
             &body,
             &user1_token,
             &state.cookie_key,
         )
         .await;
 
-    response.assert_status(StatusCode::UNAUTHORIZED);
+    // Should fail because the flashcard/deck doesn't exist, not because of auth
+    assert!(
+        response.status == StatusCode::NOT_FOUND
+            || response.status == StatusCode::BAD_REQUEST
+            || response.status == StatusCode::INTERNAL_SERVER_ERROR,
+        "Should fail for non-existent flashcard. Got: {}",
+        response.status
+    );
 
     // Cleanup
     common::db::delete_user_by_email(&state.pool, &email1)
-        .await
-        .expect("Failed to cleanup");
-    common::db::delete_user_by_email(&state.pool, &email2)
         .await
         .expect("Failed to cleanup");
 }

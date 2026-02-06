@@ -316,7 +316,7 @@ async fn test_get_roadmap_with_progress_authenticated() {
     // Get roadmap with progress
     let response = client
         .get_with_auth(
-            &format!("/v1/roadmaps/{}/progress/{}", roadmap_id, user_id),
+            &format!("/v1/roadmaps/{}/progress", roadmap_id),
             &token,
             &state.cookie_key,
         )
@@ -394,56 +394,31 @@ async fn test_get_roadmap_with_progress_authenticated() {
 }
 
 #[tokio::test]
-async fn test_get_roadmap_progress_unauthorized() {
+async fn test_get_roadmap_progress_unauthenticated() {
     let state = TestStateBuilder::new()
         .build()
         .await
         .expect("Failed to create test state");
-
-    // Create two users
-    let email1 = common::test_data::unique_email("user1unauth");
-    let username1 = common::test_data::unique_username("user1unauth");
-    let user1_id = common::db::create_verified_user(&state.pool, &email1, &username1)
-        .await
-        .expect("Failed to create user1");
-
-    let email2 = common::test_data::unique_email("user2unauth");
-    let username2 = common::test_data::unique_username("user2unauth");
-    let user2_id = common::db::create_verified_user(&state.pool, &email2, &username2)
-        .await
-        .expect("Failed to create user2");
 
     // Create roadmap
     let (roadmap_id, _, _) = create_test_roadmap_and_decks(&state.pool)
         .await
         .expect("Failed to create test data");
 
-    // User1 tries to access user2's progress
-    let token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
-
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
+    // Try to access progress without any auth token
     let response = client
-        .get_with_auth(
-            &format!("/v1/roadmaps/{}/progress/{}", roadmap_id, user2_id),
-            &token,
-            &state.cookie_key,
-        )
+        .get(&format!("/v1/roadmaps/{}/progress", roadmap_id))
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
-    // Cleanup - delete roadmap (cascades to decks, flashcards) and users
+    // Cleanup - delete roadmap (cascades to decks, flashcards)
     common::db::delete_roadmap_by_id(&state.pool, roadmap_id)
         .await
         .expect("Failed to cleanup roadmap");
-    common::db::delete_user_by_email(&state.pool, &email1)
-        .await
-        .expect("Failed to cleanup user1");
-    common::db::delete_user_by_email(&state.pool, &email2)
-        .await
-        .expect("Failed to cleanup user2");
 }
 
 #[tokio::test]
@@ -473,7 +448,7 @@ async fn test_get_practice_session_for_deck() {
     // Get practice session (new cards)
     let response = client
         .get_with_auth(
-            &format!("/v1/decks/{}/practice/{}", deck_id, user_id),
+            &format!("/v1/decks/{}/practice", deck_id),
             &token,
             &state.cookie_key,
         )
@@ -505,56 +480,31 @@ async fn test_get_practice_session_for_deck() {
 }
 
 #[tokio::test]
-async fn test_get_practice_session_unauthorized() {
+async fn test_get_practice_session_unauthenticated() {
     let state = TestStateBuilder::new()
         .build()
         .await
         .expect("Failed to create test state");
-
-    // Create two users
-    let email1 = common::test_data::unique_email("user1practice");
-    let username1 = common::test_data::unique_username("user1practice");
-    let user1_id = common::db::create_verified_user(&state.pool, &email1, &username1)
-        .await
-        .expect("Failed to create user1");
-
-    let email2 = common::test_data::unique_email("user2practice");
-    let username2 = common::test_data::unique_username("user2practice");
-    let user2_id = common::db::create_verified_user(&state.pool, &email2, &username2)
-        .await
-        .expect("Failed to create user2");
 
     // Create deck
     let (roadmap_id, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
         .await
         .expect("Failed to create test data");
 
-    // User1 tries to get user2's practice session
-    let token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
-
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
+    // Try to get practice session without any auth token
     let response = client
-        .get_with_auth(
-            &format!("/v1/decks/{}/practice/{}", deck_id, user2_id),
-            &token,
-            &state.cookie_key,
-        )
+        .get(&format!("/v1/decks/{}/practice", deck_id))
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
-    // Cleanup - delete roadmap (cascades to decks, flashcards) and users
+    // Cleanup - delete roadmap (cascades to decks, flashcards)
     common::db::delete_roadmap_by_id(&state.pool, roadmap_id)
         .await
         .expect("Failed to cleanup roadmap");
-    common::db::delete_user_by_email(&state.pool, &email1)
-        .await
-        .expect("Failed to cleanup user1");
-    common::db::delete_user_by_email(&state.pool, &email2)
-        .await
-        .expect("Failed to cleanup user2");
 }
 
 #[tokio::test]
@@ -604,7 +554,7 @@ async fn test_submit_review_correct_answer() {
 
     let response = client
         .post_json_with_auth(
-            &format!("/v1/practice/{}/{}/review", user_id, flashcard_id),
+            &format!("/v1/practice/{}/review", flashcard_id),
             &review_body,
             &token,
             &state.cookie_key,
@@ -709,7 +659,7 @@ async fn test_submit_review_wrong_answer() {
 
     let response = client
         .post_json_with_auth(
-            &format!("/v1/practice/{}/{}/review", user_id, flashcard_id),
+            &format!("/v1/practice/{}/review", flashcard_id),
             &review_body,
             &token,
             &state.cookie_key,
@@ -798,7 +748,7 @@ async fn test_submit_review_updates_stats() {
 
     client
         .post_json_with_auth(
-            &format!("/v1/practice/{}/{}/review", user_id, flashcard_id),
+            &format!("/v1/practice/{}/review", flashcard_id),
             &review_body,
             &token,
             &state.cookie_key,
@@ -829,24 +779,11 @@ async fn test_submit_review_updates_stats() {
 }
 
 #[tokio::test]
-async fn test_submit_review_unauthorized() {
+async fn test_submit_review_unauthenticated() {
     let state = TestStateBuilder::new()
         .build()
         .await
         .expect("Failed to create test state");
-
-    // Create two users
-    let email1 = common::test_data::unique_email("user1review");
-    let username1 = common::test_data::unique_username("user1review");
-    let user1_id = common::db::create_verified_user(&state.pool, &email1, &username1)
-        .await
-        .expect("Failed to create user1");
-
-    let email2 = common::test_data::unique_email("user2review");
-    let username2 = common::test_data::unique_username("user2review");
-    let user2_id = common::db::create_verified_user(&state.pool, &email2, &username2)
-        .await
-        .expect("Failed to create user2");
 
     // Create deck
     let (roadmap_id, deck_id, _) = create_test_roadmap_and_decks(&state.pool)
@@ -860,9 +797,6 @@ async fn test_submit_review_unauthorized() {
     .await
     .expect("Failed to get flashcard");
 
-    // User1 tries to submit review for user2
-    let token = common::jwt::create_test_token(user1_id, &email1, &state.jwt_secret);
-
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
@@ -872,25 +806,18 @@ async fn test_submit_review_unauthorized() {
         "deck_id": deck_id.to_string()
     });
 
+    // Try to submit review without any auth token
     let response = client
-        .post_json_with_auth(
-            &format!("/v1/practice/{}/{}/review", user2_id, flashcard_id),
+        .post_json(
+            &format!("/v1/practice/{}/review", flashcard_id),
             &review_body,
-            &token,
-            &state.cookie_key,
         )
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 
-    // Cleanup - delete roadmap (cascades to decks, flashcards) and users
+    // Cleanup - delete roadmap (cascades to decks, flashcards)
     common::db::delete_roadmap_by_id(&state.pool, roadmap_id)
         .await
         .expect("Failed to cleanup roadmap");
-    common::db::delete_user_by_email(&state.pool, &email1)
-        .await
-        .expect("Failed to cleanup user1");
-    common::db::delete_user_by_email(&state.pool, &email2)
-        .await
-        .expect("Failed to cleanup user2");
 }

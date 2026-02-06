@@ -100,3 +100,102 @@ pub struct ActivityDay {
     activity_date: NaiveDate,
     reviews_count: i32,
 }
+
+// --- Query-specific structs (replacing tuple queries) ---
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct UserProfile {
+    pub id: Uuid,
+    pub username: String,
+    pub email: String,
+    pub profile_picture_url: Option<String>,
+    pub native_language: Option<String>,
+    pub learning_language: Option<String>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct UserWithGoogleId {
+    pub id: Uuid,
+    pub username: String,
+    pub email: String,
+    pub google_id: Option<String>,
+    pub profile_picture_url: Option<String>,
+    pub native_language: Option<String>,
+    pub learning_language: Option<String>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct UserCredentials {
+    pub id: Uuid,
+    pub username: String,
+    pub email: String,
+    pub password_hash: Option<String>,
+    pub profile_picture_url: Option<String>,
+    pub email_verified: bool,
+    pub native_language: Option<String>,
+    pub learning_language: Option<String>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct UserPasswordInfo {
+    pub email: String,
+    pub username: String,
+    pub password_hash: Option<String>,
+    pub auth_provider: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct UserExistenceCheck {
+    pub id: Uuid,
+    pub email_verified: bool,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct UserVerificationInfo {
+    pub id: Uuid,
+    pub username: String,
+    pub email_verified: bool,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct UserIdAndName {
+    pub id: Uuid,
+    pub username: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct UserEmailAndName {
+    pub email: String,
+    pub username: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct EmailVerifiedStatus {
+    pub email: String,
+    pub email_verified: bool,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct RefreshTokenRecord {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub expires_at: DateTime<Utc>,
+    pub device_info: Option<String>,
+    pub ip_address: Option<String>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct CardProgress {
+    pub next_review_at: DateTime<Utc>,
+    pub times_correct: i32,
+    pub times_wrong: i32,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct PracticeCard {
+    pub id: Uuid,
+    pub term: String,
+    pub translation: String,
+    pub times_correct: i32,
+    pub times_wrong: i32,
+}

@@ -451,7 +451,7 @@ async fn load_test_practice_review_submission() {
                 let req_start = Instant::now();
                 let response = client
                     .post_json_with_auth(
-                        &format!("/v1/practice/{}/{}/review", user_id, flashcard_id),
+                        &format!("/v1/practice/{}/review", flashcard_id),
                         &body,
                         &token,
                         &cookie_key,

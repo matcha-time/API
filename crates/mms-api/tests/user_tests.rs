@@ -319,7 +319,7 @@ async fn test_get_user_dashboard() {
     // Get dashboard with authentication
     let response = client
         .get_with_auth(
-            &format!("/v1/users/{}/dashboard", user_id),
+            "/v1/users/me/dashboard",
             &token,
             &state.cookie_key,
         )
@@ -345,51 +345,21 @@ async fn test_get_user_dashboard() {
 }
 
 #[tokio::test]
-async fn test_get_dashboard_unauthorized() {
+async fn test_get_dashboard_unauthenticated() {
     let state = TestStateBuilder::new()
         .build()
         .await
         .expect("Failed to create test state");
 
-    // Create two users
-    let user1_id =
-        common::db::create_verified_user(&state.pool, "user1_dash@example.com", "user1_dash")
-            .await
-            .expect("Failed to create user1");
-
-    let user2_id =
-        common::db::create_verified_user(&state.pool, "user2_dash@example.com", "user2_dash")
-            .await
-            .expect("Failed to create user2");
-
-    // Generate auth token for user1
-    let token =
-        common::jwt::create_test_token(user1_id, "user1_dash@example.com", &state.jwt_secret);
-
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Try to access user2's dashboard with user1's token
+    // Try to access dashboard without any auth token
     let response = client
-        .get_with_auth(
-            &format!("/v1/users/{}/dashboard", user2_id),
-            &token,
-            &state.cookie_key,
-        )
+        .get("/v1/users/me/dashboard")
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
-
-    let json: serde_json::Value = response.json();
-    assert!(json["error"].as_str().unwrap().contains("not authorized"));
-
-    // Cleanup
-    common::db::delete_user_by_email(&state.pool, "user1_dash@example.com")
-        .await
-        .expect("Failed to cleanup test user 1");
-    common::db::delete_user_by_email(&state.pool, "user2_dash@example.com")
-        .await
-        .expect("Failed to cleanup test user 2");
 }
 
 #[tokio::test]
@@ -422,7 +392,7 @@ async fn test_update_user_profile() {
 
     let response = client
         .patch_json_with_auth(
-            &format!("/v1/users/{}", user_id),
+            "/v1/users/me/username",
             &body,
             &token,
             &state.cookie_key,
@@ -472,7 +442,7 @@ async fn test_delete_user() {
 
     // Delete user
     let response = client
-        .delete_with_auth(&format!("/v1/users/{}", user_id), &token, &state.cookie_key)
+        .delete_with_auth("/v1/users/me", &token, &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);

@@ -1,16 +1,9 @@
 use crate::error::ApiError;
-use sqlx::{PgPool, types::Uuid};
+use mms_db::models::UserProfile;
+use sqlx::PgPool;
 
-/// Represents a user in the database
-#[derive(Debug)]
-pub struct User {
-    pub id: Uuid,
-    pub username: String,
-    pub email: String,
-    pub profile_picture_url: Option<String>,
-    pub native_language: Option<String>,
-    pub learning_language: Option<String>,
-}
+use mms_db::repositories::auth as auth_repo;
+use mms_db::repositories::user as user_repo;
 
 // TODO: Refacto this whole ass thing
 
@@ -28,108 +21,42 @@ pub async fn find_or_create_google_user(
     email: &str,
     name: Option<&str>,
     picture: Option<&str>,
-) -> Result<User, ApiError> {
+) -> Result<UserProfile, ApiError> {
     // First, try to find existing user by Google ID
-    if let Some(user) = sqlx::query_as::<
-        _,
-        (
-            Uuid,
-            String,
-            String,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-        ),
-    >(
-        // language=PostgreSQL
-        r#"
-            SELECT id, username, email, profile_picture_url, native_language, learning_language
-            FROM users
-            WHERE google_id = $1
-        "#,
-    )
-    .bind(google_id)
-    .fetch_optional(pool)
-    .await?
-    {
+    if let Some(user) = auth_repo::find_by_google_id(pool, google_id).await? {
         // Update profile picture if it has changed
-        if picture.is_some() && picture != user.3.as_deref() {
-            sqlx::query(
-                // language=PostgreSQL
-                r#"
-                    UPDATE users
-                    SET profile_picture_url = $1
-                    WHERE id = $2
-                "#,
-            )
-            .bind(picture)
-            .bind(user.0)
-            .execute(pool)
-            .await?;
+        if picture.is_some() && picture != user.profile_picture_url.as_deref() {
+            if let Some(pic) = picture {
+                auth_repo::update_profile_picture(pool, user.id, pic).await?;
+            }
         }
 
-        return Ok(User {
-            id: user.0,
-            username: user.1,
-            email: user.2,
-            profile_picture_url: picture.map(|p| p.to_string()).or(user.3),
-            native_language: user.4,
-            learning_language: user.5,
+        return Ok(UserProfile {
+            profile_picture_url: picture.map(|p| p.to_string()).or(user.profile_picture_url),
+            ..user
         });
     }
 
     // If not found by Google ID, check if user exists with this email
     // This handles the case where user registered with email/password first
-    if let Some(user) = sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>, Option<String>, Option<String>)>(
-        // language=PostgreSQL
-        r#"
-            SELECT id, username, email, google_id, profile_picture_url, native_language, learning_language
-            FROM users
-            WHERE email = $1
-        "#,
-    )
-    .bind(email)
-    .fetch_optional(pool)
-    .await?
-    {
+    if let Some(user) = auth_repo::find_by_email_with_google_id(pool, email).await? {
         // If user exists but doesn't have google_id, link the Google account
-        if user.3.is_none() {
-            sqlx::query(
-                // language=PostgreSQL
-                r#"
-                    UPDATE users
-                    SET google_id = $1, auth_provider = 'google', profile_picture_url = $2
-                    WHERE id = $3
-                "#,
-            )
-            .bind(google_id)
-            .bind(picture)
-            .bind(user.0)
-            .execute(pool)
-            .await?;
-        } else if picture.is_some() && picture != user.4.as_deref() {
+        if user.google_id.is_none() {
+            auth_repo::link_google_account(pool, user.id, google_id, picture).await?;
+        } else if picture.is_some() && picture != user.profile_picture_url.as_deref() {
             // Update profile picture if it has changed
-            sqlx::query(
-                // language=PostgreSQL
-                r#"
-                    UPDATE users
-                    SET profile_picture_url = $1
-                    WHERE id = $2
-                "#,
-            )
-            .bind(picture)
-            .bind(user.0)
-            .execute(pool)
-            .await?;
+            if let Some(pic) = picture {
+                auth_repo::update_profile_picture(pool, user.id, pic).await?;
+            }
         }
 
-        return Ok(User {
-            id: user.0,
-            username: user.1,
-            email: user.2,
-            profile_picture_url: picture.map(|p| p.to_string()).or(user.4),
-            native_language: user.5,
-            learning_language: user.6,
+        return Ok(UserProfile {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            profile_picture_url: picture.map(|p| p.to_string()).or(user.profile_picture_url),
+            native_language: user.native_language,
+            learning_language: user.learning_language,
         });
     }
 
@@ -145,35 +72,13 @@ pub async fn find_or_create_google_user(
     let mut counter = 1;
 
     loop {
-        match sqlx::query_scalar::<_, Uuid>(
-            // language=PostgreSQL
-            r#"
-                INSERT INTO users (username, email, google_id, auth_provider, profile_picture_url)
-                VALUES ($1, $2, $3, 'google', $4)
-                RETURNING id
-            "#,
-        )
-        .bind(&final_username)
-        .bind(email)
-        .bind(google_id)
-        .bind(picture)
-        .fetch_one(pool)
-        .await
+        match auth_repo::create_google_user(pool, &final_username, email, google_id, picture).await
         {
             Ok(user_id) => {
                 // Create user_stats entry
-                sqlx::query(
-                    // language=PostgreSQL
-                    r#"
-                        INSERT INTO user_stats (user_id)
-                        VALUES ($1)
-                    "#,
-                )
-                .bind(user_id)
-                .execute(pool)
-                .await?;
+                user_repo::create_user_stats(pool, user_id).await?;
 
-                return Ok(User {
+                return Ok(UserProfile {
                     id: user_id,
                     username: final_username,
                     email: email.to_string(),
