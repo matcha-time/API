@@ -34,7 +34,8 @@ async fn google_auth(
 
     // Generate CSRF token and nonce
     let (auth_url, csrf_token, nonce) = state
-        .oidc.oidc_client
+        .oidc
+        .oidc_client
         .authorize_url(
             AuthenticationFlow::<CoreResponseType>::AuthorizationCode,
             CsrfToken::new_random,
@@ -95,7 +96,8 @@ async fn auth_callback(
 
     // Exchange authorization code for tokens with PKCE verifier
     let token_response = state
-        .oidc.oidc_client
+        .oidc
+        .oidc_client
         .exchange_code(AuthorizationCode::new(query.code))
         .map_err(|e| ApiError::Oidc(format!("Token exchange failed: {}", e)))?
         .set_pkce_verifier(PkceCodeVerifier::new(oidc_data.pkce_verifier))

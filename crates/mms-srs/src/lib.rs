@@ -41,17 +41,17 @@ pub fn compute_next_review(times_correct: i32, times_wrong: i32) -> DateTime<Utc
 
     // SRS intervals with exponential doubling (hours → days)
     let interval = match score {
-        s if s <= 0 => Duration::hours(2),  // 2 hours - immediate retry
-        1 => Duration::hours(4),             // 4 hours
-        2 => Duration::hours(8),             // 8 hours
-        3 => Duration::days(1),              // 1 day
-        4 => Duration::days(2),              // 2 days
-        5 => Duration::days(5),              // 5 days
-        6 => Duration::days(10),             // 10 days
-        7 => Duration::days(20),             // ~3 weeks
-        8 => Duration::days(40),             // ~6 weeks
-        9 => Duration::days(60),             // 2 months
-        _ => Duration::days(90),             // 3 months (mastered)
+        s if s <= 0 => Duration::hours(2), // 2 hours - immediate retry
+        1 => Duration::hours(4),           // 4 hours
+        2 => Duration::hours(8),           // 8 hours
+        3 => Duration::days(1),            // 1 day
+        4 => Duration::days(2),            // 2 days
+        5 => Duration::days(5),            // 5 days
+        6 => Duration::days(10),           // 10 days
+        7 => Duration::days(20),           // ~3 weeks
+        8 => Duration::days(40),           // ~6 weeks
+        9 => Duration::days(60),           // 2 months
+        _ => Duration::days(90),           // 3 months (mastered)
     };
 
     Utc::now() + interval
@@ -88,17 +88,17 @@ pub fn calculate_score(times_correct: i32, times_wrong: i32) -> i32 {
 /// converted to hours for uniform return type.
 pub fn get_interval_for_score(score: i32) -> i64 {
     match score {
-        s if s <= 0 => 2,       // 2 hours
-        1 => 4,                 // 4 hours
-        2 => 8,                 // 8 hours
-        3 => 24,                // 1 day (24 hours)
-        4 => 48,                // 2 days (48 hours)
-        5 => 120,               // 5 days (120 hours)
-        6 => 240,               // 10 days (240 hours)
-        7 => 480,               // 20 days (480 hours)
-        8 => 960,               // 40 days (960 hours)
-        9 => 1440,              // 60 days (1440 hours)
-        _ => 2160,              // 90 days (2160 hours)
+        s if s <= 0 => 2, // 2 hours
+        1 => 4,           // 4 hours
+        2 => 8,           // 8 hours
+        3 => 24,          // 1 day (24 hours)
+        4 => 48,          // 2 days (48 hours)
+        5 => 120,         // 5 days (120 hours)
+        6 => 240,         // 10 days (240 hours)
+        7 => 480,         // 20 days (480 hours)
+        8 => 960,         // 40 days (960 hours)
+        9 => 1440,        // 60 days (1440 hours)
+        _ => 2160,        // 90 days (2160 hours)
     }
 }
 
@@ -115,18 +115,18 @@ mod tests {
 
     #[test]
     fn test_get_interval_for_score() {
-        assert_eq!(get_interval_for_score(-1), 2);     // 2 hours
-        assert_eq!(get_interval_for_score(0), 2);      // 2 hours
-        assert_eq!(get_interval_for_score(1), 4);      // 4 hours
-        assert_eq!(get_interval_for_score(2), 8);      // 8 hours
-        assert_eq!(get_interval_for_score(3), 24);     // 1 day (24h)
-        assert_eq!(get_interval_for_score(4), 48);     // 2 days (48h)
-        assert_eq!(get_interval_for_score(5), 120);    // 5 days (120h)
-        assert_eq!(get_interval_for_score(6), 240);    // 10 days (240h)
-        assert_eq!(get_interval_for_score(7), 480);    // 20 days (480h)
-        assert_eq!(get_interval_for_score(8), 960);    // 40 days (960h)
-        assert_eq!(get_interval_for_score(9), 1440);   // 60 days (1440h)
-        assert_eq!(get_interval_for_score(10), 2160);  // 90 days (2160h)
+        assert_eq!(get_interval_for_score(-1), 2); // 2 hours
+        assert_eq!(get_interval_for_score(0), 2); // 2 hours
+        assert_eq!(get_interval_for_score(1), 4); // 4 hours
+        assert_eq!(get_interval_for_score(2), 8); // 8 hours
+        assert_eq!(get_interval_for_score(3), 24); // 1 day (24h)
+        assert_eq!(get_interval_for_score(4), 48); // 2 days (48h)
+        assert_eq!(get_interval_for_score(5), 120); // 5 days (120h)
+        assert_eq!(get_interval_for_score(6), 240); // 10 days (240h)
+        assert_eq!(get_interval_for_score(7), 480); // 20 days (480h)
+        assert_eq!(get_interval_for_score(8), 960); // 40 days (960h)
+        assert_eq!(get_interval_for_score(9), 1440); // 60 days (1440h)
+        assert_eq!(get_interval_for_score(10), 2160); // 90 days (2160h)
         assert_eq!(get_interval_for_score(100), 2160); // 90 days (2160h)
     }
 

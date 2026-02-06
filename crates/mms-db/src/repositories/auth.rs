@@ -4,7 +4,10 @@ use uuid::Uuid;
 
 use crate::models::{RefreshTokenRecord, UserProfile, UserWithGoogleId};
 
-pub async fn find_by_google_id<'e, E>(executor: E, google_id: &str) -> Result<Option<UserProfile>, sqlx::Error>
+pub async fn find_by_google_id<'e, E>(
+    executor: E,
+    google_id: &str,
+) -> Result<Option<UserProfile>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -21,7 +24,10 @@ where
     .await
 }
 
-pub async fn find_by_email_with_google_id<'e, E>(executor: E, email: &str) -> Result<Option<UserWithGoogleId>, sqlx::Error>
+pub async fn find_by_email_with_google_id<'e, E>(
+    executor: E,
+    email: &str,
+) -> Result<Option<UserWithGoogleId>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -63,7 +69,11 @@ where
     Ok(())
 }
 
-pub async fn update_profile_picture<'e, E>(executor: E, user_id: Uuid, picture_url: &str) -> Result<(), sqlx::Error>
+pub async fn update_profile_picture<'e, E>(
+    executor: E,
+    user_id: Uuid,
+    picture_url: &str,
+) -> Result<(), sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -136,7 +146,10 @@ where
     .await
 }
 
-pub async fn find_refresh_token_by_hash<'e, E>(executor: E, token_hash: &str) -> Result<Option<RefreshTokenRecord>, sqlx::Error>
+pub async fn find_refresh_token_by_hash<'e, E>(
+    executor: E,
+    token_hash: &str,
+) -> Result<Option<RefreshTokenRecord>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -165,7 +178,10 @@ where
     Ok(())
 }
 
-pub async fn delete_refresh_token_by_hash<'e, E>(executor: E, token_hash: &str) -> Result<u64, sqlx::Error>
+pub async fn delete_refresh_token_by_hash<'e, E>(
+    executor: E,
+    token_hash: &str,
+) -> Result<u64, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -176,7 +192,10 @@ where
     Ok(result.rows_affected())
 }
 
-pub async fn delete_all_user_refresh_tokens<'e, E>(executor: E, user_id: Uuid) -> Result<u64, sqlx::Error>
+pub async fn delete_all_user_refresh_tokens<'e, E>(
+    executor: E,
+    user_id: Uuid,
+) -> Result<u64, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {

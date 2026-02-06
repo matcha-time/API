@@ -76,9 +76,10 @@ async fn get_roadmap_with_progress(
     let user_id = auth_user.user_id;
 
     // Fetch roadmap metadata with progress statistics
-    let roadmap_metadata = roadmap_repo::get_metadata_with_progress(&state.pool, roadmap_id, user_id)
-        .await
-        .map_err(ApiError::Database)?;
+    let roadmap_metadata =
+        roadmap_repo::get_metadata_with_progress(&state.pool, roadmap_id, user_id)
+            .await
+            .map_err(ApiError::Database)?;
 
     // Fetch all nodes with progress
     let nodes = roadmap_repo::get_nodes_with_progress(&state.pool, roadmap_id, user_id)

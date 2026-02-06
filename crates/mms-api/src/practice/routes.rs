@@ -14,10 +14,7 @@ use mms_db::repositories::practice as practice_repo;
 
 /// Create the practice routes
 pub fn routes() -> Router<ApiState> {
-    Router::new().route(
-        "/practice/{flashcard_id}/review",
-        post(submit_review),
-    )
+    Router::new().route("/practice/{flashcard_id}/review", post(submit_review))
 }
 
 #[derive(Deserialize)]
@@ -101,9 +98,16 @@ async fn submit_review(
         let next_review_at = mms_srs::compute_next_review(new_times_correct, new_times_wrong);
 
         // Update the progress
-        practice_repo::upsert_card_progress(&mut *tx, user_id, flashcard_id, next_review_at, new_times_correct, new_times_wrong)
-            .await
-            .map_err(ApiError::Database)?;
+        practice_repo::upsert_card_progress(
+            &mut *tx,
+            user_id,
+            flashcard_id,
+            next_review_at,
+            new_times_correct,
+            new_times_wrong,
+        )
+        .await
+        .map_err(ApiError::Database)?;
 
         // Refresh deck progress
         practice_repo::refresh_deck_progress(&mut *tx, user_id, payload.deck_id)

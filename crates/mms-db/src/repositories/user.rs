@@ -6,7 +6,10 @@ use crate::models::{
     UserIdAndName, UserPasswordInfo, UserProfile, UserStats, UserVerificationInfo,
 };
 
-pub async fn find_profile_by_id<'e, E>(executor: E, user_id: Uuid) -> Result<Option<UserProfile>, sqlx::Error>
+pub async fn find_profile_by_id<'e, E>(
+    executor: E,
+    user_id: Uuid,
+) -> Result<Option<UserProfile>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -23,7 +26,10 @@ where
     .await
 }
 
-pub async fn find_credentials_by_email<'e, E>(executor: E, email: &str) -> Result<Option<UserCredentials>, sqlx::Error>
+pub async fn find_credentials_by_email<'e, E>(
+    executor: E,
+    email: &str,
+) -> Result<Option<UserCredentials>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -40,7 +46,10 @@ where
     .await
 }
 
-pub async fn find_existence_by_email<'e, E>(executor: E, email: &str) -> Result<Option<UserExistenceCheck>, sqlx::Error>
+pub async fn find_existence_by_email<'e, E>(
+    executor: E,
+    email: &str,
+) -> Result<Option<UserExistenceCheck>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -98,7 +107,10 @@ where
     Ok(())
 }
 
-pub async fn find_id_and_name_by_email<'e, E>(executor: E, email: &str) -> Result<Option<UserIdAndName>, sqlx::Error>
+pub async fn find_id_and_name_by_email<'e, E>(
+    executor: E,
+    email: &str,
+) -> Result<Option<UserIdAndName>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -115,7 +127,10 @@ where
     .await
 }
 
-pub async fn find_verification_info_by_email<'e, E>(executor: E, email: &str) -> Result<Option<UserVerificationInfo>, sqlx::Error>
+pub async fn find_verification_info_by_email<'e, E>(
+    executor: E,
+    email: &str,
+) -> Result<Option<UserVerificationInfo>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -132,7 +147,10 @@ where
     .await
 }
 
-pub async fn find_email_verified_status<'e, E>(executor: E, user_id: Uuid) -> Result<Option<EmailVerifiedStatus>, sqlx::Error>
+pub async fn find_email_verified_status<'e, E>(
+    executor: E,
+    user_id: Uuid,
+) -> Result<Option<EmailVerifiedStatus>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -149,7 +167,10 @@ where
     .await
 }
 
-pub async fn find_password_info<'e, E>(executor: E, user_id: Uuid) -> Result<Option<UserPasswordInfo>, sqlx::Error>
+pub async fn find_password_info<'e, E>(
+    executor: E,
+    user_id: Uuid,
+) -> Result<Option<UserPasswordInfo>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -191,7 +212,11 @@ where
     .await
 }
 
-pub async fn update_password<'e, E>(executor: E, user_id: Uuid, password_hash: &str) -> Result<(), sqlx::Error>
+pub async fn update_password<'e, E>(
+    executor: E,
+    user_id: Uuid,
+    password_hash: &str,
+) -> Result<(), sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -210,7 +235,11 @@ where
     Ok(())
 }
 
-pub async fn update_password_for_email_user<'e, E>(executor: E, user_id: Uuid, password_hash: &str) -> Result<(), sqlx::Error>
+pub async fn update_password_for_email_user<'e, E>(
+    executor: E,
+    user_id: Uuid,
+    password_hash: &str,
+) -> Result<(), sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -229,7 +258,11 @@ where
     Ok(())
 }
 
-pub async fn update_username<'e, E>(executor: E, user_id: Uuid, username: &str) -> Result<String, sqlx::Error>
+pub async fn update_username<'e, E>(
+    executor: E,
+    user_id: Uuid,
+    username: &str,
+) -> Result<String, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -298,7 +331,10 @@ where
     .await
 }
 
-pub async fn get_user_activity<'e, E>(executor: E, user_id: Uuid) -> Result<Vec<ActivityDay>, sqlx::Error>
+pub async fn get_user_activity<'e, E>(
+    executor: E,
+    user_id: Uuid,
+) -> Result<Vec<ActivityDay>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -316,7 +352,10 @@ where
     .await
 }
 
-pub async fn find_email_and_name<'e, E>(executor: E, user_id: Uuid) -> Result<UserEmailAndName, sqlx::Error>
+pub async fn find_email_and_name<'e, E>(
+    executor: E,
+    user_id: Uuid,
+) -> Result<UserEmailAndName, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {

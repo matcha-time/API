@@ -167,18 +167,20 @@ async fn create_user(
         .map_err(ApiError::Bcrypt)?;
 
     // Insert user into database
-    let user_id = user_repo::create_email_user(&mut *tx, &request.username, &request.email, &password_hash)
-        .await
-        .map_err(|e| {
-            // Handle unique constraint violations gracefully (PostgreSQL error code 23505)
-            if is_unique_violation(&e) {
-                ApiError::Conflict(
-                    "Registration failed. This username or email may already be in use.".to_string(),
-                )
-            } else {
-                ApiError::Database(e)
-            }
-        })?;
+    let user_id =
+        user_repo::create_email_user(&mut *tx, &request.username, &request.email, &password_hash)
+            .await
+            .map_err(|e| {
+                // Handle unique constraint violations gracefully (PostgreSQL error code 23505)
+                if is_unique_violation(&e) {
+                    ApiError::Conflict(
+                        "Registration failed. This username or email may already be in use."
+                            .to_string(),
+                    )
+                } else {
+                    ApiError::Database(e)
+                }
+            })?;
 
     // Create user_stats entry
     user_repo::create_user_stats(&mut *tx, user_id).await?;
@@ -219,8 +221,9 @@ async fn login_user(
         .ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
 
     // Verify password exists and matches
-    let password_hash =
-        user.password_hash.ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
+    let password_hash = user
+        .password_hash
+        .ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
 
     let password = request.password.clone();
     let hash = password_hash.clone();
@@ -240,8 +243,12 @@ async fn login_user(
     }
 
     // Generate JWT access token
-    let token =
-        jwt::generate_jwt_token(user.id, user.email.clone(), &state.auth.jwt_secret, state.auth.jwt_expiry_hours)?;
+    let token = jwt::generate_jwt_token(
+        user.id,
+        user.email.clone(),
+        &state.auth.jwt_secret,
+        state.auth.jwt_expiry_hours,
+    )?;
 
     // Generate refresh token
     let (refresh_token, refresh_token_hash) = auth::refresh_token::generate_refresh_token();

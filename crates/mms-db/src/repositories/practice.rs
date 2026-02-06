@@ -4,7 +4,10 @@ use uuid::Uuid;
 
 use crate::models::CardProgress;
 
-pub async fn get_flashcard_translation<'e, E>(executor: E, flashcard_id: Uuid) -> Result<String, sqlx::Error>
+pub async fn get_flashcard_translation<'e, E>(
+    executor: E,
+    flashcard_id: Uuid,
+) -> Result<String, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -22,7 +25,11 @@ where
     Ok(result.0)
 }
 
-pub async fn get_card_progress<'e, E>(executor: E, user_id: Uuid, flashcard_id: Uuid) -> Result<Option<CardProgress>, sqlx::Error>
+pub async fn get_card_progress<'e, E>(
+    executor: E,
+    user_id: Uuid,
+    flashcard_id: Uuid,
+) -> Result<Option<CardProgress>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -75,7 +82,11 @@ where
     Ok(())
 }
 
-pub async fn refresh_deck_progress<'e, E>(executor: E, user_id: Uuid, deck_id: Uuid) -> Result<(), sqlx::Error>
+pub async fn refresh_deck_progress<'e, E>(
+    executor: E,
+    user_id: Uuid,
+    deck_id: Uuid,
+) -> Result<(), sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {

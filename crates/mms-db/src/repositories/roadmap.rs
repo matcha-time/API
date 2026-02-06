@@ -19,7 +19,11 @@ where
     .await
 }
 
-pub async fn list_by_language<'e, E>(executor: E, language_from: &str, language_to: &str) -> Result<Vec<Roadmap>, sqlx::Error>
+pub async fn list_by_language<'e, E>(
+    executor: E,
+    language_from: &str,
+    language_to: &str,
+) -> Result<Vec<Roadmap>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -37,7 +41,10 @@ where
     .await
 }
 
-pub async fn get_metadata<'e, E>(executor: E, roadmap_id: Uuid) -> Result<RoadmapMetadata, sqlx::Error>
+pub async fn get_metadata<'e, E>(
+    executor: E,
+    roadmap_id: Uuid,
+) -> Result<RoadmapMetadata, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -64,7 +71,10 @@ where
     .await
 }
 
-pub async fn get_nodes<'e, E>(executor: E, roadmap_id: Uuid) -> Result<Vec<RoadmapNodeWithProgress>, sqlx::Error>
+pub async fn get_nodes<'e, E>(
+    executor: E,
+    roadmap_id: Uuid,
+) -> Result<Vec<RoadmapNodeWithProgress>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -96,7 +106,11 @@ where
     .await
 }
 
-pub async fn get_metadata_with_progress<'e, E>(executor: E, roadmap_id: Uuid, user_id: Uuid) -> Result<RoadmapMetadata, sqlx::Error>
+pub async fn get_metadata_with_progress<'e, E>(
+    executor: E,
+    roadmap_id: Uuid,
+    user_id: Uuid,
+) -> Result<RoadmapMetadata, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -136,7 +150,11 @@ where
     .await
 }
 
-pub async fn get_nodes_with_progress<'e, E>(executor: E, roadmap_id: Uuid, user_id: Uuid) -> Result<Vec<RoadmapNodeWithProgress>, sqlx::Error>
+pub async fn get_nodes_with_progress<'e, E>(
+    executor: E,
+    roadmap_id: Uuid,
+    user_id: Uuid,
+) -> Result<Vec<RoadmapNodeWithProgress>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {

@@ -4,7 +4,10 @@ use uuid::Uuid;
 
 // --- Email verification tokens ---
 
-pub async fn invalidate_verification_tokens<'e, E>(executor: E, user_id: Uuid) -> Result<(), sqlx::Error>
+pub async fn invalidate_verification_tokens<'e, E>(
+    executor: E,
+    user_id: Uuid,
+) -> Result<(), sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -46,7 +49,10 @@ where
     Ok(())
 }
 
-pub async fn consume_verification_token<'e, E>(executor: E, token_hash: &str) -> Result<Option<Uuid>, sqlx::Error>
+pub async fn consume_verification_token<'e, E>(
+    executor: E,
+    token_hash: &str,
+) -> Result<Option<Uuid>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -127,7 +133,10 @@ where
     Ok(())
 }
 
-pub async fn consume_reset_token<'e, E>(executor: E, token_hash: &str) -> Result<Option<Uuid>, sqlx::Error>
+pub async fn consume_reset_token<'e, E>(
+    executor: E,
+    token_hash: &str,
+) -> Result<Option<Uuid>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {

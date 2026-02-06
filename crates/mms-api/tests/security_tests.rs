@@ -234,12 +234,7 @@ async fn test_xss_in_profile_update() {
     });
 
     let response = client
-        .patch_json_with_auth(
-            "/v1/users/me/username",
-            &body,
-            &token,
-            &state.cookie_key,
-        )
+        .patch_json_with_auth("/v1/users/me/username", &body, &token, &state.cookie_key)
         .await;
 
     // Should handle safely
@@ -270,9 +265,7 @@ async fn test_auth_bypass_missing_token() {
     let client = TestClient::new(app);
 
     // Try to access protected endpoint without auth token
-    let response = client
-        .get("/v1/users/me/dashboard")
-        .await;
+    let response = client.get("/v1/users/me/dashboard").await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 }
@@ -321,11 +314,7 @@ async fn test_auth_bypass_wrong_user_token() {
 
     // Access user1's own dashboard with their token (should succeed since /me resolves from JWT)
     let response = client
-        .get_with_auth(
-            "/v1/users/me/dashboard",
-            &user1_token,
-            &state.cookie_key,
-        )
+        .get_with_auth("/v1/users/me/dashboard", &user1_token, &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);
@@ -352,11 +341,7 @@ async fn test_auth_bypass_expired_token() {
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiZXhwIjowfQ.invalid";
 
     let response = client
-        .get_with_auth(
-            "/v1/users/me/dashboard",
-            expired_token,
-            &state.cookie_key,
-        )
+        .get_with_auth("/v1/users/me/dashboard", expired_token, &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
@@ -384,11 +369,7 @@ async fn test_auth_bypass_wrong_secret() {
         common::jwt::create_test_token(user_id, &email, "wrong_secret_that_doesnt_match_12345");
 
     let response = client
-        .get_with_auth(
-            "/v1/users/me/dashboard",
-            &wrong_token,
-            &state.cookie_key,
-        )
+        .get_with_auth("/v1/users/me/dashboard", &wrong_token, &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
@@ -489,7 +470,10 @@ async fn test_idor_profile_access() {
         .await
         .expect("Failed to get username");
 
-    assert_eq!(user2_username, username2, "User2's username should not be changed");
+    assert_eq!(
+        user2_username, username2,
+        "User2's username should not be changed"
+    );
 
     // Cleanup
     common::db::delete_user_by_email(&state.pool, &email1)

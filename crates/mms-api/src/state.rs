@@ -136,7 +136,6 @@ impl FromRef<ApiState> for Key {
         tracing::debug!("FromRef<ApiState> for Key called");
         state.cookie.cookie_key.clone()
     }
-
 }
 
 impl FromRef<ApiState> for AuthConfig {

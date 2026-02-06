@@ -99,8 +99,12 @@ async fn refresh_token(
     }
 
     // Generate new JWT access token
-    let new_access_token =
-        jwt::generate_jwt_token(user_id, status.email, &state.auth.jwt_secret, state.auth.jwt_expiry_hours)?;
+    let new_access_token = jwt::generate_jwt_token(
+        user_id,
+        status.email,
+        &state.auth.jwt_secret,
+        state.auth.jwt_expiry_hours,
+    )?;
 
     // Update cookies
     let auth_cookie = cookies::create_auth_cookie(

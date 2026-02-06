@@ -37,9 +37,16 @@ pub async fn store_refresh_token(
 ) -> Result<Uuid, ApiError> {
     let expires_at = Utc::now() + chrono::Duration::days(expiry_days);
 
-    let token_id = auth_repo::store_refresh_token(pool, user_id, token_hash, device_info, ip_address, expires_at)
-        .await
-        .map_err(ApiError::Database)?;
+    let token_id = auth_repo::store_refresh_token(
+        pool,
+        user_id,
+        token_hash,
+        device_info,
+        ip_address,
+        expires_at,
+    )
+    .await
+    .map_err(ApiError::Database)?;
 
     Ok(token_id)
 }

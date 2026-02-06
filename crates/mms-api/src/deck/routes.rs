@@ -12,10 +12,7 @@ use mms_db::repositories::deck as deck_repo;
 
 /// Create the deck routes
 pub fn routes() -> Router<ApiState> {
-    Router::new().route(
-        "/decks/{deck_id}/practice",
-        get(get_practice_session),
-    )
+    Router::new().route("/decks/{deck_id}/practice", get(get_practice_session))
 }
 
 async fn get_practice_session(

@@ -318,11 +318,7 @@ async fn test_get_user_dashboard() {
 
     // Get dashboard with authentication
     let response = client
-        .get_with_auth(
-            "/v1/users/me/dashboard",
-            &token,
-            &state.cookie_key,
-        )
+        .get_with_auth("/v1/users/me/dashboard", &token, &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);
@@ -355,9 +351,7 @@ async fn test_get_dashboard_unauthenticated() {
     let client = TestClient::new(app);
 
     // Try to access dashboard without any auth token
-    let response = client
-        .get("/v1/users/me/dashboard")
-        .await;
+    let response = client.get("/v1/users/me/dashboard").await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 }
@@ -391,12 +385,7 @@ async fn test_update_user_profile() {
     });
 
     let response = client
-        .patch_json_with_auth(
-            "/v1/users/me/username",
-            &body,
-            &token,
-            &state.cookie_key,
-        )
+        .patch_json_with_auth("/v1/users/me/username", &body, &token, &state.cookie_key)
         .await;
 
     response.assert_status(StatusCode::OK);

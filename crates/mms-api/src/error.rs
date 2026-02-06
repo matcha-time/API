@@ -38,7 +38,10 @@ impl IntoResponse for ApiError {
             ApiError::Cookie(msg) => (StatusCode::BAD_REQUEST, msg),
             ApiError::Jwt(e) => {
                 tracing::error!(error = %e, "JWT error occurred");
-                (StatusCode::UNAUTHORIZED, "Invalid or expired token".to_string())
+                (
+                    StatusCode::UNAUTHORIZED,
+                    "Invalid or expired token".to_string(),
+                )
             }
             ApiError::InvalidIdToken(msg) => (StatusCode::BAD_REQUEST, msg),
             ApiError::Auth(msg) => (StatusCode::UNAUTHORIZED, msg),
@@ -46,7 +49,10 @@ impl IntoResponse for ApiError {
             ApiError::Conflict(msg) => (StatusCode::CONFLICT, msg),
             ApiError::Bcrypt(e) => {
                 tracing::error!(error = %e, "Password hashing error occurred");
-                (StatusCode::INTERNAL_SERVER_ERROR, "An internal error occurred. Please try again later.".to_string())
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again later.".to_string(),
+                )
             }
             ApiError::Email(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
             ApiError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),

@@ -495,9 +495,7 @@ async fn test_get_practice_session_unauthenticated() {
     let client = TestClient::new(app);
 
     // Try to get practice session without any auth token
-    let response = client
-        .get(&format!("/v1/decks/{}/practice", deck_id))
-        .await;
+    let response = client.get(&format!("/v1/decks/{}/practice", deck_id)).await;
 
     response.assert_status(StatusCode::UNAUTHORIZED);
 

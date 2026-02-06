@@ -3,7 +3,11 @@ use uuid::Uuid;
 
 use crate::models::PracticeCard;
 
-pub async fn get_practice_cards<'e, E>(executor: E, deck_id: Uuid, user_id: Uuid) -> Result<Vec<PracticeCard>, sqlx::Error>
+pub async fn get_practice_cards<'e, E>(
+    executor: E,
+    deck_id: Uuid,
+    user_id: Uuid,
+) -> Result<Vec<PracticeCard>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
