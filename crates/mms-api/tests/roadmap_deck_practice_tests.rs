@@ -543,10 +543,17 @@ async fn test_submit_review_correct_answer() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
+    // Fetch the correct translation for this flashcard
+    let translation: String =
+        sqlx::query_scalar("SELECT translation FROM flashcards WHERE id = $1")
+            .bind(flashcard_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("Failed to get translation");
+
     // Submit correct review
     let review_body = json!({
-        "correct": true,
-        "next_review_at": "2025-12-01T10:00:00Z",
+        "user_answer": translation,
         "deck_id": deck_id.to_string()
     });
 
@@ -560,6 +567,13 @@ async fn test_submit_review_correct_answer() {
         .await;
 
     response.assert_status(StatusCode::OK);
+
+    // Verify the response indicates correct
+    let response_json: serde_json::Value = response.json();
+    assert_eq!(
+        response_json["is_correct"], true,
+        "Answer should be correct"
+    );
 
     // Verify progress was recorded
     let times_correct: i32 = sqlx::query_scalar(
@@ -648,10 +662,9 @@ async fn test_submit_review_wrong_answer() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Submit wrong review
+    // Submit wrong review (deliberately wrong answer)
     let review_body = json!({
-        "correct": false,
-        "next_review_at": "2025-11-27T12:00:00Z",
+        "user_answer": "wrong_answer_on_purpose",
         "deck_id": deck_id.to_string()
     });
 
@@ -665,6 +678,10 @@ async fn test_submit_review_wrong_answer() {
         .await;
 
     response.assert_status(StatusCode::OK);
+
+    // Verify the response indicates incorrect
+    let response_json: serde_json::Value = response.json();
+    assert_eq!(response_json["is_correct"], false, "Answer should be wrong");
 
     // Verify progress was recorded
     let times_wrong: i32 = sqlx::query_scalar(
@@ -737,10 +754,17 @@ async fn test_submit_review_updates_stats() {
     let app = router::router().with_state(state.clone());
     let client = TestClient::new(app);
 
-    // Submit review
+    // Fetch the correct translation for this flashcard
+    let translation: String =
+        sqlx::query_scalar("SELECT translation FROM flashcards WHERE id = $1")
+            .bind(flashcard_id)
+            .fetch_one(&state.pool)
+            .await
+            .expect("Failed to get translation");
+
+    // Submit review with correct answer
     let review_body = json!({
-        "correct": true,
-        "next_review_at": "2025-12-01T10:00:00Z",
+        "user_answer": translation,
         "deck_id": deck_id.to_string()
     });
 
@@ -799,8 +823,7 @@ async fn test_submit_review_unauthenticated() {
     let client = TestClient::new(app);
 
     let review_body = json!({
-        "correct": true,
-        "next_review_at": "2025-12-01T10:00:00Z",
+        "user_answer": "hola",
         "deck_id": deck_id.to_string()
     });
 

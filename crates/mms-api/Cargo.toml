@@ -10,9 +10,6 @@ exclude.workspace = true
 
 autotests = false
 
-[features]
-shuttle = ["dep:shuttle-runtime"]
-
 [dependencies]
 mms-db.workspace = true
 mms-srs.workspace = true
@@ -49,9 +46,6 @@ metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 regex.workspace = true
 validator.workspace = true
-
-# Optional dependencies for Shuttle.rs deployment
-shuttle-runtime = { workspace = true, optional = true }
 unicode-normalization = "0.1.25"
 
 [dev-dependencies]

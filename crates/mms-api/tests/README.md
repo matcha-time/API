@@ -2,17 +2,19 @@
 
 This directory contains comprehensive integration, security, and load tests for the Matcha Time API.
 
-## Test Files Created
+## Test Files
 
-1. **`email_verification_tests.rs`** - Email verification flow (9 tests)
-2. **`password_reset_tests.rs`** - Password reset flow (8 tests)  
-3. **`refresh_token_tests.rs`** - Refresh token rotation (9 tests)
-4. **`roadmap_deck_practice_tests.rs`** - Core features (11 tests)
-5. **`rate_limit_tests.rs`** - Rate limiting (8 tests)
-6. **`security_tests.rs`** - Security vulnerabilities (15 tests)
-7. **`load_tests.rs`** - Performance tests (6 tests, ignored by default)
+1. **`auth_tests.rs`** - Authentication flows (OAuth, login, logout, JWT)
+2. **`email_verification_tests.rs`** - Email verification flow (9 tests)
+3. **`password_reset_tests.rs`** - Password reset flow (8 tests)
+4. **`refresh_token_tests.rs`** - Refresh token rotation (9 tests)
+5. **`roadmap_deck_practice_tests.rs`** - Core features: roadmaps, decks, practice with answer validation (11 tests)
+6. **`user_tests.rs`** - User registration, dashboard, profile management
+7. **`rate_limit_tests.rs`** - Rate limiting (8 tests)
+8. **`security_tests.rs`** - Security vulnerabilities (15 tests)
+9. **`load_tests.rs`** - Performance tests (6 tests, ignored by default)
 
-Total: ~66 new integration and load tests
+Total: 88 integration tests + 6 load tests
 
 ## Running Tests
 
@@ -55,11 +57,11 @@ cargo test --package mms-api --test integration -- --test-threads=1 --nocapture
 
 ### ✅ Core Features (11 tests)
 
-- Roadmap endpoints
+- Roadmap endpoints (list, filter by language, nodes, progress)
 - Deck practice sessions
-- Review submissions
-- Progress tracking
-- Authorization checks
+- Review submissions with answer validation (correct/wrong answers)
+- Flashcard-to-deck authorization check
+- Progress and stats tracking after reviews
 
 ### ✅ Rate Limiting (8 tests)
 
@@ -106,19 +108,9 @@ common::db::create_verified_user(pool, email, username)
 common::db::delete_user_by_email(pool, email)
 ```
 
-### Remaining Concurrency Issues (6 tests)
-
-Only when run with full concurrency (timing-sensitive tests):
-
-- Password reset: 1 test
-- Refresh tokens: 3 tests
-- Roadmap/practice: 2 tests
-
-Note: All tests pass individually and sequentially. The 6 remaining failures are timing/race conditions in concurrent execution.
-
 ## Test Configuration
 
 - Test DB: `postgres://test_user:test_password@localhost:5433/matcha_time_test`
-- Sequential: Use `--test-threads=1` for guaranteed pass (slower)
-- Concurrent: Default execution is 7.5x faster with 93% pass rate
+- Sequential: Use `--test-threads=1` for guaranteed pass
 - Each test uses unique data (UUIDs) to minimize conflicts
+- All 88 tests pass (6 load tests ignored by default)

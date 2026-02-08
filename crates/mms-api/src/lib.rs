@@ -5,6 +5,7 @@ pub mod error;
 pub mod jobs;
 pub mod metrics;
 pub mod middleware;
+pub mod normalization;
 pub mod practice;
 pub mod roadmap;
 pub mod router;

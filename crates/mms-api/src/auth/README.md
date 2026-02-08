@@ -410,11 +410,11 @@ Get current authenticated user info.
 
 ### 7. Rate Limiting
 
-(To be implemented) - Recommend adding rate limiting on:
+Three-tier rate limiting is implemented:
 
-- `/users/login` - Prevent brute force
-- `/auth/refresh` - Prevent token abuse
-- `/users/register` - Prevent spam
+- **Auth tier** (5 req/s): `/users/register`, `/users/login`, `/users/reset-password`
+- **Sensitive tier** (2 req/s): `/users/request-password-reset`, `/users/resend-verification` (with 50ms timing-safe delay)
+- **General tier** (10 req/s): All other endpoints including `/auth/refresh`
 
 ### 8. Input Validation
 
@@ -566,10 +566,8 @@ Ensure backend CORS config includes:
 
 ## Future Enhancements
 
-- [ ] Rate limiting on auth endpoints
 - [ ] Email-based 2FA
 - [ ] Remember device (extend refresh token for trusted devices)
 - [ ] Account activity log (login history)
 - [ ] Suspicious activity detection
-- [ ] Password reset flow improvements
 - [ ] Additional OAuth providers (GitHub, Microsoft)

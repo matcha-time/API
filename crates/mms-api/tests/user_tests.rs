@@ -400,7 +400,7 @@ async fn test_update_user_profile() {
     response.assert_status(StatusCode::OK);
 
     let json: serde_json::Value = response.json();
-    assert_eq!(json["user"]["username"].as_str().unwrap(), "updateduser");
+    assert_eq!(json["username"].as_str().unwrap(), "updateduser");
 
     // Verify the update in database
     let updated_username =

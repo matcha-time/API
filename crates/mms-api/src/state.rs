@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::extract::FromRef;
 use axum_extra::extract::cookie::Key;
 use tokio::sync::mpsc;
@@ -13,7 +15,7 @@ use sqlx::PgPool;
 /// JWT and password-hashing configuration.
 #[derive(Clone)]
 pub struct AuthConfig {
-    pub jwt_secret: String,
+    pub jwt_secret: Arc<str>,
     pub bcrypt_cost: u32,
     pub jwt_expiry_hours: i64,
     pub refresh_token_expiry_days: i64,
@@ -22,7 +24,7 @@ pub struct AuthConfig {
 /// Cookie-related configuration.
 #[derive(Clone)]
 pub struct CookieConfig {
-    pub cookie_domain: String,
+    pub cookie_domain: Arc<str>,
     pub cookie_key: Key,
     pub environment: Environment,
 }
@@ -32,7 +34,7 @@ pub struct CookieConfig {
 pub struct OidcConfig {
     pub oidc_client: OpenIdClient,
     pub oidc_flow_expiry_minutes: i64,
-    pub frontend_url: String,
+    pub frontend_url: Arc<str>,
 }
 
 #[derive(Clone)]
@@ -110,20 +112,20 @@ impl ApiState {
 
         Ok(Self {
             auth: AuthConfig {
-                jwt_secret: config.jwt_secret,
+                jwt_secret: config.jwt_secret.into(),
                 bcrypt_cost: config.bcrypt_cost,
                 jwt_expiry_hours: config.jwt_expiry_hours,
                 refresh_token_expiry_days: config.refresh_token_expiry_days,
             },
             cookie: CookieConfig {
-                cookie_domain: config.cookie_domain,
+                cookie_domain: config.cookie_domain.into(),
                 cookie_key,
                 environment: config.env,
             },
             oidc: OidcConfig {
                 oidc_client,
                 oidc_flow_expiry_minutes: config.oidc_flow_expiry_minutes,
-                frontend_url: config.frontend_url.clone(),
+                frontend_url: config.frontend_url.into(),
             },
             pool,
             email_tx,

@@ -443,8 +443,7 @@ async fn load_test_practice_review_submission() {
 
             for _ in 0..config.requests_per_client {
                 let body = json!({
-                    "correct": true,
-                    "next_review_at": "2025-12-01T10:00:00Z",
+                    "user_answer": "hola",
                     "deck_id": deck_id.to_string()
                 });
 

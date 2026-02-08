@@ -48,6 +48,7 @@ erDiagram
         INT mastered_cards
         INT cards_due_today
         INT total_practices
+        DECIMAL progress_percentage
         TIMESTAMPTZ last_practiced_at
         TIMESTAMPTZ updated_at
     }
@@ -117,6 +118,10 @@ The database implements an SRS through the `user_card_progress` table, which tra
 - Review history (`times_correct`, `times_wrong`, `last_review_at`)
 - Mastery status (`mastered_at`)
 
+### Progress Percentage
+
+Deck progress is calculated as a points-based percentage: each card can contribute 0 to `MASTERY_THRESHOLD` points (based on `max(0, times_correct - times_wrong)`), and progress = `(sum of card points) / (total_cards * threshold) * 100`. The threshold is passed as a parameter from the Rust `mms-srs` crate to keep a single source of truth.
+
 ### Performance Optimizations
 
 The schema includes several performance optimizations:
@@ -124,7 +129,8 @@ The schema includes several performance optimizations:
 - **Partial indexes** for due cards (`next_review_at <= NOW()`) and mastered cards
 - **Covering indexes** for practice session queries to avoid table lookups
 - **Language pair indexes** for fast filtering of decks and roadmaps
-- **Helper function** `refresh_deck_progress()` to efficiently update aggregated deck statistics
+- **Helper function** `refresh_deck_progress(user_id, deck_id, mastery_threshold)` to efficiently update aggregated deck statistics
+- **`updated_at` triggers** on `user_card_progress`, `user_deck_progress`, and `user_stats` tables ensure timestamps are always current, even if application code omits the explicit `updated_at = NOW()`
 
 ### Data Relationships
 

@@ -526,8 +526,7 @@ async fn test_idor_practice_submission() {
     let fake_deck_id = uuid::Uuid::new_v4();
 
     let body = json!({
-        "correct": true,
-        "next_review_at": "2025-12-01T10:00:00Z",
+        "user_answer": "test",
         "deck_id": fake_deck_id.to_string()
     });
 
@@ -540,10 +539,11 @@ async fn test_idor_practice_submission() {
         )
         .await;
 
-    // Should fail because the flashcard/deck doesn't exist, not because of auth
+    // Should fail because the flashcard doesn't belong to the deck
     assert!(
         response.status == StatusCode::NOT_FOUND
             || response.status == StatusCode::BAD_REQUEST
+            || response.status == StatusCode::UNPROCESSABLE_ENTITY
             || response.status == StatusCode::INTERNAL_SERVER_ERROR,
         "Should fail for non-existent flashcard. Got: {}",
         response.status

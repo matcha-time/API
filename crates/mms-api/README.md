@@ -494,6 +494,9 @@ All API routes are prefixed with `/v1` unless otherwise noted.
 ## Roadmaps
 
 - `GET /v1/roadmaps` - List all roadmaps
+  - **Query Parameters:**
+    - `limit` (optional) - Number of results (default: 50, min: 1, max: 100)
+    - `offset` (optional) - Number of results to skip (default: 0)
   - **Response:** `200 OK`
 
   ```json
@@ -517,6 +520,9 @@ All API routes are prefixed with `/v1` unless otherwise noted.
   - **Path Parameters:**
     - `language_from` - ISO 639-1 language code (e.g., "es", "en", "fr")
     - `language_to` - ISO 639-1 language code
+  - **Query Parameters:**
+    - `limit` (optional) - Number of results (default: 50, min: 1, max: 100)
+    - `offset` (optional) - Number of results to skip (default: 0)
   - **Response:** `200 OK` (same structure as above)
   - **Errors:**
     - `400 Bad Request`:
@@ -681,16 +687,18 @@ All API routes are prefixed with `/v1` unless otherwise noted.
   ```
 
   - **Backend Processing:**
+    - Validates the flashcard belongs to the specified deck (prevents deck progress corruption)
+    - Rejects reviews if the card is not yet due (`next_review_at` is in the future) without revealing the answer
     - Validates the user's answer against the flashcard's correct translation
     - Answer validation is accent-insensitive, case-insensitive, and ignores special characters
-    - Handles German eszett normalization (ß → ss)
+    - Handles ligature normalization: German eszett (ß → ss), French/Latin ligatures (æ → ae, œ → oe)
     - Computes the next review date using SRS (Spaced Repetition System) algorithm based on score
-    - Only updates progress if the current time is past or equal to `next_review_at` (prevents early practice from affecting SRS)
+    - Tracks mastery transitions: sets `mastered_at` when score reaches threshold, increments `total_cards_learned` on first mastery
     - All updates are performed atomically within a single database transaction:
-      - Updates user's review statistics (times_correct/times_wrong counters)
-      - Updates deck progress
+      - Updates user's card progress (times_correct/times_wrong, mastered_at)
+      - Refreshes deck progress (mastered_cards, progress_percentage)
       - Records user activity for the day
-      - Increments total review count
+      - Increments total review count (and total_cards_learned if newly mastered)
       - Recalculates user streak (consecutive practice days)
   - **SRS Algorithm:**
     - Score is calculated as: `times_correct - times_wrong`
@@ -710,7 +718,7 @@ All API routes are prefixed with `/v1` unless otherwise noted.
       - Score >= 10: 90 days (3 months, mastered)
   - **Translation Validation:**
     - Both the user's answer and correct translation are normalized:
-      - German eszett converted (ß → ss)
+      - Ligatures expanded: ß → ss, æ → ae, œ → oe
       - Accents removed via Unicode NFD decomposition (e.g., "cafe" matches "cafe")
       - Converted to lowercase (e.g., "Hello" matches "hello")
       - Non-alphanumeric characters removed (e.g., "Hello!" matches "Hello")
@@ -722,6 +730,9 @@ All API routes are prefixed with `/v1` unless otherwise noted.
       - "Failed to read cookies"
       - "Invalid user ID in token"
       - JWT verification errors (expired, invalid signature, etc.)
+    - `422 Unprocessable Entity`:
+      - "Flashcard does not belong to the specified deck"
+      - "This card is not due for review yet"
     - `500 Internal Server Error`:
       - "An internal error occurred. Please try again later." (database error or flashcard not found)
   - **Rate Limit:** 10 req/s (General tier)

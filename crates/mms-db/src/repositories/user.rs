@@ -311,6 +311,7 @@ where
 pub async fn get_user_activity<'e, E>(
     executor: E,
     user_id: Uuid,
+    days: i32,
 ) -> Result<Vec<ActivityDay>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
@@ -320,11 +321,12 @@ where
         r#"
             SELECT activity_date, reviews_count
             FROM user_activity
-            WHERE user_id = $1 AND activity_date >= CURRENT_DATE - 365
+            WHERE user_id = $1 AND activity_date >= CURRENT_DATE - $2
             ORDER BY activity_date
         "#,
     )
     .bind(user_id)
+    .bind(days)
     .fetch_all(executor)
     .await
 }

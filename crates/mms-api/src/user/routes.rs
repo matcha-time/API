@@ -95,13 +95,9 @@ async fn get_user_dashboard(
 ) -> Result<Json<UserDashboard>, ApiError> {
     let user_id = auth.user_id;
 
-    let stats = user_repo::get_user_stats(&state.pool, user_id)
-        .await
-        .map_err(ApiError::Database)?;
+    let stats = user_repo::get_user_stats(&state.pool, user_id).await?;
 
-    let heatmap = user_repo::get_user_activity(&state.pool, user_id)
-        .await
-        .map_err(ApiError::Database)?;
+    let heatmap = user_repo::get_user_activity(&state.pool, user_id, 365).await?;
 
     Ok(Json(UserDashboard { stats, heatmap }))
 }
@@ -503,9 +499,7 @@ async fn delete_user(
     let _ = auth::refresh_token::revoke_all_user_tokens(&state.pool, user_id).await;
 
     // Delete the user - cascade will handle all related data
-    let rows = user_repo::delete_user(&state.pool, user_id)
-        .await
-        .map_err(ApiError::Database)?;
+    let rows = user_repo::delete_user(&state.pool, user_id).await?;
 
     // Check if user was actually deleted
     if rows == 0 {
@@ -590,9 +584,7 @@ async fn change_password(
 
     // Update the password
     let updated =
-        user_repo::update_password_for_email_user(&state.pool, user_id, &new_password_hash)
-            .await
-            .map_err(ApiError::Database)?;
+        user_repo::update_password_for_email_user(&state.pool, user_id, &new_password_hash).await?;
     if !updated {
         return Err(ApiError::NotFound("User not found".to_string()));
     }

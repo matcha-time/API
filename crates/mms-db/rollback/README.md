@@ -24,12 +24,17 @@ psql -U your_user -d your_database -f rollback/0005_refresh_tokens_down.sql
 
 Always rollback in reverse order:
 
-1. `0006_performance_and_cleanup_improvements_down.sql`
-2. `0005_refresh_tokens_down.sql`
-3. `0004_email_verification_down.sql`
-4. `0003_password_reset_tokens_down.sql`
-5. `0002_add_profile_picture_down.sql`
-6. `0001_init_down.sql` (⚠️ **DESTROYS ALL DATA!**)
+1. `0011_updated_at_trigger_down.sql`
+2. `0010_parameterize_mastery_threshold_down.sql`
+3. `0009_streak_calculation_down.sql`
+4. `0008_add_progress_percentage_down.sql`
+5. `0007_add_language_preferences_down.sql`
+6. `0006_performance_and_cleanup_improvements_down.sql`
+7. `0005_refresh_tokens_down.sql`
+8. `0004_email_verification_down.sql`
+9. `0003_password_reset_tokens_down.sql`
+10. `0002_add_profile_picture_down.sql`
+11. `0001_init_down.sql` (⚠️ **DESTROYS ALL DATA!**)
 
 ## After Rollback
 

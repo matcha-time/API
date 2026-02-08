@@ -3,7 +3,11 @@ use uuid::Uuid;
 
 use crate::models::{Roadmap, RoadmapMetadata, RoadmapNodeWithProgress};
 
-pub async fn list_all<'e, E>(executor: E) -> Result<Vec<Roadmap>, sqlx::Error>
+pub async fn list_all<'e, E>(
+    executor: E,
+    limit: i64,
+    offset: i64,
+) -> Result<Vec<Roadmap>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -13,8 +17,11 @@ where
             SELECT id, title, description, language_from, language_to
             FROM roadmaps
             ORDER BY created_at DESC
+            LIMIT $1 OFFSET $2
         "#,
     )
+    .bind(limit)
+    .bind(offset)
     .fetch_all(executor)
     .await
 }
@@ -23,6 +30,8 @@ pub async fn list_by_language<'e, E>(
     executor: E,
     language_from: &str,
     language_to: &str,
+    limit: i64,
+    offset: i64,
 ) -> Result<Vec<Roadmap>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
@@ -33,10 +42,14 @@ where
             SELECT id, title, description, language_from, language_to
             FROM roadmaps
             WHERE language_from = $1 AND language_to = $2
+            ORDER BY created_at DESC
+            LIMIT $3 OFFSET $4
         "#,
     )
     .bind(language_from)
     .bind(language_to)
+    .bind(limit)
+    .bind(offset)
     .fetch_all(executor)
     .await
 }
@@ -173,7 +186,14 @@ where
                     SELECT COUNT(*)::int FROM deck_flashcards df WHERE df.deck_id = d.id
                 )) as total_cards,
                 COALESCE(udp.mastered_cards, 0) as mastered_cards,
-                COALESCE(udp.cards_due_today, 0) as cards_due_today,
+                (
+                    SELECT COUNT(*)::int
+                    FROM deck_flashcards df2
+                    LEFT JOIN user_card_progress ucp2
+                        ON ucp2.flashcard_id = df2.flashcard_id AND ucp2.user_id = $2
+                    WHERE df2.deck_id = d.id
+                        AND (ucp2.next_review_at IS NULL OR ucp2.next_review_at <= NOW())
+                ) as cards_due_today,
                 COALESCE(udp.total_practices, 0) as total_practices,
                 udp.last_practiced_at,
                 COALESCE(udp.progress_percentage, 0.0)::float8 as progress_percentage

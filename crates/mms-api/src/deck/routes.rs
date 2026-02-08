@@ -36,9 +36,8 @@ async fn get_practice_session(
         .unwrap_or(DEFAULT_PRACTICE_LIMIT)
         .clamp(1, MAX_PRACTICE_LIMIT);
 
-    let cards = deck_repo::get_practice_cards(&state.pool, deck_id, auth_user.user_id, limit)
-        .await
-        .map_err(ApiError::Database)?;
+    let cards =
+        deck_repo::get_practice_cards(&state.pool, deck_id, auth_user.user_id, limit).await?;
 
     Ok(Json(cards))
 }

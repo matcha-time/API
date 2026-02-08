@@ -70,20 +70,20 @@ impl TestStateBuilder {
 
         Ok(ApiState {
             auth: AuthConfig {
-                jwt_secret: self.config.jwt_secret,
+                jwt_secret: self.config.jwt_secret.into(),
                 bcrypt_cost: 8,
                 jwt_expiry_hours: self.config.jwt_expiry_hours,
                 refresh_token_expiry_days: self.config.refresh_token_expiry_days,
             },
             cookie: CookieConfig {
-                cookie_domain: "localhost".to_string(),
+                cookie_domain: "localhost".into(),
                 cookie_key,
                 environment: Environment::Development,
             },
             oidc: OidcConfig {
                 oidc_client,
                 oidc_flow_expiry_minutes: self.config.oidc_flow_expiry_minutes,
-                frontend_url: self.config.frontend_url,
+                frontend_url: self.config.frontend_url.into(),
             },
             pool,
             email_tx: None, // No email worker in tests
