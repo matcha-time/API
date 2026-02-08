@@ -298,8 +298,8 @@ async fn test_get_roadmap_with_progress_authenticated() {
     // Create some progress for the user
     sqlx::query(
         r#"
-        INSERT INTO user_deck_progress (user_id, deck_id, total_cards, mastered_cards, cards_due_today)
-        VALUES ($1, $2, 2, 1, 1)
+        INSERT INTO user_deck_progress (user_id, deck_id, total_cards, mastered_cards)
+        VALUES ($1, $2, 2, 1)
         "#,
     )
     .bind(user_id)
