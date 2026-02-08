@@ -11,7 +11,7 @@ pub async fn get_flashcard_translation<'e, E>(
 where
     E: Executor<'e, Database = Postgres>,
 {
-    let result: (String,) = sqlx::query_as(
+    sqlx::query_scalar(
         // language=PostgreSQL
         r#"
             SELECT translation
@@ -21,8 +21,7 @@ where
     )
     .bind(flashcard_id)
     .fetch_one(executor)
-    .await?;
-    Ok(result.0)
+    .await
 }
 
 pub async fn get_card_progress<'e, E>(
@@ -122,11 +121,11 @@ where
     Ok(())
 }
 
-pub async fn increment_review_stats<'e, E>(executor: E, user_id: Uuid) -> Result<(), sqlx::Error>
+pub async fn increment_review_stats<'e, E>(executor: E, user_id: Uuid) -> Result<bool, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
-    sqlx::query(
+    let result = sqlx::query(
         // language=PostgreSQL
         r#"
             UPDATE user_stats
@@ -139,7 +138,7 @@ where
     .bind(user_id)
     .execute(executor)
     .await?;
-    Ok(())
+    Ok(result.rows_affected() > 0)
 }
 
 pub async fn update_streak<'e, E>(executor: E, user_id: Uuid) -> Result<(), sqlx::Error>

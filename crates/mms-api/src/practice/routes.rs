@@ -68,7 +68,7 @@ async fn submit_review(
         .map_err(ApiError::Database)?;
 
     // Check if the practice is too early
-    let should_update = if let Some(ref progress) = current_progress {
+    let should_update = if let Some(progress) = &current_progress {
         // Only update if current time is past or equal to next_review_at
         Utc::now() >= progress.next_review_at
     } else {
@@ -78,22 +78,15 @@ async fn submit_review(
 
     // Only update if it's not too early
     if should_update {
-        let (new_times_correct, new_times_wrong) = match current_progress {
-            Some(progress) => {
-                if is_correct {
-                    (progress.times_correct + 1, progress.times_wrong)
-                } else {
-                    (progress.times_correct, progress.times_wrong + 1)
-                }
-            }
-            None => {
-                if is_correct {
-                    (1, 0)
-                } else {
-                    (0, 1)
-                }
-            }
-        };
+        let (mut new_times_correct, mut new_times_wrong) = current_progress
+            .map(|p| (p.times_correct, p.times_wrong))
+            .unwrap_or((0, 0));
+
+        if is_correct {
+            new_times_correct += 1;
+        } else {
+            new_times_wrong += 1;
+        }
 
         // Compute the next review date based on the new score
         let next_review_at = mms_srs::compute_next_review(new_times_correct, new_times_wrong);
@@ -121,9 +114,12 @@ async fn submit_review(
             .map_err(ApiError::Database)?;
 
         // Update user stats
-        practice_repo::increment_review_stats(&mut *tx, user_id)
+        let stats_updated = practice_repo::increment_review_stats(&mut *tx, user_id)
             .await
             .map_err(ApiError::Database)?;
+        if !stats_updated {
+            tracing::warn!(user_id = %user_id, "user_stats row missing for authenticated user");
+        }
 
         // Update streak (must run after record_activity so today's entry exists)
         practice_repo::update_streak(&mut *tx, user_id)

@@ -18,7 +18,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize database pool and run migrations
     let pool = mms_db::create_pool(&config.database_url, config.database_max_connections).await?;
-    mms_db::ensure_db_and_migrate(&config.database_url, &pool).await?;
+    let create_db_if_missing = config.env == mms_api::config::Environment::Development;
+    mms_db::ensure_db_and_migrate(&config.database_url, &pool, create_db_if_missing).await?;
 
     // Initialize the application state
     let state = ApiState::new(config.clone(), pool).await?;

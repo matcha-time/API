@@ -62,7 +62,9 @@ All API routes are prefixed with `/v1` unless otherwise noted.
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "username": "johndoe",
     "email": "john@example.com",
-    "profile_picture_url": "https://example.com/profile.jpg"
+    "profile_picture_url": "https://example.com/profile.jpg",
+    "native_language": "es",
+    "learning_language": "en"
   }
   ```
 
@@ -176,7 +178,9 @@ All API routes are prefixed with `/v1` unless otherwise noted.
       "id": "550e8400-e29b-41d4-a716-446655440000",
       "username": "johndoe",
       "email": "john@example.com",
-      "profile_picture_url": "https://example.com/profile.jpg"
+      "profile_picture_url": "https://example.com/profile.jpg",
+      "native_language": "es",
+      "learning_language": "en"
     }
   }
   ```
@@ -196,10 +200,8 @@ All API routes are prefixed with `/v1` unless otherwise noted.
 
 ## Users
 
-- `GET /v1/users/{user_id}/dashboard` - Get user dashboard stats and activity
+- `GET /v1/users/me/dashboard` - Get user dashboard stats and activity
   - **Authentication:** Requires valid JWT (cookie or Bearer token)
-  - **Path Parameters:**
-    - `user_id` - UUID of the user
   - **Response:** `200 OK`
 
   ```json
@@ -220,90 +222,144 @@ All API routes are prefixed with `/v1` unless otherwise noted.
   }
   ```
 
+  - **Streak Calculation:** Streaks are automatically computed via a database function (`calculate_and_update_streak`) after each review. The function counts consecutive days with review activity, updating both `current_streak_days` and `longest_streak_days`.
   - **Errors:**
     - `401 Unauthorized`:
       - "Not authenticated" (missing auth token cookie)
       - "Failed to read cookies"
       - "Invalid user ID in token"
-      - "You are not authorized to access this dashboard"
       - JWT verification errors (expired, invalid signature, etc.)
     - `500 Internal Server Error`:
       - "An internal error occurred. Please try again later." (database error)
   - **Rate Limit:** 10 req/s (General tier)
 
-- `PATCH /v1/users/{user_id}` - Update user profile
+- `PATCH /v1/users/me/password` - Change password
   - **Authentication:** Requires valid JWT (cookie or Bearer token)
-  - **Path Parameters:**
-    - `user_id` - UUID of the user
-  - **Request Body:** (all fields optional)
+  - **Request Body:**
 
   ```json
   {
-    "username": "newusername",
-    "email": "newemail@example.com",
     "current_password": "currentpassword123",
-    "new_password": "newsecurepassword123",
-    "profile_picture_url": "https://example.com/profile.jpg"
+    "new_password": "newsecurepassword123"
   }
   ```
 
   - **Validation:**
-    - Username: 3-30 characters, alphanumeric + underscores/hyphens if provided
-    - Email: Valid email format if provided (marks email as unverified and sends verification email)
-    - New password: 8-128 characters, must contain letter and number if provided, requires `current_password`
-    - Profile picture URL: Valid HTTPS or data URI if provided
+    - New password: 8-128 characters, must contain at least one letter and one number
+    - New password must be different from current password
+    - Only available for email authentication users (not OAuth)
   - **Response:** `200 OK`
 
   ```json
   {
-    "message": "Profile updated successfully",
+    "message": "Password changed successfully"
+  }
+  ```
+
+  - Sends password change confirmation email
+  - **Errors:**
+    - `400 Bad Request`:
+      - "Password must be at least 8 characters long"
+      - "Password must be at most 128 characters long"
+      - "Password must contain at least one letter and one number"
+      - "Password changes are only available for email authentication users"
+      - "New password must be different from current password"
+    - `401 Unauthorized`:
+      - "Not authenticated" (missing auth token cookie)
+      - "Failed to read cookies"
+      - "Invalid user ID in token"
+      - "Password authentication not available for this account"
+      - "Current password is incorrect"
+      - JWT verification errors (expired, invalid signature, etc.)
+    - `404 Not Found`:
+      - "User not found"
+    - `500 Internal Server Error`:
+      - "An internal error occurred. Please try again later." (database or bcrypt error)
+  - **Rate Limit:** 10 req/s (General tier)
+
+- `PATCH /v1/users/me/username` - Change username
+  - **Authentication:** Requires valid JWT (cookie or Bearer token)
+  - **Request Body:**
+
+  ```json
+  {
+    "username": "newusername"
+  }
+  ```
+
+  - **Validation:**
+    - Username: 3-30 characters, alphanumeric + underscores/hyphens
+  - **Response:** `200 OK`
+
+  ```json
+  {
+    "message": "Username changed successfully",
+    "username": "newusername"
+  }
+  ```
+
+  - **Errors:**
+    - `400 Bad Request`:
+      - "Username cannot be empty"
+      - "Username must be at least 3 characters long"
+      - "Username must be at most 30 characters long"
+      - "Username can only contain letters, numbers, underscores, and hyphens"
+    - `401 Unauthorized`:
+      - "Not authenticated" (missing auth token cookie)
+      - "Failed to read cookies"
+      - "Invalid user ID in token"
+      - JWT verification errors (expired, invalid signature, etc.)
+    - `409 Conflict`:
+      - "Username is already taken"
+    - `500 Internal Server Error`:
+      - "An internal error occurred. Please try again later." (database error)
+  - **Rate Limit:** 10 req/s (General tier)
+
+- `PATCH /v1/users/me/language-preferences` - Update language preferences
+  - **Authentication:** Requires valid JWT (cookie or Bearer token)
+  - **Request Body:**
+
+  ```json
+  {
+    "native_language": "es",
+    "learning_language": "en"
+  }
+  ```
+
+  - **Validation:**
+    - Both fields required
+    - Must be valid ISO 639-1 language codes (e.g., "en", "es", "fr")
+  - **Response:** `200 OK`
+
+  ```json
+  {
+    "message": "Language preferences updated successfully",
     "user": {
       "id": "550e8400-e29b-41d4-a716-446655440000",
-      "username": "newusername",
-      "email": "newemail@example.com",
-      "profile_picture_url": "https://example.com/profile.jpg"
+      "username": "johndoe",
+      "email": "john@example.com",
+      "profile_picture_url": "https://example.com/profile.jpg",
+      "native_language": "es",
+      "learning_language": "en"
     }
   }
   ```
 
   - **Errors:**
     - `400 Bad Request`:
-      - "Email cannot be empty"
-      - "Invalid email format"
-      - "Password must be at least 8 characters long"
-      - "Password must be at most 128 characters long"
-      - "Password must contain at least one letter and one number"
-      - "Username cannot be empty"
-      - "Username must be at least 3 characters long"
-      - "Username must be at most 30 characters long"
-      - "Username can only contain letters, numbers, underscores, and hyphens"
-      - "Profile picture URL is too long"
-      - "Profile picture URL must use HTTPS or be a data URI"
-      - "Profile picture URL contains invalid patterns"
-      - "Password changes are only available for email authentication users"
-      - "Current password is required to set a new password"
-      - "New password must be different from current password"
+      - "Language code cannot be empty"
+      - "Invalid language code: '{code}'. Must be a valid ISO 639-1 code (e.g., 'en', 'es', 'fr')"
     - `401 Unauthorized`:
       - "Not authenticated" (missing auth token cookie)
       - "Failed to read cookies"
       - "Invalid user ID in token"
-      - "You are not authorized to update this profile"
-      - "Password authentication not available for this account"
-      - "Current password is incorrect"
       - JWT verification errors (expired, invalid signature, etc.)
-    - `404 Not Found`:
-      - "User not found"
-    - `409 Conflict`:
-      - "Username is already taken"
-      - "Email is already in use"
     - `500 Internal Server Error`:
-      - "An internal error occurred. Please try again later." (database or bcrypt error)
+      - "An internal error occurred. Please try again later." (database error)
   - **Rate Limit:** 10 req/s (General tier)
 
-- `DELETE /v1/users/{user_id}` - Delete user account
+- `DELETE /v1/users/me` - Delete user account
   - **Authentication:** Requires valid JWT (cookie or Bearer token)
-  - **Path Parameters:**
-    - `user_id` - UUID of the user
   - **Response:** `200 OK`
 
   ```json
@@ -320,7 +376,6 @@ All API routes are prefixed with `/v1` unless otherwise noted.
       - "Not authenticated" (missing auth token cookie)
       - "Failed to read cookies"
       - "Invalid user ID in token"
-      - "You are not authorized to delete this account"
       - JWT verification errors (expired, invalid signature, etc.)
     - `404 Not Found`:
       - "User not found"
@@ -340,6 +395,7 @@ All API routes are prefixed with `/v1` unless otherwise noted.
   }
   ```
 
+  - If the email was already verified, returns: `"Email verification processed successfully."`
   - **Errors:**
     - `400 Bad Request`:
       - JWT verification errors (invalid token, expired, invalid signature, etc.)
@@ -470,11 +526,52 @@ All API routes are prefixed with `/v1` unless otherwise noted.
       - "An internal error occurred. Please try again later." (database error)
   - **Rate Limit:** 10 req/s (General tier)
 
-- `GET /v1/roadmaps/{roadmap_id}/progress/{user_id}` - Get roadmap with user progress
+- `GET /v1/roadmaps/{roadmap_id}/nodes` - Get roadmap structure (public, no user progress)
+  - **Path Parameters:**
+    - `roadmap_id` - UUID of the roadmap
+  - **Response:** `200 OK`
+
+  ```json
+  {
+    "roadmap": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Spanish to English Learning Path",
+      "description": "A comprehensive roadmap for learning English from Spanish",
+      "language_from": "es",
+      "language_to": "en",
+      "total_nodes": 10,
+      "completed_nodes": 0,
+      "progress_percentage": 0.0
+    },
+    "nodes": [
+      {
+        "node_id": "770e8400-e29b-41d4-a716-446655440000",
+        "parent_node_id": null,
+        "pos_x": 100,
+        "pos_y": 50,
+        "deck_id": "880e8400-e29b-41d4-a716-446655440000",
+        "deck_title": "Basic Greetings",
+        "deck_description": "Learn common greetings and introductions",
+        "total_cards": 20,
+        "mastered_cards": 0,
+        "cards_due_today": 0,
+        "total_practices": 0,
+        "last_practiced_at": null,
+        "progress_percentage": 0.0
+      }
+    ]
+  }
+  ```
+
+  - **Errors:**
+    - `500 Internal Server Error`:
+      - "An internal error occurred. Please try again later." (database error)
+  - **Rate Limit:** 10 req/s (General tier)
+
+- `GET /v1/roadmaps/{roadmap_id}/progress` - Get roadmap with user progress
   - **Authentication:** Requires valid JWT (cookie or Bearer token)
   - **Path Parameters:**
     - `roadmap_id` - UUID of the roadmap
-    - `user_id` - UUID of the user
   - **Response:** `200 OK`
 
   ```json
@@ -513,16 +610,15 @@ All API routes are prefixed with `/v1` unless otherwise noted.
     - Each flashcard can contribute 0-10 points based on performance: `max(0, times_correct - times_wrong)`
     - Deck progress: `(sum of card points) / (total_cards * 10) * 100`
     - Example: A deck with 20 cards where each card has been answered correctly 5 times and wrong 2 times (score of 3):
-      - Total points: 20 cards × 3 points = 60
-      - Max points: 20 cards × 10 = 200
-      - Progress: (60 / 200) × 100 = 30%
+      - Total points: 20 cards x 3 points = 60
+      - Max points: 20 cards x 10 = 200
+      - Progress: (60 / 200) x 100 = 30%
     - Roadmap progress is calculated as the percentage of completed nodes (where all cards are mastered)
   - **Errors:**
     - `401 Unauthorized`:
       - "Not authenticated" (missing auth token cookie)
       - "Failed to read cookies"
       - "Invalid user ID in token"
-      - "You are not authorized to access this roadmap progress"
       - JWT verification errors (expired, invalid signature, etc.)
     - `500 Internal Server Error`:
       - "An internal error occurred. Please try again later." (database error)
@@ -530,11 +626,12 @@ All API routes are prefixed with `/v1` unless otherwise noted.
 
 ## Decks
 
-- `GET /v1/decks/{deck_id}/practice/{user_id}` - Get practice session cards for a deck
+- `GET /v1/decks/{deck_id}/practice` - Get practice session cards for a deck
   - **Authentication:** Requires valid JWT (cookie or Bearer token)
   - **Path Parameters:**
     - `deck_id` - UUID of the deck
-    - `user_id` - UUID of the user
+  - **Query Parameters:**
+    - `limit` (optional) - Number of cards to return (default: 20, min: 1, max: 50)
   - **Response:** `200 OK`
 
   ```json
@@ -554,7 +651,6 @@ All API routes are prefixed with `/v1` unless otherwise noted.
       - "Not authenticated" (missing auth token cookie)
       - "Failed to read cookies"
       - "Invalid user ID in token"
-      - "You are not authorized to access this deck"
       - JWT verification errors (expired, invalid signature, etc.)
     - `500 Internal Server Error`:
       - "An internal error occurred. Please try again later." (database error)
@@ -562,10 +658,9 @@ All API routes are prefixed with `/v1` unless otherwise noted.
 
 ## Practice
 
-- `POST /v1/practice/{user_id}/{flashcard_id}/review` - Submit a flashcard review
+- `POST /v1/practice/{flashcard_id}/review` - Submit a flashcard review
   - **Authentication:** Requires valid JWT (cookie or Bearer token)
   - **Path Parameters:**
-    - `user_id` - UUID of the user
     - `flashcard_id` - UUID of the flashcard
   - **Request Body:**
 
@@ -588,18 +683,21 @@ All API routes are prefixed with `/v1` unless otherwise noted.
   - **Backend Processing:**
     - Validates the user's answer against the flashcard's correct translation
     - Answer validation is accent-insensitive, case-insensitive, and ignores special characters
+    - Handles German eszett normalization (ß → ss)
     - Computes the next review date using SRS (Spaced Repetition System) algorithm based on score
     - Only updates progress if the current time is past or equal to `next_review_at` (prevents early practice from affecting SRS)
-    - Updates user's review statistics (times_correct/times_wrong counters)
-    - Updates deck progress
-    - Updates user activity heatmap
-    - Updates user stats (total reviews, last review date)
+    - All updates are performed atomically within a single database transaction:
+      - Updates user's review statistics (times_correct/times_wrong counters)
+      - Updates deck progress
+      - Records user activity for the day
+      - Increments total review count
+      - Recalculates user streak (consecutive practice days)
   - **SRS Algorithm:**
     - Score is calculated as: `times_correct - times_wrong`
     - Uses exponential doubling with aggressive early practice
     - Hour-based intervals for early learning, transitioning to days
     - Next review intervals based on score:
-      - Score ≤ 0: 2 hours (immediate retry)
+      - Score <= 0: 2 hours (immediate retry)
       - Score 1: 4 hours
       - Score 2: 8 hours
       - Score 3: 1 day
@@ -609,12 +707,13 @@ All API routes are prefixed with `/v1` unless otherwise noted.
       - Score 7: 20 days (~3 weeks)
       - Score 8: 40 days (~6 weeks)
       - Score 9: 60 days (2 months)
-      - Score ≥ 10: 90 days (3 months, mastered)
+      - Score >= 10: 90 days (3 months, mastered)
   - **Translation Validation:**
     - Both the user's answer and correct translation are normalized:
-      - Accents removed (e.g., "café" matches "cafe")
+      - German eszett converted (ß → ss)
+      - Accents removed via Unicode NFD decomposition (e.g., "cafe" matches "cafe")
       - Converted to lowercase (e.g., "Hello" matches "hello")
-      - Special characters removed (e.g., "Hello!" matches "Hello")
+      - Non-alphanumeric characters removed (e.g., "Hello!" matches "Hello")
       - Whitespace normalized
     - Normalized strings must match exactly
   - **Errors:**
@@ -622,7 +721,6 @@ All API routes are prefixed with `/v1` unless otherwise noted.
       - "Not authenticated" (missing auth token cookie)
       - "Failed to read cookies"
       - "Invalid user ID in token"
-      - "You are not authorized to submit reviews for this user"
       - JWT verification errors (expired, invalid signature, etc.)
     - `500 Internal Server Error`:
       - "An internal error occurred. Please try again later." (database error or flashcard not found)

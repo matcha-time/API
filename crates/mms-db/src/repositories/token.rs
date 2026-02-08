@@ -56,7 +56,7 @@ pub async fn consume_verification_token<'e, E>(
 where
     E: Executor<'e, Database = Postgres>,
 {
-    let result: Option<(Uuid,)> = sqlx::query_as(
+    sqlx::query_scalar(
         // language=PostgreSQL
         r#"
             UPDATE email_verification_tokens
@@ -69,8 +69,7 @@ where
     )
     .bind(token_hash)
     .fetch_optional(executor)
-    .await?;
-    Ok(result.map(|(id,)| id))
+    .await
 }
 
 pub async fn cleanup_expired_verification_tokens<'e, E>(executor: E) -> Result<u64, sqlx::Error>
@@ -140,7 +139,7 @@ pub async fn consume_reset_token<'e, E>(
 where
     E: Executor<'e, Database = Postgres>,
 {
-    let result: Option<(Uuid,)> = sqlx::query_as(
+    sqlx::query_scalar(
         // language=PostgreSQL
         r#"
             UPDATE password_reset_tokens
@@ -153,8 +152,7 @@ where
     )
     .bind(token_hash)
     .fetch_optional(executor)
-    .await?;
-    Ok(result.map(|(id,)| id))
+    .await
 }
 
 pub async fn cleanup_expired_reset_tokens<'e, E>(executor: E) -> Result<u64, sqlx::Error>

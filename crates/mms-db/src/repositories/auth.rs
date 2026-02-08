@@ -49,11 +49,11 @@ pub async fn link_google_account<'e, E>(
     user_id: Uuid,
     google_id: &str,
     picture: Option<&str>,
-) -> Result<(), sqlx::Error>
+) -> Result<bool, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
-    sqlx::query(
+    let result = sqlx::query(
         // language=PostgreSQL
         r#"
             UPDATE users
@@ -66,18 +66,18 @@ where
     .bind(user_id)
     .execute(executor)
     .await?;
-    Ok(())
+    Ok(result.rows_affected() > 0)
 }
 
 pub async fn update_profile_picture<'e, E>(
     executor: E,
     user_id: Uuid,
     picture_url: &str,
-) -> Result<(), sqlx::Error>
+) -> Result<bool, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
-    sqlx::query(
+    let result = sqlx::query(
         // language=PostgreSQL
         r#"
             UPDATE users
@@ -89,7 +89,7 @@ where
     .bind(user_id)
     .execute(executor)
     .await?;
-    Ok(())
+    Ok(result.rows_affected() > 0)
 }
 
 pub async fn create_google_user<'e, E>(

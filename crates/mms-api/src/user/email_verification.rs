@@ -81,7 +81,10 @@ pub async fn verify_email_token(pool: &PgPool, token: &str) -> Result<(String, b
     }
 
     // Mark the user's email as verified
-    user_repo::mark_email_verified(&mut *tx, user_id).await?;
+    let updated = user_repo::mark_email_verified(&mut *tx, user_id).await?;
+    if !updated {
+        return Err(ApiError::NotFound("User not found".to_string()));
+    }
 
     // Commit the transaction
     tx.commit().await?;

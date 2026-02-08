@@ -589,9 +589,13 @@ async fn change_password(
         .map_err(ApiError::Bcrypt)?;
 
     // Update the password
-    user_repo::update_password_for_email_user(&state.pool, user_id, &new_password_hash)
-        .await
-        .map_err(ApiError::Database)?;
+    let updated =
+        user_repo::update_password_for_email_user(&state.pool, user_id, &new_password_hash)
+            .await
+            .map_err(ApiError::Database)?;
+    if !updated {
+        return Err(ApiError::NotFound("User not found".to_string()));
+    }
 
     // Send password change confirmation email via background worker
     if let Some(email_tx) = &state.email_tx {

@@ -53,7 +53,11 @@ pub async fn verify_and_reset_password(
         .ok_or_else(|| ApiError::Auth("Invalid or expired reset token".to_string()))?;
 
     // Update the user's password
-    user_repo::update_password_for_email_user(&mut *tx, user_id, new_password_hash).await?;
+    let updated =
+        user_repo::update_password_for_email_user(&mut *tx, user_id, new_password_hash).await?;
+    if !updated {
+        return Err(ApiError::NotFound("User not found".to_string()));
+    }
 
     // Revoke all existing refresh tokens for security
     // This ensures any stolen tokens cannot be used after password reset

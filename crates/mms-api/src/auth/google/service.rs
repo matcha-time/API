@@ -25,7 +25,10 @@ pub async fn find_or_create_google_user(
         // Update profile picture if it has changed
         if picture.is_some() && picture != user.profile_picture_url.as_deref() {
             if let Some(pic) = picture {
-                auth_repo::update_profile_picture(pool, user.id, pic).await?;
+                let updated = auth_repo::update_profile_picture(pool, user.id, pic).await?;
+                if !updated {
+                    tracing::warn!(user_id = %user.id, "failed to update profile picture: user not found");
+                }
             }
         }
 
@@ -40,11 +43,18 @@ pub async fn find_or_create_google_user(
     if let Some(user) = auth_repo::find_by_email_with_google_id(pool, email).await? {
         // If user exists but doesn't have google_id, link the Google account
         if user.google_id.is_none() {
-            auth_repo::link_google_account(pool, user.id, google_id, picture).await?;
+            let linked =
+                auth_repo::link_google_account(pool, user.id, google_id, picture).await?;
+            if !linked {
+                tracing::warn!(user_id = %user.id, "failed to link google account: user not found");
+            }
         } else if picture.is_some() && picture != user.profile_picture_url.as_deref() {
             // Update profile picture if it has changed
             if let Some(pic) = picture {
-                auth_repo::update_profile_picture(pool, user.id, pic).await?;
+                let updated = auth_repo::update_profile_picture(pool, user.id, pic).await?;
+                if !updated {
+                    tracing::warn!(user_id = %user.id, "failed to update profile picture: user not found");
+                }
             }
         }
 

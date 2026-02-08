@@ -216,11 +216,11 @@ pub async fn update_password_for_email_user<'e, E>(
     executor: E,
     user_id: Uuid,
     password_hash: &str,
-) -> Result<(), sqlx::Error>
+) -> Result<bool, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
-    sqlx::query(
+    let result = sqlx::query(
         // language=PostgreSQL
         r#"
             UPDATE users
@@ -232,7 +232,7 @@ where
     .bind(user_id)
     .execute(executor)
     .await?;
-    Ok(())
+    Ok(result.rows_affected() > 0)
 }
 
 pub async fn update_username<'e, E>(
@@ -258,11 +258,11 @@ where
     .await
 }
 
-pub async fn mark_email_verified<'e, E>(executor: E, user_id: Uuid) -> Result<(), sqlx::Error>
+pub async fn mark_email_verified<'e, E>(executor: E, user_id: Uuid) -> Result<bool, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
-    sqlx::query(
+    let result = sqlx::query(
         // language=PostgreSQL
         r#"
             UPDATE users
@@ -273,7 +273,7 @@ where
     .bind(user_id)
     .execute(executor)
     .await?;
-    Ok(())
+    Ok(result.rows_affected() > 0)
 }
 
 pub async fn delete_user<'e, E>(executor: E, user_id: Uuid) -> Result<u64, sqlx::Error>

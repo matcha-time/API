@@ -55,7 +55,7 @@ impl TestStateBuilder {
         let pool = mms_db::create_pool(&self.config.database_url, 10).await?;
 
         // Run migrations
-        mms_db::ensure_db_and_migrate(&self.config.database_url, &pool).await?;
+        mms_db::ensure_db_and_migrate(&self.config.database_url, &pool, true).await?;
 
         // Create a mock OIDC client using the google module
         let oidc_client = mms_api::auth::google::create_oidc_client(
