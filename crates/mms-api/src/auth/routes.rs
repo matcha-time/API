@@ -143,8 +143,16 @@ async fn logout(
     }
 
     // Remove both auth and refresh token cookies
-    let auth_cookie = Cookie::build(("auth_token", "")).path("/").build();
-    let refresh_cookie = Cookie::build(("refresh_token", "")).path("/").build();
+    // IMPORTANT: domain and path must match the original cookie attributes for proper removal
+    let cookie_domain = state.cookie.cookie_domain.to_string();
+    let auth_cookie = Cookie::build(("auth_token", ""))
+        .path("/")
+        .domain(cookie_domain.clone())
+        .build();
+    let refresh_cookie = Cookie::build(("refresh_token", ""))
+        .path("/")
+        .domain(cookie_domain)
+        .build();
     let jar = jar.remove(auth_cookie).remove(refresh_cookie);
 
     (

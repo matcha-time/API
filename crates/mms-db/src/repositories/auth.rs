@@ -57,7 +57,7 @@ where
         // language=PostgreSQL
         r#"
             UPDATE users
-            SET google_id = $1, profile_picture_url = COALESCE($2, profile_picture_url)
+            SET google_id = $1, profile_picture_url = COALESCE($2, profile_picture_url), email_verified = TRUE
             WHERE id = $3
         "#,
     )
@@ -105,8 +105,8 @@ where
     sqlx::query_scalar(
         // language=PostgreSQL
         r#"
-            INSERT INTO users (username, email, google_id, auth_provider, profile_picture_url)
-            VALUES ($1, $2, $3, 'google', $4)
+            INSERT INTO users (username, email, google_id, auth_provider, profile_picture_url, email_verified)
+            VALUES ($1, $2, $3, 'google', $4, TRUE)
             RETURNING id
         "#,
     )
