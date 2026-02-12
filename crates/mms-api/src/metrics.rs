@@ -6,9 +6,15 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use metrics::{counter, histogram};
+use metrics::{counter, gauge, histogram};
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder, PrometheusHandle};
+use std::sync::LazyLock;
 use std::time::Instant;
+
+static UUID_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").unwrap()
+});
+static NUMBER_RE: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"/\d+").unwrap());
 
 /// Initialize Prometheus metrics exporter
 pub fn init_metrics() -> anyhow::Result<PrometheusHandle> {
@@ -38,13 +44,13 @@ pub async fn track_metrics(req: Request, next: Next) -> Response {
     let normalized_path = normalize_path(&path);
 
     // Track in-flight requests
-    counter!("http_requests_in_flight", "method" => method.clone(), "path" => normalized_path.clone()).increment(1);
+    gauge!("http_requests_in_flight", "method" => method.clone(), "path" => normalized_path.clone()).increment(1.0);
 
     // Process the request
     let response: Response = next.run(req).await;
 
     // Track request completion
-    counter!("http_requests_in_flight", "method" => method.clone(), "path" => normalized_path.clone()).absolute(0);
+    gauge!("http_requests_in_flight", "method" => method.clone(), "path" => normalized_path.clone()).decrement(1.0);
 
     // Record metrics
     let duration = start.elapsed().as_secs_f64();
@@ -74,14 +80,8 @@ pub async fn track_metrics(req: Request, next: Next) -> Response {
 /// Normalize URL paths to reduce cardinality in metrics
 /// Replaces UUIDs and numeric IDs with placeholders
 fn normalize_path(path: &str) -> String {
-    let uuid_regex =
-        regex::Regex::new(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").unwrap();
-    let number_regex = regex::Regex::new(r"/\d+").unwrap();
-
-    let mut normalized = uuid_regex.replace_all(path, ":id").to_string();
-    normalized = number_regex.replace_all(&normalized, "/:id").to_string();
-
-    normalized
+    let normalized = UUID_RE.replace_all(path, ":id");
+    NUMBER_RE.replace_all(&normalized, "/:id").into_owned()
 }
 
 /// Handler for the /metrics endpoint

@@ -21,15 +21,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let create_db_if_missing = config.env == mms_api::config::Environment::Development;
     mms_db::ensure_db_and_migrate(&config.database_url, &pool, create_db_if_missing).await?;
 
-    // Initialize the application state
-    let state = ApiState::new(config.clone(), pool).await?;
+    // Extract values needed after state construction, then consume config
+    let allowed_origins = config.parsed_allowed_origins();
+    let environment = config.env.clone();
+    let port = config.port;
+
+    // Initialize the application state (consumes config)
+    let state = ApiState::new(config, pool).await?;
 
     // Start background jobs for periodic maintenance
     let _job_handles = mms_api::jobs::start_background_jobs(state.pool.clone());
     tracing::info!("Background jobs started (token cleanup, unverified account cleanup)");
 
     // Configure CORS with allowed origins from config
-    let cors = mms_api::middleware::cors::create_cors_layer(config.parsed_allowed_origins());
+    let cors = mms_api::middleware::cors::create_cors_layer(allowed_origins);
 
     // Configure HTTP request/response tracing with request ID
     let trace_layer = TraceLayer::new_for_http()
@@ -57,13 +62,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Apply security headers (X-Content-Type-Options, X-Frame-Options, HSTS)
     let app =
-        mms_api::middleware::security_headers::apply_security_headers(app, config.env.clone());
+        mms_api::middleware::security_headers::apply_security_headers(app, environment.clone());
 
     // Start the server
-    let bind_address = format!("0.0.0.0:{}", config.port);
+    let bind_address = format!("0.0.0.0:{}", port);
     let listener = tokio::net::TcpListener::bind(&bind_address).await?;
-    tracing::info!("Server starting on http://localhost:{}", config.port);
-    tracing::info!("Environment: {:?}", config.env);
+    tracing::info!("Server starting on http://localhost:{}", port);
+    tracing::info!("Environment: {:?}", environment);
     tracing::info!("Production features enabled:");
     tracing::info!("  - Prometheus metrics at /metrics");
     tracing::info!("  - Health check at /health (liveness)");

@@ -8,10 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ApiState,
-    auth::{
-        self, AuthUser, cookies, jwt,
-        routes::{AuthResponse, UserResponse},
-    },
+    auth::{self, AuthUser, cookies, jwt, routes::AuthResponse},
     error::ApiError,
     middleware::rate_limit,
     user::{email_verification, password_reset},
@@ -219,10 +216,11 @@ async fn login_user(
     // Verify password exists and matches
     let password_hash = user
         .password_hash
+        .as_deref()
         .ok_or_else(|| ApiError::Auth("Invalid email or password".to_string()))?;
 
     let password = request.password.clone();
-    let hash = password_hash.clone();
+    let hash = password_hash.to_owned();
     let valid = tokio::task::spawn_blocking(move || bcrypt::verify(password, &hash))
         .await
         .map_err(|_| ApiError::Auth("Verification failed".into()))?
@@ -278,14 +276,7 @@ async fn login_user(
         Json(AuthResponse {
             token,
             refresh_token,
-            user: UserResponse {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                profile_picture_url: user.profile_picture_url,
-                native_language: user.native_language,
-                learning_language: user.learning_language,
-            },
+            user: user.into(),
         }),
     ))
 }

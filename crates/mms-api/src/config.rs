@@ -76,14 +76,6 @@ pub struct ApiConfig {
     #[serde(default = "default_port")]
     pub port: u16,
 
-    /// Maximum request body size in bytes (default: 2MB)
-    #[serde(default = "default_max_request_body_size")]
-    pub max_request_body_size: usize,
-
-    /// Request timeout in seconds (default: 30)
-    #[serde(default = "default_request_timeout_seconds")]
-    pub request_timeout_seconds: u64,
-
     // Frontend & CORS
     pub frontend_url: String,
 
@@ -138,16 +130,6 @@ fn default_database_max_connections() -> u32 {
 /// Default value for port
 fn default_port() -> u16 {
     3000
-}
-
-/// Default value for max_request_body_size (2MB)
-fn default_max_request_body_size() -> usize {
-    2 * 1024 * 1024 // 2MB in bytes
-}
-
-/// Default value for request_timeout_seconds
-fn default_request_timeout_seconds() -> u64 {
-    30
 }
 
 /// Default value for JWT expiry (24 hours)
@@ -232,10 +214,23 @@ impl ApiConfig {
             ));
         }
 
+        // Validate frontend_url is a well-formed http(s) URL
+        // This prevents script injection via postMessage targetOrigin
+        if !(self.frontend_url.starts_with("http://") || self.frontend_url.starts_with("https://"))
+            || self
+                .frontend_url
+                .contains(['\'', '"', '\\', '\n', '\r', '<', '>'])
+        {
+            return Err(ConfigError::ValidationError(
+                "FRONTEND_URL must be a valid http(s) URL without special characters".to_string(),
+            ));
+        }
+
         Ok(())
     }
 
     /// Parse allowed origins into a vector
+    #[must_use]
     pub fn parsed_allowed_origins(&self) -> Vec<String> {
         self.allowed_origins
             .split(',')

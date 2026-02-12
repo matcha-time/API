@@ -181,24 +181,22 @@ async fn auth_callback(
     let jar = jar.add(auth_cookie).add(refresh_cookie);
 
     // Create HTML response with frontend URL from config
+    // The origin is JSON-serialized to prevent XSS via script injection
+    let origin_json = serde_json::to_string(state.oidc.frontend_url.as_ref())
+        .map_err(|e| ApiError::Oidc(format!("Failed to serialize frontend URL: {e}")))?;
     let html = format!(
         r#"
-            <!DOCTYPE html>
+        <!DOCTYPE html>
             <html>
             <head><title>Authentication Successful</title></head>
-                <body>
-                    <script>
-                        // Close popup and notify parent
-                        window.opener.postMessage(
-                            {{ type: 'google-auth-success' }},
-                            '{}'
-                        );
-                        window.close();
-                    </script>
-                </body>
-            </html>
-        "#,
-        state.oidc.frontend_url
+            <body>
+                <script>
+                    window.opener.postMessage({{ type: 'google-auth-success' }}, {origin_json});
+                    window.close();
+                </script>
+            </body>
+         </html>
+        "#
     );
 
     Ok((jar, axum::response::Html(html)))

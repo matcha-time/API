@@ -1,5 +1,5 @@
 use axum::{extract::Request, middleware::Next, response::Response};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 pub use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 
 /// Rate limits for different endpoint types
@@ -29,13 +29,19 @@ macro_rules! make_rate_limit_layer {
     }};
 }
 
-/// Timing-safe delay middleware to prevent timing attacks
-/// Adds a small constant delay to all responses from sensitive endpoints
+/// Timing-safe middleware to prevent timing attacks on sensitive endpoints.
+/// Pads every response to a minimum fixed duration so that the total time
+/// is constant regardless of how fast the handler completes.
+const TIMING_SAFE_MIN_DURATION: Duration = Duration::from_millis(250);
+
 pub async fn timing_safe_middleware(req: Request, next: Next) -> Response {
+    let start = Instant::now();
     let response = next.run(req).await;
 
-    // Add a small constant delay (50ms) to prevent timing analysis
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    let elapsed = start.elapsed();
+    if elapsed < TIMING_SAFE_MIN_DURATION {
+        tokio::time::sleep(TIMING_SAFE_MIN_DURATION - elapsed).await;
+    }
 
     response
 }

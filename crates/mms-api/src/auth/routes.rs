@@ -10,6 +10,7 @@ use sqlx::types::Uuid;
 use super::{cookies, jwt, middleware::AuthUser, refresh_token as rt};
 use crate::{ApiState, error::ApiError, middleware::rate_limit, validation};
 
+use mms_db::models::{UserCredentials, UserProfile};
 use mms_db::repositories::user as user_repo;
 
 pub fn routes() -> Router<ApiState> {
@@ -47,6 +48,32 @@ pub struct UserResponse {
     pub learning_language: Option<String>,
 }
 
+impl From<UserProfile> for UserResponse {
+    fn from(user: UserProfile) -> Self {
+        Self {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            profile_picture_url: user.profile_picture_url,
+            native_language: user.native_language,
+            learning_language: user.learning_language,
+        }
+    }
+}
+
+impl From<UserCredentials> for UserResponse {
+    fn from(user: UserCredentials) -> Self {
+        Self {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            profile_picture_url: user.profile_picture_url,
+            native_language: user.native_language,
+            learning_language: user.learning_language,
+        }
+    }
+}
+
 async fn auth_me(
     auth_user: AuthUser,
     State(state): State<ApiState>,
@@ -57,14 +84,7 @@ async fn auth_me(
         .map_err(|_| ApiError::Auth("User not found".to_string()))?
         .ok_or_else(|| ApiError::Auth("User not found".to_string()))?;
 
-    Ok(Json(UserResponse {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        profile_picture_url: user.profile_picture_url,
-        native_language: user.native_language,
-        learning_language: user.learning_language,
-    }))
+    Ok(Json(user.into()))
 }
 
 async fn refresh_token(
@@ -193,13 +213,6 @@ async fn update_language_preferences(
 
     Ok(Json(UpdateLanguagePreferencesResponse {
         message: "Language preferences updated successfully".to_string(),
-        user: UserResponse {
-            id: updated_user.id,
-            username: updated_user.username,
-            email: updated_user.email,
-            profile_picture_url: updated_user.profile_picture_url,
-            native_language: updated_user.native_language,
-            learning_language: updated_user.learning_language,
-        },
+        user: updated_user.into(),
     }))
 }

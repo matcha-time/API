@@ -1,27 +1,24 @@
 use base64::Engine;
 use chrono::Utc;
 use rand::Rng;
-use sha2::{Digest, Sha256};
 use sqlx::{PgPool, types::Uuid};
 
 use crate::error::ApiError;
+use crate::user::token::hash_token;
 
 use mms_db::repositories::auth as auth_repo;
 
 /// Generate a cryptographically secure random refresh token
 /// Returns the token string (to send to client) and its SHA-256 hash (to store in DB)
+#[must_use]
 pub fn generate_refresh_token() -> (String, String) {
     // Generate 32 random bytes (256 bits)
     let mut token_bytes = [0u8; 32];
     rand::thread_rng().fill(&mut token_bytes);
 
-    // Encode as base64 for safe transmission
+    // Encode as base64 for URL-safe cookie storage
     let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(token_bytes);
-
-    // Hash the token for storage
-    let mut hasher = Sha256::new();
-    hasher.update(&token);
-    let token_hash = format!("{:x}", hasher.finalize());
+    let token_hash = hash_token(&token);
 
     (token, token_hash)
 }
@@ -58,10 +55,7 @@ pub async fn verify_and_rotate_refresh_token(
     token: &str,
     expiry_days: i64,
 ) -> Result<(Uuid, String, String), ApiError> {
-    // Hash the incoming token
-    let mut hasher = Sha256::new();
-    hasher.update(token);
-    let token_hash = format!("{:x}", hasher.finalize());
+    let token_hash = hash_token(token);
 
     // Start a transaction for atomic token rotation
     let mut tx = pool.begin().await?;
@@ -104,10 +98,7 @@ pub async fn verify_and_rotate_refresh_token(
 
 /// Revoke a specific refresh token
 pub async fn revoke_refresh_token(pool: &PgPool, token: &str) -> Result<(), ApiError> {
-    // Hash the token
-    let mut hasher = Sha256::new();
-    hasher.update(token);
-    let token_hash = format!("{:x}", hasher.finalize());
+    let token_hash = hash_token(token);
 
     let rows = auth_repo::delete_refresh_token_by_hash(pool, &token_hash).await?;
 

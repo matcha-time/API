@@ -69,6 +69,14 @@ impl IntoResponse for ApiError {
             }
             ApiError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
             ApiError::Database(e) => {
+                if matches!(&e, sqlx::Error::RowNotFound) {
+                    return (
+                        StatusCode::NOT_FOUND,
+                        Json(serde_json::json!({ "error": "Resource not found" })),
+                    )
+                        .into_response();
+                }
+
                 // Log the actual error for debugging
                 tracing::error!(error = %e, "Database error occurred");
 

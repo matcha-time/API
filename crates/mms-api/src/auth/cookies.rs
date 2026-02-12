@@ -1,86 +1,75 @@
-use axum_extra::extract::cookie::Cookie;
+use axum_extra::extract::cookie::{Cookie, SameSite};
 
 use crate::config::Environment;
 
+/// Build an HttpOnly, SameSite=Lax cookie with domain and secure flag
+/// derived from the environment.
+///
+/// - Production: Secure=true, for HTTPS-only access across subdomains
+/// - Development: Secure=false, allowing HTTP on localhost
+fn build_cookie(
+    name: &str,
+    value: String,
+    max_age: time::Duration,
+    environment: &Environment,
+    cookie_domain: &str,
+) -> Cookie<'static> {
+    Cookie::build((name.to_owned(), value))
+        .path("/")
+        .max_age(max_age)
+        .http_only(true)
+        .same_site(SameSite::Lax)
+        .secure(!environment.is_development())
+        .domain(cookie_domain.to_owned())
+        .build()
+}
+
 /// Create an auth cookie with the JWT token
-///
-/// Cookies are secure (HTTPS-only) by default in production.
-/// In development mode, cookies can be used over HTTP.
-///
-/// For production with separate subdomains (api.matcha-time.dev and matcha-time.dev):
-/// - Uses SameSite=Lax for CSRF protection while allowing subdomain access
-/// - Sets Domain to work across all subdomains (e.g., ".matcha-time.dev")
-/// - Always secure and HttpOnly in production for maximum security
 pub fn create_auth_cookie(
     token: String,
     environment: &Environment,
     expiry_hours: i64,
     cookie_domain: &str,
 ) -> Cookie<'static> {
-    let is_development = environment.is_development();
-
-    Cookie::build(("auth_token", token))
-        .path("/")
-        .max_age(time::Duration::hours(expiry_hours))
-        .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Lax)
-        .secure(!is_development)
-        .domain(cookie_domain.to_string())
-        .build()
+    build_cookie(
+        "auth_token",
+        token,
+        time::Duration::hours(expiry_hours),
+        environment,
+        cookie_domain,
+    )
 }
 
 /// Create a temporary OIDC flow cookie
-///
-/// Cookies are secure (HTTPS-only) by default in production.
-/// In development mode, cookies can be used over HTTP.
-///
-/// For production with separate subdomains (api.matcha-time.dev and matcha-time.dev):
-/// - Uses SameSite=Lax for CSRF protection while allowing subdomain access
-/// - Sets Domain to work across all subdomains (e.g., ".matcha-time.dev")
-/// - Always secure and HttpOnly in production for maximum security
 pub fn create_oidc_flow_cookie(
     oidc_json: String,
     environment: &Environment,
     expiry_minutes: i64,
     cookie_domain: &str,
 ) -> Cookie<'static> {
-    let is_development = environment.is_development();
-
-    Cookie::build(("oidc_flow", oidc_json))
-        .path("/")
-        .max_age(time::Duration::minutes(expiry_minutes))
-        .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Lax)
-        .secure(!is_development)
-        .domain(cookie_domain.to_string())
-        .build()
+    build_cookie(
+        "oidc_flow",
+        oidc_json,
+        time::Duration::minutes(expiry_minutes),
+        environment,
+        cookie_domain,
+    )
 }
 
 /// Create a refresh token cookie
-///
-/// Cookies are secure (HTTPS-only) by default in production.
-/// In development mode, cookies can be used over HTTP.
-///
-/// For production with separate subdomains (api.matcha-time.dev and matcha-time.dev):
-/// - Uses SameSite=Lax for CSRF protection while allowing subdomain access
-/// - Sets Domain to work across all subdomains (e.g., ".matcha-time.dev")
-/// - Always secure and HttpOnly in production for maximum security
 pub fn create_refresh_token_cookie(
     token: String,
     environment: &Environment,
     expiry_days: i64,
     cookie_domain: &str,
 ) -> Cookie<'static> {
-    let is_development = environment.is_development();
-
-    Cookie::build(("refresh_token", token))
-        .path("/")
-        .max_age(time::Duration::days(expiry_days))
-        .http_only(true)
-        .same_site(axum_extra::extract::cookie::SameSite::Lax)
-        .secure(!is_development)
-        .domain(cookie_domain.to_string())
-        .build()
+    build_cookie(
+        "refresh_token",
+        token,
+        time::Duration::days(expiry_days),
+        environment,
+        cookie_domain,
+    )
 }
 
 #[cfg(test)]

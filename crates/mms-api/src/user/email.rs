@@ -183,26 +183,37 @@ pub fn start_email_worker(email_service: EmailService) -> mpsc::UnboundedSender<
         tracing::info!("Email worker started");
 
         while let Some(job) = rx.recv().await {
-            // Process the email job
-            let result = match job {
+            // Run blocking SMTP I/O off the async runtime
+            let service = email_service.clone();
+            let result = tokio::task::spawn_blocking(move || match &job {
                 EmailJob::Verification {
-                    ref to_email,
-                    ref username,
-                    ref verification_token,
-                } => email_service.send_verification_email(to_email, username, verification_token),
+                    to_email,
+                    username,
+                    verification_token,
+                } => service
+                    .send_verification_email(to_email, username, verification_token)
+                    .map_err(|e| (e, job)),
                 EmailJob::PasswordReset {
-                    ref to_email,
-                    ref username,
-                    ref reset_token,
-                } => email_service.send_password_reset_email(to_email, username, reset_token),
-                EmailJob::PasswordChanged {
-                    ref to_email,
-                    ref username,
-                } => email_service.send_password_changed_email(to_email, username),
-            };
+                    to_email,
+                    username,
+                    reset_token,
+                } => service
+                    .send_password_reset_email(to_email, username, reset_token)
+                    .map_err(|e| (e, job)),
+                EmailJob::PasswordChanged { to_email, username } => service
+                    .send_password_changed_email(to_email, username)
+                    .map_err(|e| (e, job)),
+            })
+            .await;
 
-            if let Err(e) = result {
-                tracing::error!(error = %e, job = ?job, "Failed to send email in background worker");
+            match result {
+                Ok(Err((e, job))) => {
+                    tracing::error!(error = %e, job = ?job, "Failed to send email in background worker");
+                }
+                Err(e) => {
+                    tracing::error!(error = %e, "Email send task panicked");
+                }
+                Ok(Ok(())) => {}
             }
         }
 

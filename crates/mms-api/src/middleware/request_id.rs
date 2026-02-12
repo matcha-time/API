@@ -4,6 +4,7 @@
 //! which is then propagated through logs for better debugging and tracing.
 
 use axum::{extract::Request, http::header::HeaderName, middleware::Next, response::Response};
+use tracing::Instrument;
 use uuid::Uuid;
 
 /// Header name for the request ID
@@ -32,14 +33,8 @@ pub async fn request_id_middleware(mut req: Request, next: Next) -> Response {
         uri = %req.uri(),
     );
 
-    // Process request within the span
-    let response = {
-        let _guard = span.enter();
-        next.run(req).await
-    };
-
-    // Add request ID to response headers
-    let mut response = response;
+    // Process request within the span (use Instrument, not span.enter(), in async context)
+    let mut response = next.run(req).instrument(span).await;
     if let Ok(header_value) = request_id.parse() {
         response
             .headers_mut()

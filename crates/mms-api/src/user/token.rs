@@ -2,6 +2,7 @@ use rand::Rng;
 use sha2::{Digest, Sha256};
 
 /// Generate a secure random token
+#[must_use]
 pub fn generate_token() -> String {
     let mut rng = rand::thread_rng();
     let token_bytes: [u8; 32] = rng.r#gen();
@@ -9,6 +10,7 @@ pub fn generate_token() -> String {
 }
 
 /// Hash a token for secure storage in the database
+#[must_use]
 pub fn hash_token(token: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(token.as_bytes());

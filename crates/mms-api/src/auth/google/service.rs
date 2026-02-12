@@ -23,9 +23,8 @@ pub async fn find_or_create_google_user(
     // First, try to find existing user by Google ID
     if let Some(user) = auth_repo::find_by_google_id(pool, google_id).await? {
         // Update profile picture if it has changed
-        if picture.is_some()
+        if let Some(pic) = picture
             && picture != user.profile_picture_url.as_deref()
-            && let Some(pic) = picture
         {
             let updated = auth_repo::update_profile_picture(pool, user.id, pic).await?;
             if !updated {
@@ -48,13 +47,12 @@ pub async fn find_or_create_google_user(
             if !linked {
                 tracing::warn!(user_id = %user.id, "failed to link google account: user not found");
             }
-        } else if picture.is_some() && picture != user.profile_picture_url.as_deref() {
-            // Update profile picture if it has changed
-            if let Some(pic) = picture {
-                let updated = auth_repo::update_profile_picture(pool, user.id, pic).await?;
-                if !updated {
-                    tracing::warn!(user_id = %user.id, "failed to update profile picture: user not found");
-                }
+        } else if let Some(pic) = picture
+            && picture != user.profile_picture_url.as_deref()
+        {
+            let updated = auth_repo::update_profile_picture(pool, user.id, pic).await?;
+            if !updated {
+                tracing::warn!(user_id = %user.id, "failed to update profile picture: user not found");
             }
         }
 
