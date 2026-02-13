@@ -54,6 +54,7 @@ pub struct RoadmapNodeWithProgress {
     pub total_practices: i32,
     pub last_practiced_at: Option<DateTime<Utc>>,
     pub progress_percentage: f64,
+    pub next_practice_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Serialize)]

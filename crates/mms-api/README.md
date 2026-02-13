@@ -563,7 +563,8 @@ All API routes are prefixed with `/v1` unless otherwise noted.
         "cards_due_today": 0,
         "total_practices": 0,
         "last_practiced_at": null,
-        "progress_percentage": 0.0
+        "progress_percentage": 0.0,
+        "next_practice_at": null
       }
     ]
   }
@@ -606,12 +607,16 @@ All API routes are prefixed with `/v1` unless otherwise noted.
         "cards_due_today": 3,
         "total_practices": 45,
         "last_practiced_at": "2024-01-15T10:30:00Z",
-        "progress_percentage": 75.5
+        "progress_percentage": 75.5,
+        "next_practice_at": "2024-01-16T14:30:00Z"
       }
     ]
   }
   ```
 
+  - **`next_practice_at` field:**
+    - `null` — cards are due now (the user can practice immediately). This is the case when `cards_due_today > 0`.
+    - A future ISO 8601 timestamp — all cards are scheduled for later. This is the earliest time a card becomes available for review, telling the user when to come back.
   - **Progress Percentage Calculation:**
     - Each flashcard can contribute 0-10 points based on performance: `max(0, times_correct - times_wrong)`
     - Deck progress: `(sum of card points) / (total_cards * 10) * 100`

@@ -107,7 +107,8 @@ where
                 0::int as cards_due_today,
                 0::int as total_practices,
                 NULL::timestamptz as last_practiced_at,
-                0.0::float8 as progress_percentage
+                0.0::float8 as progress_percentage,
+                NULL::timestamptz as next_practice_at
             FROM roadmap_nodes rn
             JOIN decks d ON d.id = rn.deck_id
             WHERE rn.roadmap_id = $1
@@ -196,7 +197,19 @@ where
                 ) as cards_due_today,
                 COALESCE(udp.total_practices, 0) as total_practices,
                 udp.last_practiced_at,
-                COALESCE(udp.progress_percentage, 0.0)::float8 as progress_percentage
+                COALESCE(udp.progress_percentage, 0.0)::float8 as progress_percentage,
+                (
+                    SELECT CASE
+                        WHEN COUNT(*) FILTER (
+                            WHERE ucp3.next_review_at IS NULL OR ucp3.next_review_at <= NOW()
+                        ) > 0 THEN NULL
+                        ELSE MIN(ucp3.next_review_at)
+                    END
+                    FROM deck_flashcards df3
+                    LEFT JOIN user_card_progress ucp3
+                        ON ucp3.flashcard_id = df3.flashcard_id AND ucp3.user_id = $2
+                    WHERE df3.deck_id = d.id
+                )::timestamptz as next_practice_at
             FROM roadmap_nodes rn
             JOIN decks d ON d.id = rn.deck_id
             LEFT JOIN user_deck_progress udp
